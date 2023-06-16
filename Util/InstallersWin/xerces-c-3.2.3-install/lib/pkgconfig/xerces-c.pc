@@ -1,0 +1,11 @@
+prefix=D:/CarlaDReyeVR/carla/Util/InstallersWin/xerces-c-3.2.3-install
+exec_prefix=D:/CarlaDReyeVR/carla/Util/InstallersWin/xerces-c-3.2.3-install
+libdir=D:/CarlaDReyeVR/carla/Util/InstallersWin/xerces-c-3.2.3-install/lib
+includedir=D:/CarlaDReyeVR/carla/Util/InstallersWin/xerces-c-3.2.3-install/include
+
+Name: Xerces-C++
+Description: Validating XML parser library for C++
+Version: 3.2.3
+Libs: -LD:/CarlaDReyeVR/carla/Util/InstallersWin/xerces-c-3.2.3-install/lib -lxerces-c
+Libs.private: 
+Cflags: -ID:/CarlaDReyeVR/carla/Util/InstallersWin/xerces-c-3.2.3-install/include

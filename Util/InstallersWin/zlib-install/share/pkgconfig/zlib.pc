@@ -1,0 +1,13 @@
+prefix=D:/CarlaDReyeVR/carla/Util/InstallersWin/zlib-install
+exec_prefix=D:/CarlaDReyeVR/carla/Util/InstallersWin/zlib-install
+libdir=D:/CarlaDReyeVR/carla/Util/InstallersWin/zlib-install/lib
+sharedlibdir=D:/CarlaDReyeVR/carla/Util/InstallersWin/zlib-install/lib
+includedir=D:/CarlaDReyeVR/carla/Util/InstallersWin/zlib-install/include
+
+Name: zlib
+Description: zlib compression library
+Version: 1.2.13
+
+Requires:
+Libs: -L${libdir} -L${sharedlibdir} -lz
+Cflags: -I${includedir}
