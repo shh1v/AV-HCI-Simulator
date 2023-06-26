@@ -264,10 +264,22 @@ class CARLAUE4_API AEgoVehicle : public ACarlaWheeledVehicle
     bool bInitializedAutopilotIndicator = false;
 
 private: // Non-Driving-Related Task
+    enum class TaskType {
+        NBackTask,
+        TVShowTask
+    };
+    TaskType CurrentTaskType;
+    // Primary Display: Present the NDRT; Secondary Display: Present the alerts
     UPROPERTY(Category = NDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* PrimaryHUD;
     UPROPERTY(Category = NDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* SecondaryHUD;
+
+    // Alert assets
+    
+    // N-back task
+
+    // TV show task
 
 public: // Non-Driving-Related Task
     void InitNDRT();    // Initialize the NDRT (head-up display)

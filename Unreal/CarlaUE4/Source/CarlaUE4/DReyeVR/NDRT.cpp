@@ -12,7 +12,25 @@
 #include "Math/UnrealMathUtility.h"                 // Clamp
 
 void AEgoVehicle::InitNDRT() {
+	// Creating the secondary head-up dispay which will give the notification to switch task.
+	SecondaryHUD = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Secondary HUD"));
+	SecondaryHUD->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+	SecondaryHUD->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	SecondaryHUD->SetRelativeTransform(VehicleParams.Get<FTransform>("HUD", "SecondaryHUDLocation"));
+	FString PathToMeshSHUD = TEXT("StaticMesh'/Game/NDRT/StaticMeshes/SM_SecondaryHUD.SM_SecondaryHUD'");
+	const ConstructorHelpers::FObjectFinder<UStaticMesh> SHUDMeshObj(*PathToMeshSHUD);
+	SecondaryHUD->SetStaticMesh(SHUDMeshObj.Object);
+	SecondaryHUD->SetCastShadow(false);
 
+	// Creating the primary head-up dispay to display the non-driving related task
+	PrimaryHUD = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Primary HUD"));
+	PrimaryHUD->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+	PrimaryHUD->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	PrimaryHUD->SetRelativeTransform(VehicleParams.Get<FTransform>("HUD", "PrimaryHUDLocation"));
+	FString PathToMeshPHUD = TEXT("StaticMesh'/Game/NDRT/StaticMeshes/SM_PrimaryHUD.SM_PrimaryHUD'");
+	const ConstructorHelpers::FObjectFinder<UStaticMesh> PHUDMeshObj(*PathToMeshPHUD);
+	PrimaryHUD->SetStaticMesh(PHUDMeshObj.Object);
+	PrimaryHUD->SetCastShadow(false);
 }
 void AEgoVehicle::PauseNDRT() {
 

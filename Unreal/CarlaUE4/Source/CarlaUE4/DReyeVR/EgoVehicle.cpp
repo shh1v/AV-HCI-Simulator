@@ -46,6 +46,9 @@ AEgoVehicle::AEgoVehicle(const FObjectInitializer &ObjectInitializer) : Super(Ob
     // Initialize the steering wheel
     ConstructSteeringWheel();
 
+    //Initialize the NDRT head-up display
+    InitNDRT();
+
     LOG("Finished constructing %s", *FString(this->GetName()));
 }
 
