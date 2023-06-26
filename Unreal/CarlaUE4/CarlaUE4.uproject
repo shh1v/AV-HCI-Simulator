@@ -12,7 +12,8 @@
 				"Engine",
 				"PhysXVehicles",
 				"Carla",
-				"CoreUObject"
+				"CoreUObject",
+				"UMG"
 			]
 		}
 	],

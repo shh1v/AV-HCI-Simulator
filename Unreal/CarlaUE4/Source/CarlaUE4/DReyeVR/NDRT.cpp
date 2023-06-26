@@ -12,6 +12,26 @@
 #include "Math/UnrealMathUtility.h"                 // Clamp
 
 void AEgoVehicle::InitNDRT() {
+	// Construct the head-up display
+	ConstructHUD();
+
+	// Present the visual elements based on the task type {n-back, TV show, etc..}
+
+}
+void AEgoVehicle::DisableNDRT() {
+
+}
+void AEgoVehicle::HideNDRT() {
+
+}
+void AEgoVehicle::TerminateNDRT() {
+
+}
+void AEgoVehicle::TickNDRT() {
+
+}
+
+void AEgoVehicle::ConstructHUD() {
 	// Creating the secondary head-up dispay which will give the notification to switch task.
 	SecondaryHUD = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Secondary HUD"));
 	SecondaryHUD->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
@@ -31,16 +51,4 @@ void AEgoVehicle::InitNDRT() {
 	const ConstructorHelpers::FObjectFinder<UStaticMesh> PHUDMeshObj(*PathToMeshPHUD);
 	PrimaryHUD->SetStaticMesh(PHUDMeshObj.Object);
 	PrimaryHUD->SetCastShadow(false);
-}
-void AEgoVehicle::PauseNDRT() {
-
-}
-void AEgoVehicle::HideNDRT() {
-
-}
-void AEgoVehicle::TerminateNDRT() {
-
-}
-void AEgoVehicle::TickNDRT() {
-
 }

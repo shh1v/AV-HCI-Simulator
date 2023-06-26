@@ -263,12 +263,13 @@ class CARLAUE4_API AEgoVehicle : public ACarlaWheeledVehicle
     class ADReyeVRCustomActor *AutopilotIndicator;
     bool bInitializedAutopilotIndicator = false;
 
-private: // Non-Driving-Related Task
+  private: // Non-Driving-Related Task
     enum class TaskType {
         NBackTask,
         TVShowTask
     };
-    TaskType CurrentTaskType;
+    // The following value will determine the 
+    TaskType CurrentTaskType = TaskType::NBackTask;
     // Primary Display: Present the NDRT; Secondary Display: Present the alerts
     UPROPERTY(Category = NDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* PrimaryHUD;
@@ -278,13 +279,20 @@ private: // Non-Driving-Related Task
     // Alert assets
     
     // N-back task
+    UPROPERTY(Category = NBackTask, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UTexture2D* ButtonControlsInfo; // This will show an image that has description about the controls
+    UPROPERTY(Category = NBackTask, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UTexture2D* LetterStimuli; // This will show the letters of the n-back task
 
     // TV show task
 
-public: // Non-Driving-Related Task
+    // Misc
+    void ConstructHUD();    // deploy the head-up display static meshes
+
+  public: // Non-Driving-Related Task
     void InitNDRT();    // Initialize the NDRT (head-up display)
-    void PauseNDRT();   // Pause the NDRT by dimming the screen and showing a pause symbol
-    void HideNDRT();    // Completely hide the head-up dsiplay (and call the PauseNDRT() function)
+    void DisableNDRT();   // Pause the NDRT by dimming the screen and showing a pause symbol
+    void HideNDRT();    // Completely hide the head-up display (and subsequently pase the NDRT if not done already)
     void TerminateNDRT();   // Destroy the NDRT head-up display and terminate the NDRT
     void TickNDRT(); // Update the NDRT on every tick based on its individual implementation
 
