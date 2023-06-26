@@ -263,6 +263,19 @@ class CARLAUE4_API AEgoVehicle : public ACarlaWheeledVehicle
     class ADReyeVRCustomActor *AutopilotIndicator;
     bool bInitializedAutopilotIndicator = false;
 
+private: // Non-Driving-Related Task
+    UPROPERTY(Category = NDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UStaticMeshComponent* PrimaryHUD;
+    UPROPERTY(Category = NDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UStaticMeshComponent* SecondaryHUD;
+
+public: // Non-Driving-Related Task
+    void InitNDRT();    // Initialize the NDRT (head-up display)
+    void PauseNDRT();   // Pause the NDRT by dimming the screen and showing a pause symbol
+    void HideNDRT();    // Completely hide the head-up dsiplay (and call the PauseNDRT() function)
+    void TerminateNDRT();   // Destroy the NDRT head-up display and terminate the NDRT
+    void TickNDRT(); // Update the NDRT on every tick based on its individual implementation
+
   private: // other
     void DebugLines() const;
     bool bDrawDebugEditor = false;
