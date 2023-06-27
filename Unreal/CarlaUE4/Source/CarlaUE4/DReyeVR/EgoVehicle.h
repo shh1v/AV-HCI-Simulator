@@ -279,12 +279,18 @@ class CARLAUE4_API AEgoVehicle : public ACarlaWheeledVehicle
     // Alert assets
     
     // N-back task
-    UPROPERTY(Category = NBackTask, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
-    class UTexture2D* ButtonControlsInfo; // This will show an image that has description about the controls
-    UPROPERTY(Category = NBackTask, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
-    class UTexture2D* LetterStimuli; // This will show the letters of the n-back task
+    UPROPERTY(Category = NDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UStaticMeshComponent* NBackLetter;
+    UPROPERTY(Category = NDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UStaticMeshComponent* NBackControlsInfo;
+    UPROPERTY(Category = NDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UStaticMeshComponent* NBackTitle;
+
+    void ConstuctNBackElements(); // Construct the static meshes to present the N-back task components
+    void SetLetter(const FString& letter); // Set a new letter in the n-back task.
 
     // TV show task
+    void ConstuctTVShowElements(); // Construct the static meshes to present the N-back task components
 
     // Misc
     void ConstructHUD();    // deploy the head-up display static meshes
