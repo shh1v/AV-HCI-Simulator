@@ -84,6 +84,14 @@ void AEgoVehicle::ConstuctNBackElements() {
 	NBackControlsInfo->SetCastShadow(false);
 
 	// Creating a pane for the title (0-back, 1-back, etc..)
+	NBackTitle = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("N-back Title Pane"));
+	NBackTitle->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+	NBackTitle->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	NBackTitle->SetRelativeTransform(VehicleParams.Get<FTransform>("NBack", "TitleLocation"));
+	FString PathToMeshNBackTitle = TEXT("StaticMesh'/Game/NDRT/NBackTask/StaticMeshes/SM_NBackTitle.SM_NBackTitle'");
+	const ConstructorHelpers::FObjectFinder<UStaticMesh> NBackTitleMeshObj(*PathToMeshNBackTitle);
+	NBackTitle->SetStaticMesh(NBackTitleMeshObj.Object);
+	NBackTitle->SetCastShadow(false);
 }
 
 void AEgoVehicle::ConstuctTVShowElements() {
