@@ -92,8 +92,13 @@ void AEgoVehicle::ConstuctNBackElements() {
 	const ConstructorHelpers::FObjectFinder<UStaticMesh> NBackTitleMeshObj(*PathToMeshNBackTitle);
 	NBackTitle->SetStaticMesh(NBackTitleMeshObj.Object);
 	NBackTitle->SetCastShadow(false);
-}
 
+	// Changing the title dynamically based on the n-back task
+	FString MaterialPath = FString::Printf(TEXT("Material'/Game/NDRT/NBackTask/Titles/M_%dBackTaskTitle.M_%dBackTaskTitle'"), (int32)CurrentNValue, (int32)CurrentNValue);
+	static ConstructorHelpers::FObjectFinder<UMaterial> NewMaterial(*MaterialPath);
+	NBackTitle->SetMaterial(0, NewMaterial.Object);
+}
+	
 void AEgoVehicle::ConstuctTVShowElements() {
 }
 

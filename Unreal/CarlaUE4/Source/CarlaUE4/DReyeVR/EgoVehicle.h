@@ -276,7 +276,7 @@ class CARLAUE4_API AEgoVehicle : public ACarlaWheeledVehicle
     // Alert assets
     
     // N-back task
-    enum class NValue{Zero, One, Two}; // Change n-back task functionality based on the n-value provided
+    enum class NValue{Zero=0, One, Two, Three}; // Change n-back task functionality based on the n-value provided
     NValue CurrentNValue = NValue::Zero;
     UPROPERTY(Category = NDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* NBackLetter;
