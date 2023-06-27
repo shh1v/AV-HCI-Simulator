@@ -72,6 +72,18 @@ void AEgoVehicle::ConstuctNBackElements() {
 	const ConstructorHelpers::FObjectFinder<UStaticMesh> NBackLetterMeshObj(*PathToMeshNBackLetter);
 	NBackLetter->SetStaticMesh(NBackLetterMeshObj.Object);
 	NBackLetter->SetCastShadow(false);
+
+	// Creating a pane to show controls on the logitech steering wheel for the n-back task
+	NBackControlsInfo = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("N-back Controls Pane"));
+	NBackControlsInfo->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+	NBackControlsInfo->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	NBackControlsInfo->SetRelativeTransform(VehicleParams.Get<FTransform>("NBack", "ControlsInfoLocation"));
+	FString PathToMeshNBackControls = TEXT("StaticMesh'/Game/NDRT/NBackTask/StaticMeshes/SM_ControlsPane.SM_ControlsPane'");
+	const ConstructorHelpers::FObjectFinder<UStaticMesh> NBackControlsMeshObj(*PathToMeshNBackControls);
+	NBackControlsInfo->SetStaticMesh(NBackControlsMeshObj.Object);
+	NBackControlsInfo->SetCastShadow(false);
+
+	// Creating a pane for the title (0-back, 1-back, etc..)
 }
 
 void AEgoVehicle::ConstuctTVShowElements() {

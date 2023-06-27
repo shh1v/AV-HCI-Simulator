@@ -264,10 +264,7 @@ class CARLAUE4_API AEgoVehicle : public ACarlaWheeledVehicle
     bool bInitializedAutopilotIndicator = false;
 
   private: // Non-Driving-Related Task
-    enum class TaskType {
-        NBackTask,
-        TVShowTask
-    };
+    enum class TaskType {NBackTask, TVShowTask}; // Change the behaviour of the NDRT based on the task type provided
     // The following value will determine the 
     TaskType CurrentTaskType = TaskType::NBackTask;
     // Primary Display: Present the NDRT; Secondary Display: Present the alerts
@@ -279,6 +276,8 @@ class CARLAUE4_API AEgoVehicle : public ACarlaWheeledVehicle
     // Alert assets
     
     // N-back task
+    enum class NValue{Zero, One, Two}; // Change n-back task functionality based on the n-value provided
+    NValue CurrentNValue = NValue::Zero;
     UPROPERTY(Category = NDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* NBackLetter;
     UPROPERTY(Category = NDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
