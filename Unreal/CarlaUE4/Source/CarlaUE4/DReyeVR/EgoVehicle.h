@@ -266,7 +266,7 @@ class CARLAUE4_API AEgoVehicle : public ACarlaWheeledVehicle
   private: // Non-Driving-Related Task
     enum class TaskType {NBackTask, TVShowTask}; // Change the behaviour of the NDRT based on the task type provided
     // The following value will determine the 
-    TaskType CurrentTaskType = TaskType::NBackTask;
+    TaskType CurrentTaskType = TaskType::TVShowTask; // Should be dynamically retrived from a config file
     // Primary Display: Present the NDRT; Secondary Display: Present the alerts
     UPROPERTY(Category = NDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* PrimaryHUD;
@@ -278,26 +278,39 @@ class CARLAUE4_API AEgoVehicle : public ACarlaWheeledVehicle
     // N-back task
     enum class NValue{Zero=0, One, Two, Three}; // Change n-back task functionality based on the n-value provided
     NValue CurrentNValue = NValue::Zero;
-    UPROPERTY(Category = NDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    UPROPERTY(Category = NBackNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* NBackLetter;
-    UPROPERTY(Category = NDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    UPROPERTY(Category = NBackNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* NBackControlsInfo;
-    UPROPERTY(Category = NDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    UPROPERTY(Category = NBackNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* NBackTitle;
 
-    void ConstuctNBackElements(); // Construct the static meshes to present the N-back task components
+    void ConstructNBackElements(); // Construct the static meshes to present the N-back task components
     void SetLetter(const FString& letter); // Set a new letter in the n-back task.
 
     // TV show task
-    void ConstuctTVShowElements(); // Construct the static meshes to present the N-back task components
+    UPROPERTY(Category = TVShowNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UStaticMeshComponent* MediaPlayerMesh;
+    UPROPERTY(Category = TVShowNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UMediaSoundComponent* MediaSoundComponent;
+    UPROPERTY(Category = TVShowNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UFileMediaSource* MediaPlayerSource;
+    UPROPERTY(Category = TVShowNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UMediaPlayer* MediaPlayer;
+    UPROPERTY(Category = TVShowNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UMaterial* MediaPlayerMaterial;
+    FString MediaSourcePath = TEXT("FileMediaSource'/Game/NDRT/TVShow/MediaAssets/SampleVideo.SampleVideo'"); // Stores the path to the video file
+    void ConstructTVShowElements(); // Construct the static meshes to present the N-back task components
 
     // Misc
     void ConstructHUD();    // deploy the head-up display static meshes
 
   public: // Non-Driving-Related Task
-    void InitNDRT();    // Initialize the NDRT (head-up display)
-    void DisableNDRT();   // Pause the NDRT by dimming the screen and showing a pause symbol
-    void HideNDRT();    // Completely hide the head-up display (and subsequently pase the NDRT if not done already)
+    void SetupNDRT();    // Setup the NDRT (head-up display)
+    void StartNDRT();    // Start the NDRT when automation is activated
+    void ToggleNDRT(bool active);   // Pause/resume the NDRT by a dim screen and a pause symbol
+    void ToggleAlertOnNDRT(bool active); // Present a visual alert to
+    void SetVisibilityOfNDRT(bool visibility);    // Completely hide/appear the head-up display (and subsequently pase the NDRT if not done already)
     void TerminateNDRT();   // Destroy the NDRT head-up display and terminate the NDRT
     void TickNDRT(); // Update the NDRT on every tick based on its individual implementation
 

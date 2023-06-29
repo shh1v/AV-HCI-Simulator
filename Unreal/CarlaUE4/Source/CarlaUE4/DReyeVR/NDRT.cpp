@@ -11,30 +11,62 @@
 #include "Math/Rotator.h"                           // RotateVector, Clamp
 #include "Math/UnrealMathUtility.h"                 // Clamp
 #include "UObject/ConstructorHelpers.h"				// ConstructorHelpers
+#include "MediaPlayer.h"
+#include "FileMediaSource.h"
+#include "MediaTexture.h"
+#include "MediaSoundComponent.h"
+#include "Materials/MaterialInstanceDynamic.h"
 
-void AEgoVehicle::InitNDRT() {
+
+
+void AEgoVehicle::SetupNDRT() {
 	// Construct the head-up display
 	ConstructHUD();
 
 	// Present the visual elements based on the task type {n-back, TV show, etc..}
 	switch (CurrentTaskType) {
 	case TaskType::NBackTask:
-		ConstuctNBackElements();
+		ConstructNBackElements();
 		break;
 	case TaskType::TVShowTask:
-		ConstuctTVShowElements();
+		ConstructTVShowElements();
 		break;
 	}
 }
-void AEgoVehicle::DisableNDRT() {
+
+void AEgoVehicle::StartNDRT() {
+	// Start the NDRT based on the task type
+	switch (CurrentTaskType) {
+	case TaskType::NBackTask:
+		break;
+	case TaskType::TVShowTask:
+		// Retrive the media player material and the video source which will be used later to play the video
+		MediaPlayerMaterial = Cast<UMaterial>(StaticLoadObject(UMaterial::StaticClass(), nullptr, TEXT("Material'/Game/NDRT/TVShow/MediaPlayer/M_MediaPlayer.M_MediaPlayer'")));
+		MediaPlayerSource = Cast<UFileMediaSource>(StaticLoadObject(UFileMediaSource::StaticClass(), nullptr, TEXT("FileMediaSource'/Game/NDRT/TVShow/MediaPlayer/FileMediaSource.FileMediaSource'")));
+		// Change the static mesh material to media player material
+		MediaPlayerMesh->SetMaterial(0, MediaPlayerMaterial);
+		// Retrive the source of the video and play it
+		MediaPlayer->OpenSource(MediaPlayerSource);
+		break;
+	}
+}
+
+void AEgoVehicle::ToggleNDRT(bool active) {
 
 }
-void AEgoVehicle::HideNDRT() {
+
+void AEgoVehicle::ToggleAlertOnNDRT(bool active) {
 
 }
+
+void AEgoVehicle::SetVisibilityOfNDRT(bool visibility) {
+
+}
+
 void AEgoVehicle::TerminateNDRT() {
 
 }
+
 void AEgoVehicle::TickNDRT() {
 
 }
@@ -59,10 +91,10 @@ void AEgoVehicle::ConstructHUD() {
 	const ConstructorHelpers::FObjectFinder<UStaticMesh> SHUDMeshObj(*PathToMeshSHUD);
 	SecondaryHUD->SetStaticMesh(SHUDMeshObj.Object);
 	SecondaryHUD->SetCastShadow(false);
-	SecondaryHUD->SetVisibility(false, false); // Set it hidden by default, and only make it appear when alerting.
+	//SecondaryHUD->SetVisibility(false, false); // Set it hidden by default, and only make it appear when alerting.
 }
 
-void AEgoVehicle::ConstuctNBackElements() {
+void AEgoVehicle::ConstructNBackElements() {
 	// Creating the letter pane to show letters for the n-back task
 	NBackLetter = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("N-back Letter Pane"));
 	NBackLetter->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
@@ -99,8 +131,35 @@ void AEgoVehicle::ConstuctNBackElements() {
 	NBackTitle->SetMaterial(0, NewMaterial.Object);
 }
 	
-void AEgoVehicle::ConstuctTVShowElements() {
+void AEgoVehicle::ConstructTVShowElements() {
+	// Initializing the static mesh for the media player with a default texture
+	MediaPlayerMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("TV-show Pane"));
+	if (!MediaPlayerMesh) {
+		UE_LOG(LogTemp, Error, TEXT("Failed to create media player mesh."));
+		return;
+	}
+	MediaPlayerMesh->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+	MediaPlayerMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	MediaPlayerMesh->SetRelativeTransform(VehicleParams.Get<FTransform>("TVShow", "MediaPlayerLocation"));
+	FString PathToMeshMediaPlayer = TEXT("StaticMesh'/Game/NDRT/TVShow/MediaPlayer/SM_MediaPlayer.SM_MediaPlayer'");
+	const ConstructorHelpers::FObjectFinder<UStaticMesh> TVShowMeshObj(*PathToMeshMediaPlayer);
+	MediaPlayerMesh->SetStaticMesh(TVShowMeshObj.Object);
+	MediaPlayerMesh->SetCastShadow(false);
+
+	// Add a Media sounds component to the static mesh player
+	MediaPlayer = Cast<UMediaPlayer>(StaticLoadObject(UMediaPlayer::StaticClass(), nullptr, TEXT("MediaPlayer'/Game/NDRT/TVShow/MediaPlayer/MediaPlayer.MediaPlayer'")));
+
+	// Create a MediaSoundComponent
+	MediaSoundComponent = NewObject<UMediaSoundComponent>(MediaPlayerMesh);
+	MediaSoundComponent->AttachToComponent(MediaPlayerMesh, FAttachmentTransformRules::KeepRelativeTransform);
+
+	// Set the media player to the sound component
+	MediaSoundComponent->SetMediaPlayer(MediaPlayer);
+
+	// Add the MediaSoundComponent to the actor's components
+	MediaPlayerMesh->GetOwner()->AddOwnedComponent(MediaSoundComponent);
 }
+
 
 void AEgoVehicle::SetLetter(const FString& Letter) {
 
