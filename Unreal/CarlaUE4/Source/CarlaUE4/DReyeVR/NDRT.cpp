@@ -91,7 +91,7 @@ void AEgoVehicle::ConstructHUD() {
 	const ConstructorHelpers::FObjectFinder<UStaticMesh> SHUDMeshObj(*PathToMeshSHUD);
 	SecondaryHUD->SetStaticMesh(SHUDMeshObj.Object);
 	SecondaryHUD->SetCastShadow(false);
-	//SecondaryHUD->SetVisibility(false, false); // Set it hidden by default, and only make it appear when alerting.
+	SecondaryHUD->SetVisibility(false, false); // Set it hidden by default, and only make it appear when alerting.
 }
 
 void AEgoVehicle::ConstructNBackElements() {
@@ -134,16 +134,13 @@ void AEgoVehicle::ConstructNBackElements() {
 void AEgoVehicle::ConstructTVShowElements() {
 	// Initializing the static mesh for the media player with a default texture
 	MediaPlayerMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("TV-show Pane"));
-	if (!MediaPlayerMesh) {
-		UE_LOG(LogTemp, Error, TEXT("Failed to create media player mesh."));
-		return;
-	}
+	UStaticMesh* CubeMesh = ConstructorHelpers::FObjectFinder<UStaticMesh>(TEXT("StaticMesh'/Engine/BasicShapes/Cube.Cube'")).Object;
+	MediaPlayerMaterial = Cast<UMaterial>(StaticLoadObject(UMaterial::StaticClass(), nullptr, TEXT("Material'/Game/NDRT/TVShow/MediaPlayer/M_MediaPlayerDefault.M_MediaPlayerDefault'")));
 	MediaPlayerMesh->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
 	MediaPlayerMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	MediaPlayerMesh->SetRelativeTransform(VehicleParams.Get<FTransform>("TVShow", "MediaPlayerLocation"));
-	FString PathToMeshMediaPlayer = TEXT("StaticMesh'/Game/NDRT/TVShow/MediaPlayer/SM_MediaPlayer.SM_MediaPlayer'");
-	const ConstructorHelpers::FObjectFinder<UStaticMesh> TVShowMeshObj(*PathToMeshMediaPlayer);
-	MediaPlayerMesh->SetStaticMesh(TVShowMeshObj.Object);
+	MediaPlayerMesh->SetStaticMesh(CubeMesh);
+	MediaPlayerMesh->SetMaterial(0, MediaPlayerMaterial);
 	MediaPlayerMesh->SetCastShadow(false);
 
 	// Add a Media sounds component to the static mesh player
