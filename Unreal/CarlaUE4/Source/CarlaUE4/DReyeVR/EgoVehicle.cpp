@@ -46,6 +46,9 @@ AEgoVehicle::AEgoVehicle(const FObjectInitializer &ObjectInitializer) : Super(Ob
     // Initialize the steering wheel
     ConstructSteeringWheel();
 
+    //Initialize the NDRT head-up display
+    SetupNDRT();
+
     LOG("Finished constructing %s", *FString(this->GetName()));
 }
 
@@ -115,6 +118,11 @@ void AEgoVehicle::BeginPlay()
     BeginThirdPersonCameraInit();
 
     LOG("Initialized DReyeVR EgoVehicle");
+
+    // Start the NDRT on head-up display
+    StartNDRT();
+
+    LOG("Started the NDRT on the head-up display");
 }
 
 void AEgoVehicle::EndPlay(const EEndPlayReason::Type EndPlayReason)
