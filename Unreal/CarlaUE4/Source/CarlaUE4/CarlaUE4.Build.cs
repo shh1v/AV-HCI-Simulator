@@ -21,7 +21,7 @@ public class CarlaUE4 : ModuleRules
         PublicIncludePaths.Add(LibCarlaIncludePath);
         PrivateIncludePaths.Add(LibCarlaIncludePath);
 
-        PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "UMG", "MediaAssets"});
+        PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "UMG", "MediaAssets", "ZeroMQ"});
 
         if (Target.Type == TargetType.Editor)
         {
