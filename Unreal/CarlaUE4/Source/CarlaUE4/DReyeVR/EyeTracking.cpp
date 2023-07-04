@@ -13,8 +13,10 @@
 #include "Math/UnrealMathUtility.h"                 // Clamp
 #include "UObject/ConstructorHelpers.h"				// ConstructorHelpers
 #include "Engine/EngineTypes.h"
+#include <zmq.hpp>									// ZeroMQ plugin
+#include <string>									// Raw string for ZeroMQ
 
-bool AEgoVehicle::IsUserGazingOnHUD(const FVector2D& ScreenLocation) {
+bool AEgoVehicle::IsUserGazingOnHUD(const FVector2D& ScreenPosition) {
 	FVector WorldLocation, WorldDirection; // These variables will be set by DeprojectScreenPositionToWorld
 	if (Cast<APlayerController>(this->GetController())->DeprojectScreenPositionToWorld(ScreenPosition.X, ScreenPosition.Y, WorldLocation, WorldDirection))
 	{
@@ -35,4 +37,41 @@ bool AEgoVehicle::IsUserGazingOnHUD(const FVector2D& ScreenLocation) {
 		}
 	}
 	return false;
+}
+
+bool AEgoVehicle::EstablishEyeTrackerConnection() {
+	try {
+		//  Prepare our context and subscriber
+		zmq::context_t Context(1); // setting the context of ZeroMQ
+		std::string Address = "127.0.0.1";
+		std::string RequestPort = "50020";
+		zmq::socket_t Requester(Context, ZMQ_REQ);
+		Requester.connect("tcp://" + Address + ":" + RequestPort);
+
+		// Get the SUBSRIBE port to connect for communication
+		std::string RequestString = "SUB_PORT";
+		zmq::message_t Request(RequestString.begin(), RequestString.end());
+		Requester.send(Request);
+		zmq::message_t Reply;
+		Requester.recv(&Reply);
+		std::string SubscribePort = std::string(static_cast<char*>(Reply.data()), Reply.size());
+
+		// Setup the Subscriber socket
+		Subscriber = new zmq::socket_t(Context, ZMQ_SUB);
+		Subscriber->connect("tcp://" + Address + ":" + SubscribePort);
+		Subscriber->setsockopt(ZMQ_SUBSCRIBE, "surface", 7);
+	}
+	catch (...) {
+		LOG("Unable to connect to the Pupil labs Network API");
+		return false;
+	}
+	return true;
+}
+
+FVector2D AEgoVehicle::GetGazeScreenLocation() {
+	// Note: using raw C++ types the following code does not interface with UE interface
+	// Establish connection if not already
+	
+	// Get the gaze data from the eye-tracker
+	return NULL;
 }

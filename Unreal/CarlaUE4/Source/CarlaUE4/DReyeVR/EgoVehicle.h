@@ -19,7 +19,7 @@
 #include "WheeledVehicle.h"                           // VehicleMovementComponent
 #include <stdio.h>
 #include <vector>
-
+#include <zmq.hpp>
 #include "EgoVehicle.generated.h"
 
 class ADReyeVRGameMode;
@@ -315,9 +315,10 @@ class CARLAUE4_API AEgoVehicle : public ACarlaWheeledVehicle
     void TickNDRT(); // Update the NDRT on every tick based on its individual implementation
 
 private: // Eye-tracking
-    FVector2D ScreenPosition;
+    zmq::socket_t* Subscriber; // Pointer to the sub port to listen to pupil labs software
 
 public: // Eye-tracking
+    bool EstablishEyeTrackerConnection(); // Establish connection to a TCP port for PUBLISH-SUBSCRIBE protocal communication
     bool IsUserGazingOnHUD(const FVector2D& ScreenLocation); // Returns true if the gaze is on the HUD
     FVector2D GetGazeScreenLocation(); // Get the screen gaze location from the eye-tracker
 
