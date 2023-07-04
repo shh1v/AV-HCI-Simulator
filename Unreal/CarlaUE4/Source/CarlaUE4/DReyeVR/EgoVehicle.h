@@ -314,6 +314,13 @@ class CARLAUE4_API AEgoVehicle : public ACarlaWheeledVehicle
     void TerminateNDRT();   // Destroy the NDRT head-up display and terminate the NDRT
     void TickNDRT(); // Update the NDRT on every tick based on its individual implementation
 
+private: // Eye-tracking
+    FVector2D ScreenPosition;
+
+public: // Eye-tracking
+    bool IsUserGazingOnHUD(const FVector2D& ScreenLocation); // Returns true if the gaze is on the HUD
+    FVector2D GetGazeScreenLocation(); // Get the screen gaze location from the eye-tracker
+
   private: // other
     void DebugLines() const;
     bool bDrawDebugEditor = false;

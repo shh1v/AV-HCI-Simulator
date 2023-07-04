@@ -130,7 +130,7 @@ void AEgoVehicle::ConstructNBackElements() {
 	static ConstructorHelpers::FObjectFinder<UMaterial> NewMaterial(*MaterialPath);
 	NBackTitle->SetMaterial(0, NewMaterial.Object);
 }
-	
+
 void AEgoVehicle::ConstructTVShowElements() {
 	// Initializing the static mesh for the media player with a default texture
 	MediaPlayerMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("TV-show Pane"));
@@ -159,9 +159,8 @@ void AEgoVehicle::ConstructTVShowElements() {
 
 
 void AEgoVehicle::SetLetter(const FString& Letter) {
-
 	if (NBackLetter == nullptr) return; // NBackLetter is not initialized yet
 	FString MaterialPath = FString::Printf(TEXT("Material'/Game/NDRT/NBackTask/Letters/M_%s.M_%s'"), *Letter, *Letter);
-	static ConstructorHelpers::FObjectFinder<UMaterial> NewMaterial (*MaterialPath);
+	static ConstructorHelpers::FObjectFinder<UMaterial> NewMaterial(*MaterialPath);
 	NBackLetter->SetMaterial(0, NewMaterial.Object);
 }
