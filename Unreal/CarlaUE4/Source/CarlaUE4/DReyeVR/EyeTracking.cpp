@@ -15,6 +15,13 @@
 #include "Engine/EngineTypes.h"
 #include <zmq.hpp>									// ZeroMQ plugin
 #include <string>									// Raw string for ZeroMQ
+#include "DcTypes.h"			
+#include "MsgPack/DcMsgPackReader.h"				// MsgPack Reader
+#include "Property/DcPropertyDatum.h"				// Datum to load retrived data
+#include "Deserialize/DcDeserializeTypes.h"			// Deserialize data types
+#include "Deserialize/DcDeserializer.h"				// Deserialize retrived data (R)
+#include "Property/DcPropertyReader.h"				// DC property (data type)
+#include "MsgPackDatatypes.h"					// Custom datatype to handle incoming data
 
 bool AEgoVehicle::IsUserGazingOnHUD(const FVector2D& ScreenPosition) {
 	FVector WorldLocation, WorldDirection; // These variables will be set by DeprojectScreenPositionToWorld
@@ -69,9 +76,52 @@ bool AEgoVehicle::EstablishEyeTrackerConnection() {
 }
 
 FVector2D AEgoVehicle::GetGazeScreenLocation() {
-	// Note: using raw C++ types the following code does not interface with UE interface
+	// Note: using raw C++ types in the following code as it does not interact with UE interface
 	// Establish connection if not already
+	if (Subscriber == nullptr) EstablishEyeTrackerConnection();
 	
-	// Get the gaze data from the eye-tracker
-	return NULL;
+	// Receive an update and update to a string
+	zmq::message_t Update;
+	Subscriber->recv(&Update);
+	std::string Topic(static_cast<char*>(Update.data()), Update.size());
+
+	// Receive a message from the server
+	zmq::message_t Message;
+	Subscriber->recv(&Message);
+
+	// Store the serialized data into a TArray
+	TArray<uint8> DataArray;
+	DataArray.Append(static_cast<uint8*>(Message.data()), Message.size());
+
+	// Create a MsgPack reader for the message
+	FDcBlobViewData Blob = FDcBlobViewData::From(DataArray);
+	FDcMsgPackReader Reader(Blob);
+
+	// Create a deserialize context and set the reader in context
+	FDcDeserializeContext Ctx;
+	Ctx.Reader = &Reader;
+
+	// Create a property writer
+	// Here, you need to specify the Unreal Engine property you want to write into
+	// For example, if you have a UObject* MyObject and a FProperty* MyProperty,
+	// you can create a property writer like this:
+	FDictionaryProperty MyDictionary;
+	UProperty* MyProperty = FindField<UProperty>(FDictionaryProperty::StaticStruct(), TEXT("Data"));
+	FDcPropertyDatum Datum(MyProperty, &MyDictionary);
+	FDcPropertyWriter Writer(Datum);
+	Ctx.Writer = &Writer;
+
+	// Now you can deserialize the MsgPack data into your Unreal Engine property
+	FDcResult DeserializationResult = FDcDeserializeDatum(Ctx, Datum);
+	if (!DeserializationResult.Ok())
+	{
+		// Handle the error
+		UE_LOG(LogTemp, Error, TEXT("Deserialization failed: %s"), *DeserializationResult.ToString());
+	}
+
+	// Now MyDictionary.Data contains the deserialized data
+	for (const TPair<FString, FVariant>& Pair : MyDictionary.Data)
+	{
+		// Use Pair.Key and Pair.Value
+	}
 }
