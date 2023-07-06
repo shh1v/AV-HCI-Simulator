@@ -45,40 +45,43 @@ bool AEgoVehicle::IsUserGazingOnHUD(const FVector2D& ScreenPosition) {
 }
 
 bool AEgoVehicle::EstablishEyeTrackerConnection() {
-	try {
-		//  Prepare our context and subscriber
-		zmq::context_t Context(1); // setting the context of ZeroMQ
-		std::string Address = "127.0.0.1";
-		std::string RequestPort = "50020";
-		zmq::socket_t Requester(Context, ZMQ_REQ);
-		Requester.connect("tcp://" + Address + ":" + RequestPort);
+    try {
+        UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Attempting to establish connection"));
+        //  Prepare our context and subscriber
+        Context = new zmq::context_t(1);
+        std::string Address = "127.0.0.1";
+        std::string RequestPort = "50020";
+        zmq::socket_t Requester(*Context, ZMQ_REQ);
+        Requester.connect("tcp://" + Address + ":" + RequestPort);
+        UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Connected to the TCP port"));
 
-		// Get the SUBSRIBE port to connect for communication
-		std::string RequestString = "SUB_PORT";
-		zmq::message_t Request(RequestString.begin(), RequestString.end());
-		Requester.send(Request);
-		zmq::message_t Reply;
-		Requester.recv(&Reply);
-		std::string SubscribePort = std::string(static_cast<char*>(Reply.data()), Reply.size());
+        // Get the SUBSRIBE port to connect for communication
+        std::string RequestString = "SUB_PORT";
+        zmq::message_t Request(RequestString.begin(), RequestString.end());
+        UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Sending request to get SUB PORT"));
+        Requester.send(Request);
+        zmq::message_t Reply;
+        Requester.recv(&Reply);
+        UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Received SUB PORT"));
+        std::string SubscribePort = std::string(static_cast<char*>(Reply.data()), Reply.size());
 
-		// Setup the Subscriber socket
-		Subscriber = new zmq::socket_t(Context, ZMQ_SUB);
-		Subscriber->connect("tcp://" + Address + ":" + SubscribePort);
-		Subscriber->setsockopt(ZMQ_SUBSCRIBE, "surface", 7);
-	}
-	catch (const zmq::error_t& e) {
-		// Log the error message with the error number
-		UE_LOG(LogTemp, Error, TEXT("ZeroMQ: error %d: %s"), e.num(), *FString(e.what()));
-		return false;
-	}
-	catch (...) {
-		// Log a generic error message
-		UE_LOG(LogTemp, Error, TEXT("ZeroMQ: Failed to connect to the Pupil labs Network API"));
-		return false;
-	}
-	UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Established connection to the Pupil labs Network API"))
-	return true;
+        // Setup the Subscriber socket
+        Subscriber = new zmq::socket_t(*Context, ZMQ_SUB);
+        UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Connecting to the SUB PORT"));
+        Subscriber->connect("tcp://" + Address + ":" + SubscribePort);
+        UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Connection successful"));
+        Subscriber->setsockopt(ZMQ_SUBSCRIBE, "surface", 7);
+        UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Subscribed to surface topic"));
+    }
+    catch (...) {
+        // Log a generic error message
+        UE_LOG(LogTemp, Error, TEXT("ZeroMQ: Failed to connect to the Pupil labs Network API"));
+        return false;
+    }
+    UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Established connection to the Pupil labs Network API"));
+    return true;
 }
+
 
 FVector2D AEgoVehicle::GetGazeScreenLocation() {
     // Note: using raw C++ types in the following code as it does not interact with UE interface

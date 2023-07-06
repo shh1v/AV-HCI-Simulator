@@ -315,6 +315,7 @@ class CARLAUE4_API AEgoVehicle : public ACarlaWheeledVehicle
     void TickNDRT(); // Update the NDRT on every tick based on its individual implementation
 
 private: // Eye-tracking
+    zmq::context_t* Context;    // Stores the context of the zmq proccess
     zmq::socket_t* Subscriber; // Pointer to the sub socket to listen to pupil labs software
     bool EstablishEyeTrackerConnection(); // Establish connection to a TCP port for PUBLISH-SUBSCRIBE protocal communication
 
