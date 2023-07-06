@@ -66,64 +66,82 @@ bool AEgoVehicle::EstablishEyeTrackerConnection() {
 		Subscriber->connect("tcp://" + Address + ":" + SubscribePort);
 		Subscriber->setsockopt(ZMQ_SUBSCRIBE, "surface", 7);
 	}
-	catch (...) {
-		LOG("Unable to connect to the Pupil labs Network API");
+	catch (const zmq::error_t& e) {
+		// Log the error message with the error number
+		UE_LOG(LogTemp, Error, TEXT("ZeroMQ: error %d: %s"), e.num(), *FString(e.what()));
 		return false;
 	}
+	catch (...) {
+		// Log a generic error message
+		UE_LOG(LogTemp, Error, TEXT("ZeroMQ: Failed to connect to the Pupil labs Network API"));
+		return false;
+	}
+	UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Established connection to the Pupil labs Network API"))
 	return true;
 }
 
 FVector2D AEgoVehicle::GetGazeScreenLocation() {
-	// Note: using raw C++ types in the following code as it does not interact with UE interface
-	// Establish connection if not already
-	if (Subscriber == nullptr) EstablishEyeTrackerConnection();
-	
-	// Receive an update and update to a string
-	zmq::message_t Update;
-	Subscriber->recv(&Update);
-	std::string Topic(static_cast<char*>(Update.data()), Update.size());
+    // Note: using raw C++ types in the following code as it does not interact with UE interface
+    // Establish connection if not already
+    if (Subscriber == nullptr) {
+        if (!EstablishEyeTrackerConnection()) {
+            UE_LOG(LogTemp, Error, TEXT("ZeroMQ: Failed to connect to the Pupil labs Network API"));
+            return FVector2D::ZeroVector;
+        }
+    }
 
-	// Receive a message from the server
-	zmq::message_t Message;
-	Subscriber->recv(&Message);
+    // Receive an update and update to a string
+    zmq::message_t Update;
+    if (!Subscriber->recv(&Update)) {
+        UE_LOG(LogTemp, Error, TEXT("ZeroMQ: Failed to receive update from subscriber"));
+        return FVector2D::ZeroVector;
+    }
+    std::string Topic(static_cast<char*>(Update.data()), Update.size());
 
-	// Store the serialized data into a TArray
-	TArray<uint8> DataArray;
-	DataArray.Append(static_cast<uint8*>(Message.data()), Message.size());
+    // Receive a message from the server
+    zmq::message_t Message;
+    if (!Subscriber->recv(&Message)) {
+        UE_LOG(LogTemp, Error, TEXT("ZeroMQ: Failed to receive message from subscriber"));
+        return FVector2D::ZeroVector;
+    }
 
-	// Create a destination variable and deserializer
-	FSurfaceData Destination;
-	FDcDeserializer Deserializer;
+    // Store the serialized data into a TArray
+    TArray<uint8> DataArray;
+    DataArray.Append(static_cast<uint8*>(Message.data()), Message.size());
 
-	// Prepare context for this run
-	FDcPropertyDatum Datum(&Destination);
-	FDcMsgPackReader Reader(FDcBlobViewData::From(DataArray));
-	FDcPropertyWriter Writer (Datum);
+    // Create a destination variable and deserializer
+    FSurfaceData Destination;
+    FDcDeserializer Deserializer;
 
-	FDcDeserializeContext Ctx;
-	Ctx.Reader = &Reader;
-	Ctx.Writer = &Writer;
-	Ctx.Deserializer = &Deserializer;
-	FDcResult Result = Ctx.Prepare();
+    // Prepare context for this run
+    FDcPropertyDatum Datum(&Destination);
+    FDcMsgPackReader Reader(FDcBlobViewData::From(DataArray));
+    FDcPropertyWriter Writer(Datum);
 
-	// Check if Prepare was successful
-	if (!Result.Ok())
-	{
-		UE_LOG(LogTemp, Warning, TEXT("ZeroMQ: Failed to prepare context"));
-		return FVector2D::ZeroVector;
-	}
+    FDcDeserializeContext Ctx;
+    Ctx.Reader = &Reader;
+    Ctx.Writer = &Writer;
+    Ctx.Deserializer = &Deserializer;
+    FDcResult Result = Ctx.Prepare();
 
-	//  kick off deserialization
-	Result = Deserializer.Deserialize(Ctx);
+    // Check if Prepare was successful
+    if (!Result.Ok())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("ZeroMQ: Failed to prepare context"));
+        return FVector2D::ZeroVector;
+    }
 
-	// If everything was successful, one can now use your Destination object
-	// We return the last gaze position as a FVector2D
+    //  kick off deserialization
+    Result = Deserializer.Deserialize(Ctx);
 
-	if (Destination.gaze_on_surfaces.Num() > 0)
-	{
-		FGazeOnSurface LastGaze = Destination.gaze_on_surfaces[Destination.gaze_on_surfaces.Num() - 1];
-		return FVector2D(LastGaze.norm_pos[0], LastGaze.norm_pos[1]);
-	}
-	UE_LOG(LogTemp, Warning, TEXT("ZeroMQ: Failed to get an instance of gaze on surface subtopic"));
-	return FVector2D::ZeroVector;
+    // If everything was successful, one can now use your Destination object
+    // We return the last gaze position as a FVector2D
+
+    if (Destination.gaze_on_surfaces.Num() > 0)
+    {
+        FGazeOnSurface LastGaze = Destination.gaze_on_surfaces[Destination.gaze_on_surfaces.Num() - 1];
+        return FVector2D(LastGaze.norm_pos[0], LastGaze.norm_pos[1]);
+    }
+    UE_LOG(LogTemp, Warning, TEXT("ZeroMQ: Failed to get an instance of gaze on surface subtopic"));
+    return FVector2D::ZeroVector;
 }

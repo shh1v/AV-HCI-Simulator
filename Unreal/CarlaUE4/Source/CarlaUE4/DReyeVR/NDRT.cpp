@@ -49,6 +49,9 @@ void AEgoVehicle::StartNDRT() {
 		MediaPlayer->OpenSource(MediaPlayerSource);
 		break;
 	}
+
+	// Establish connection with the eye-tracker
+	EstablishEyeTrackerConnection();
 }
 
 void AEgoVehicle::ToggleNDRT(bool active) {
