@@ -12,16 +12,14 @@
 #include "Math/Rotator.h"                           // RotateVector, Clamp
 #include "Math/UnrealMathUtility.h"                 // Clamp
 #include "UObject/ConstructorHelpers.h"				// ConstructorHelpers
-#include "Engine/EngineTypes.h"
+#include "Engine/EngineTypes.h"						// Engine Types
 #include <zmq.hpp>									// ZeroMQ plugin
 #include <string>									// Raw string for ZeroMQ
-#include "DcTypes.h"			
 #include "MsgPack/DcMsgPackReader.h"				// MsgPack Reader
-#include "Property/DcPropertyDatum.h"				// Datum to load retrived data
-#include "Deserialize/DcDeserializeTypes.h"			// Deserialize data types
-#include "Deserialize/DcDeserializer.h"				// Deserialize retrived data (R)
-#include "Property/DcPropertyReader.h"				// DC property (data type)
-#include "MsgPackDatatypes.h"					// Custom datatype to handle incoming data
+#include "Property/DcPropertyDatum.h"				// Datum to load retrived message
+#include "Property/DcPropertyWriter.h"				// Property writer
+#include "Deserialize/DcDeserializer.h"				// Deserialize retrived data
+#include "MsgPackDatatypes.h"						// Custom datatype to handle incoming data
 
 bool AEgoVehicle::IsUserGazingOnHUD(const FVector2D& ScreenPosition) {
 	FVector WorldLocation, WorldDirection; // These variables will be set by DeprojectScreenPositionToWorld
@@ -93,35 +91,39 @@ FVector2D AEgoVehicle::GetGazeScreenLocation() {
 	TArray<uint8> DataArray;
 	DataArray.Append(static_cast<uint8*>(Message.data()), Message.size());
 
-	// Create a MsgPack reader for the message
-	FDcBlobViewData Blob = FDcBlobViewData::From(DataArray);
-	FDcMsgPackReader Reader(Blob);
+	// Create a destination variable and deserializer
+	FSurfaceData Destination;
+	FDcDeserializer Deserializer;
 
-	// Create a deserialize context and set the reader in context
+	// Prepare context for this run
+	FDcPropertyDatum Datum(&Destination);
+	FDcMsgPackReader Reader(FDcBlobViewData::From(DataArray));
+	FDcPropertyWriter Writer (Datum);
+
 	FDcDeserializeContext Ctx;
 	Ctx.Reader = &Reader;
-
-	// Create a property writer
-	// Here, you need to specify the Unreal Engine property you want to write into
-	// For example, if you have a UObject* MyObject and a FProperty* MyProperty,
-	// you can create a property writer like this:
-	FDictionaryProperty MyDictionary;
-	UProperty* MyProperty = FindField<UProperty>(FDictionaryProperty::StaticStruct(), TEXT("Data"));
-	FDcPropertyDatum Datum(MyProperty, &MyDictionary);
-	FDcPropertyWriter Writer(Datum);
 	Ctx.Writer = &Writer;
+	Ctx.Deserializer = &Deserializer;
+	FDcResult Result = Ctx.Prepare();
 
-	// Now you can deserialize the MsgPack data into your Unreal Engine property
-	FDcResult DeserializationResult = FDcDeserializeDatum(Ctx, Datum);
-	if (!DeserializationResult.Ok())
+	// Check if Prepare was successful
+	if (!Result.Ok())
 	{
-		// Handle the error
-		UE_LOG(LogTemp, Error, TEXT("Deserialization failed: %s"), *DeserializationResult.ToString());
+		UE_LOG(LogTemp, Warning, TEXT("ZeroMQ: Failed to prepare context"));
+		return FVector2D::ZeroVector;
 	}
 
-	// Now MyDictionary.Data contains the deserialized data
-	for (const TPair<FString, FVariant>& Pair : MyDictionary.Data)
+	//  kick off deserialization
+	Result = Deserializer.Deserialize(Ctx);
+
+	// If everything was successful, one can now use your Destination object
+	// We return the last gaze position as a FVector2D
+
+	if (Destination.gaze_on_surfaces.Num() > 0)
 	{
-		// Use Pair.Key and Pair.Value
+		FGazeOnSurface LastGaze = Destination.gaze_on_surfaces[Destination.gaze_on_surfaces.Num() - 1];
+		return FVector2D(LastGaze.norm_pos[0], LastGaze.norm_pos[1]);
 	}
+	UE_LOG(LogTemp, Warning, TEXT("ZeroMQ: Failed to get an instance of gaze on surface subtopic"));
+	return FVector2D::ZeroVector;
 }
