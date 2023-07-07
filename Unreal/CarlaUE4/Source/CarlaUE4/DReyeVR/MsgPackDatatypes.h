@@ -7,103 +7,103 @@
 
 // FFloatArray is a USTRUCT that contains an array of floats. 
 // This is used to represent the arrays of floats in the original data structure.
-USTRUCT(BlueprintType)
+USTRUCT()
 struct FFloatArray
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Data")
+	UPROPERTY()
 	TArray<float> data;
 };
 
 // FGazeOnSurface and FFixationsOnSurface are USTRUCTs that represent the individual elements 
 // in the gaze_on_surfaces and fixations_on_surfaces arrays, respectively.
-USTRUCT(BlueprintType)
+USTRUCT()
 struct FGazeOnSurface
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Data")
+	UPROPERTY()
 	FString topic;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Data")
+	UPROPERTY()
 		TArray<float> norm_pos;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Data")
+	UPROPERTY()
 		float confidence;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Data")
+	UPROPERTY()
 		bool on_surf;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Data")
+	UPROPERTY()
 		TArray<FString> base_data;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Data")
+	UPROPERTY()
 		float timestamp;
 };
 
-USTRUCT(BlueprintType)
+USTRUCT()
 struct FFixationsOnSurface
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Data")
+	UPROPERTY()
 	FString topic;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Data")
+	UPROPERTY()
 		TArray<float> norm_pos;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Data")
+	UPROPERTY()
 		float confidence;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Data")
+	UPROPERTY()
 		bool on_surf;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Data")
+	UPROPERTY()
 		TArray<FString> base_data;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Data")
+	UPROPERTY()
 		float timestamp;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Data")
+	UPROPERTY()
 		float duration;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Data")
+	UPROPERTY()
 		float dispersion;
 };
 
 
 // FMonitorData is a USTRUCT that contains all the data from the original data structure. 
 // It uses the other USTRUCTs to represent the nested arrays.
-USTRUCT(BlueprintType)
+USTRUCT()
 struct FSurfaceData
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Data")
+	UPROPERTY()
 	FString topic;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Data")
+	UPROPERTY()
 		FString name;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Data")
+	UPROPERTY()
 		TArray<FFloatArray> surf_to_img_trans;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Data")
+	UPROPERTY()
 		TArray<FFloatArray> img_to_surf_trans;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Data")
+	UPROPERTY()
 		TArray<FFloatArray> surf_to_dist_img_trans;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Data")
+	UPROPERTY()
 		TArray<FFloatArray> dist_img_to_surf_trans;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Data")
+	UPROPERTY()
 		TArray<FGazeOnSurface> gaze_on_surfaces;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Data")
+	UPROPERTY()
 		TArray<FFixationsOnSurface> fixations_on_surfaces;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Data")
+	UPROPERTY()
 		float timestamp;
 };

@@ -20,6 +20,35 @@
 #include <stdio.h>
 #include <vector>
 #include <zmq.hpp>
+#include "MsgPackDatatypes.h"
+
+
+#include "Json/DcJsonReader.h"
+#include "Json/DcJsonWriter.h"
+#include "Deserialize/DcDeserializeTypes.h"
+#include "Deserialize/DcDeserializeUtils.h"
+#include "Deserialize/DcDeserializerSetup.h"
+#include "DcTypes.h"
+#include "Property/DcPropertyDatum.h"
+
+#include "DataConfig/DcEnv.h"
+#include "DataConfig/Automation/DcAutomation.h"
+#include "DataConfig/Deserialize/DcDeserializer.h"
+#include "DataConfig/Deserialize/DcDeserializerSetup.h"
+#include "DataConfig/Property/DcPropertyWriter.h"
+#include "DataConfig/Serialize/DcSerializer.h"
+#include "DataConfig/Serialize/DcSerializerSetup.h"
+#include "DataConfig/Property/DcPropertyReader.h"
+#include "DataConfig/Automation/DcAutomationUtils.h"
+#include "DataConfig/Diagnostic/DcDiagnosticSerDe.h"
+#include "DataConfig/Serialize/DcSerializeUtils.h"
+#include "DataConfig/DcEnv.h"
+#include "DataConfig/DcTypes.h"
+#include "DataConfig/Json/DcJsonReader.h"
+#include "DataConfig/Diagnostic/DcDiagnosticJSON.h"
+#include "DataConfig/Diagnostic/DcDiagnosticCommon.h"
+
+
 #include "EgoVehicle.generated.h"
 
 class ADReyeVRGameMode;
@@ -317,11 +346,13 @@ class CARLAUE4_API AEgoVehicle : public ACarlaWheeledVehicle
 private: // Eye-tracking
     zmq::context_t* Context;    // Stores the context of the zmq proccess
     zmq::socket_t* Subscriber; // Pointer to the sub socket to listen to pupil labs software
+    FSurfaceData* SurfaceData; // Store all the data from the surface topic
     bool EstablishEyeTrackerConnection(); // Establish connection to a TCP port for PUBLISH-SUBSCRIBE protocal communication
 
 public: // Eye-tracking
     bool IsUserGazingOnHUD(const FVector2D& ScreenLocation); // Returns true if the gaze is on the HUD
-    FVector2D GetGazeScreenLocation(); // Get the screen gaze location from the eye-tracker
+    FDcResult GetSurfaceData(); // Get all the surface data from the eye tracker
+    FVector2D GetGazeScreenLocation(); // Returns the screen gaze location from the eye tracker
 
   private: // other
     void DebugLines() const;

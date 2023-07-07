@@ -71,7 +71,9 @@ void AEgoVehicle::TerminateNDRT() {
 }
 
 void AEgoVehicle::TickNDRT() {
-
+	// Check if the gaze is being retrived
+	//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::White, FString::Printf(TEXT("Gaze Location: %s"), *(GetGazeScreenLocation().ToString())));
+	GetSurfaceData();
 }
 
 void AEgoVehicle::ConstructHUD() {
