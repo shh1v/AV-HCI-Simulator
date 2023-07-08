@@ -159,9 +159,9 @@ bool AEgoVehicle::EstablishEyeTrackerConnection() {
 FVector2D AEgoVehicle::GetGazeScreenLocation() {
 	// If everything was successful, one can now use your Destination object
 	// We return the last gaze position as a FVector2D
-	if (SurfaceData->gaze_on_surfaces.Num() > 0)
+	if (SurfaceData.gaze_on_surfaces.Num() > 0)
 	{
-		FGazeOnSurface LastGaze = SurfaceData->gaze_on_surfaces[SurfaceData->gaze_on_surfaces.Num() - 1];
+		FGazeOnSurface LastGaze = SurfaceData.gaze_on_surfaces[SurfaceData.gaze_on_surfaces.Num() - 1];
 		return FVector2D(LastGaze.norm_pos[0], LastGaze.norm_pos[1]);
     }
     else {
@@ -195,12 +195,12 @@ FDcResult AEgoVehicle::GetSurfaceData() {
     TArray<uint8> DataArray;
     DataArray.Append(static_cast<uint8*>(Message.data()), Message.size());
 
-    // Create a destination variable and deserializer
-    FSurfaceData Destination;
+    // Create a deserializer
     FDcDeserializer Deserializer;
+    DcSetupMsgPackDeserializeHandlers(Deserializer, EDcMsgPackDeserializeType::Default);
 
     // Prepare context for this run
-    FDcPropertyDatum Datum(&Destination);
+    FDcPropertyDatum Datum(&SurfaceData);
     FDcMsgPackReader Reader(FDcBlobViewData::From(DataArray));
     FDcPropertyWriter Writer(Datum);
 

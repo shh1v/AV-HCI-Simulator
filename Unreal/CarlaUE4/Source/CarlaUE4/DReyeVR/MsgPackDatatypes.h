@@ -12,8 +12,8 @@ struct FFloatArray
 {
 	GENERATED_BODY()
 
-	UPROPERTY()
-	TArray<float> data;
+		UPROPERTY()
+		TArray<float> data;
 };
 
 // FGazeOnSurface and FFixationsOnSurface are USTRUCTs that represent the individual elements 
@@ -23,23 +23,17 @@ struct FGazeOnSurface
 {
 	GENERATED_BODY()
 
-	UPROPERTY()
-	FString topic;
+		UPROPERTY() FString topic;
 
-	UPROPERTY()
-		TArray<float> norm_pos;
+	UPROPERTY() TArray<float> norm_pos;
 
-	UPROPERTY()
-		float confidence;
+	UPROPERTY() float confidence;
 
-	UPROPERTY()
-		bool on_surf;
+	UPROPERTY() bool on_surf;
 
-	UPROPERTY()
-		TArray<FString> base_data;
+	UPROPERTY() TArray<FString> base_data;
 
-	UPROPERTY()
-		float timestamp;
+	UPROPERTY() float timestamp;
 };
 
 USTRUCT()
@@ -47,29 +41,21 @@ struct FFixationsOnSurface
 {
 	GENERATED_BODY()
 
-	UPROPERTY()
-	FString topic;
+		UPROPERTY() FString topic;
 
-	UPROPERTY()
-		TArray<float> norm_pos;
+	UPROPERTY() TArray<float> norm_pos;
 
-	UPROPERTY()
-		float confidence;
+	UPROPERTY() float confidence;
 
-	UPROPERTY()
-		bool on_surf;
+	UPROPERTY() bool on_surf;
 
-	UPROPERTY()
-		TArray<FString> base_data;
+	UPROPERTY() TArray<FString> base_data;
 
-	UPROPERTY()
-		float timestamp;
+	UPROPERTY() float timestamp;
 
-	UPROPERTY()
-		float duration;
+	UPROPERTY() float duration;
 
-	UPROPERTY()
-		float dispersion;
+	UPROPERTY() float dispersion;
 };
 
 
@@ -80,30 +66,21 @@ struct FSurfaceData
 {
 	GENERATED_BODY()
 
-	UPROPERTY()
-	FString topic;
+		UPROPERTY() FString topic;
 
-	UPROPERTY()
-		FString name;
+	UPROPERTY() FString name;
 
-	UPROPERTY()
-		TArray<FFloatArray> surf_to_img_trans;
+	UPROPERTY() TArray<FFloatArray> surf_to_img_trans;
 
-	UPROPERTY()
-		TArray<FFloatArray> img_to_surf_trans;
+	UPROPERTY() TArray<FFloatArray> img_to_surf_trans;
 
-	UPROPERTY()
-		TArray<FFloatArray> surf_to_dist_img_trans;
+	UPROPERTY() TArray<FFloatArray> surf_to_dist_img_trans;
 
-	UPROPERTY()
-		TArray<FFloatArray> dist_img_to_surf_trans;
+	UPROPERTY() TArray<FFloatArray> dist_img_to_surf_trans;
 
-	UPROPERTY()
-		TArray<FGazeOnSurface> gaze_on_surfaces;
+	UPROPERTY() TArray<FGazeOnSurface> gaze_on_surfaces;
 
-	UPROPERTY()
-		TArray<FFixationsOnSurface> fixations_on_surfaces;
+	UPROPERTY() TArray<FFixationsOnSurface> fixations_on_surfaces;
 
-	UPROPERTY()
-		float timestamp;
+	UPROPERTY() float timestamp;
 };

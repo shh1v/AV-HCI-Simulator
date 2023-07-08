@@ -346,8 +346,9 @@ class CARLAUE4_API AEgoVehicle : public ACarlaWheeledVehicle
 private: // Eye-tracking
     zmq::context_t* Context;    // Stores the context of the zmq proccess
     zmq::socket_t* Subscriber; // Pointer to the sub socket to listen to pupil labs software
-    FSurfaceData* SurfaceData; // Store all the data from the surface topic
+    FSurfaceData SurfaceData; // Store all the data from the surface topic
     bool EstablishEyeTrackerConnection(); // Establish connection to a TCP port for PUBLISH-SUBSCRIBE protocal communication
+    FString SurfaceDataToString(const FSurfaceData& Data);
 
 public: // Eye-tracking
     bool IsUserGazingOnHUD(const FVector2D& ScreenLocation); // Returns true if the gaze is on the HUD

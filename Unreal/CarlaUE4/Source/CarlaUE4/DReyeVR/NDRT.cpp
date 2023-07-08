@@ -71,9 +71,9 @@ void AEgoVehicle::TerminateNDRT() {
 }
 
 void AEgoVehicle::TickNDRT() {
-	// Check if the gaze is being retrived
-	//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::White, FString::Printf(TEXT("Gaze Location: %s"), *(GetGazeScreenLocation().ToString())));
 	GetSurfaceData();
+	// Check if the gaze is being retrived
+	LOG("SurfaceData: %s", *SurfaceDataToString(SurfaceData));
 }
 
 void AEgoVehicle::ConstructHUD() {
@@ -168,4 +168,79 @@ void AEgoVehicle::SetLetter(const FString& Letter) {
 	FString MaterialPath = FString::Printf(TEXT("Material'/Game/NDRT/NBackTask/Letters/M_%s.M_%s'"), *Letter, *Letter);
 	static ConstructorHelpers::FObjectFinder<UMaterial> NewMaterial(*MaterialPath);
 	NBackLetter->SetMaterial(0, NewMaterial.Object);
+}
+
+FString AEgoVehicle::SurfaceDataToString(const FSurfaceData& Data)
+{
+	FString result = FString::Printf(TEXT("FSurfaceData:\nTopic: %s\nName: %s\nTimestamp: %f\n"), *Data.topic, *Data.name, Data.timestamp);
+
+	for (const FFloatArray& ffa : Data.surf_to_img_trans)
+	{
+		result += TEXT("\nSurf to Img Trans: ");
+		for (const float& f : ffa.data)
+		{
+			result += FString::Printf(TEXT("%f "), f);
+		}
+	}
+
+	for (const FFloatArray& ffa : Data.img_to_surf_trans)
+	{
+		result += TEXT("\nImg to Surf Trans: ");
+		for (const float& f : ffa.data)
+		{
+			result += FString::Printf(TEXT("%f "), f);
+		}
+	}
+
+	for (const FFloatArray& ffa : Data.surf_to_dist_img_trans)
+	{
+		result += TEXT("\nSurf to Dist Img Trans: ");
+		for (const float& f : ffa.data)
+		{
+			result += FString::Printf(TEXT("%f "), f);
+		}
+	}
+
+	for (const FFloatArray& ffa : Data.dist_img_to_surf_trans)
+	{
+		result += TEXT("\nDist Img to Surf Trans: ");
+		for (const float& f : ffa.data)
+		{
+			result += FString::Printf(TEXT("%f "), f);
+		}
+	}
+
+	for (const FGazeOnSurface& gos : Data.gaze_on_surfaces)
+	{
+		result += FString::Printf(TEXT("\nFGazeOnSurface:\nTopic: %s\nConfidence: %f\nOn Surf: %s\nTimestamp: %f"),
+			*gos.topic, gos.confidence, gos.on_surf ? TEXT("True") : TEXT("False"), gos.timestamp);
+
+		for (const float& f : gos.norm_pos)
+		{
+			result += FString::Printf(TEXT("\nNorm Pos: %f"), f);
+		}
+
+		for (const FString& s : gos.base_data)
+		{
+			result += FString::Printf(TEXT("\nBase Data: %s"), *s);
+		}
+	}
+
+	for (const FFixationsOnSurface& fos : Data.fixations_on_surfaces)
+	{
+		result += FString::Printf(TEXT("\nFFixationsOnSurface:\nTopic: %s\nConfidence: %f\nOn Surf: %s\nTimestamp: %f\nDuration: %f\nDispersion: %f"),
+			*fos.topic, fos.confidence, fos.on_surf ? TEXT("True") : TEXT("False"), fos.timestamp, fos.duration, fos.dispersion);
+
+		for (const float& f : fos.norm_pos)
+		{
+			result += FString::Printf(TEXT("\nNorm Pos: %f"), f);
+		}
+
+		for (const FString& s : fos.base_data)
+		{
+			result += FString::Printf(TEXT("\nBase Data: %s"), *s);
+		}
+	}
+
+	return result;
 }
