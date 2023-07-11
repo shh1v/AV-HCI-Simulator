@@ -71,7 +71,22 @@ void AEgoVehicle::TerminateNDRT() {
 }
 
 void AEgoVehicle::TickNDRT() {
-	GetGazeScreenLocation();
+	FVector2D GazeScreenLocation = GetGazeScreenLocation();
+	bool gazeOnHUD = IsUserGazingOnHUD(GazeScreenLocation);
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("ScreenLocation: (%f, %f)"), GazeScreenLocation[0], GazeScreenLocation[1]));
+
+	// Just for logging purposes
+	if (gazeOnHUD) {
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Gaze on head-up display"));
+	}
+	else {
+		if (HighestTimestampGazeData.OnSurf) {
+			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("Gaze on road"));
+		}
+		else {
+			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, TEXT("Gaze out of the scope of game"));
+		}
+	}
 }
 
 void AEgoVehicle::ConstructHUD() {

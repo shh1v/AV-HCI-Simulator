@@ -6,6 +6,8 @@
 #include "DReyeVRPawn.h"                            // ADReyeVRPawn
 #include "Engine/EngineTypes.h"                     // EBlendMode
 #include "Engine/World.h"                           // GetWorld
+#include "Engine/Engine.h"							// GEngine
+#include "GameFramework/GameUserSettings.h"			// GetScreenResolution
 #include "GameFramework/Actor.h"                    // Destroy
 #include "GameFramework/PlayerController.h"         // Deproject screen coordinates
 #include "Kismet/KismetSystemLibrary.h"             // PrintString, QuitGame
@@ -23,27 +25,50 @@
 #include "MsgPackDatatypes.h"						// MsgPackDatatypes
 
 bool AEgoVehicle::IsUserGazingOnHUD(const FVector2D& ScreenPosition) {
+	if (!ensure(this != nullptr)) {
+		UE_LOG(LogTemp, Warning, TEXT("AEgoVehicle is nullptr."));
+		return false;
+	}
+
+	APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
+	if (!ensure(PlayerController != nullptr)) {
+		UE_LOG(LogTemp, Warning, TEXT("PlayerController is nullptr or not an APlayerController."));
+		return false;
+	}
+
 	FVector WorldLocation, WorldDirection; // These variables will be set by DeprojectScreenPositionToWorld
-	if (Cast<APlayerController>(this->GetController())->DeprojectScreenPositionToWorld(ScreenPosition.X, ScreenPosition.Y, WorldLocation, WorldDirection))
-	{
+	if (PlayerController->DeprojectScreenPositionToWorld(ScreenPosition.X, ScreenPosition.Y, WorldLocation, WorldDirection)) {
 		FHitResult HitResult;
 		FVector StartLocation = WorldLocation;
-		FVector EndLocation = WorldLocation + WorldDirection * 100; // 100 is just the ray length. Change if necessary
+		FVector EndLocation = WorldLocation + WorldDirection * 1000; // 100 is just the ray length. Change if necessary
+
+		UWorld* World = GetWorld();
+		if (!ensure(World != nullptr)) {
+			UE_LOG(LogTemp, Warning, TEXT("World is nullptr."));
+			return false;
+		}
 
 		// Perform the line trace and collect all the static mesh that were hit
-		if (GetWorld()->LineTraceSingleByChannel(HitResult, StartLocation, EndLocation, ECC_Visibility))
-		{
-			// Check if the hit actor is your static mesh actor
-			if (HitResult.Actor.Get() == this)
-			{
-				// The user was looking at the static mesh
-				UStaticMeshComponent* HitMeshComponent = Cast<UStaticMeshComponent>(HitResult.Component.Get());
-				if (HitMeshComponent == PrimaryHUD) return true;
+		TArray<FHitResult> HitResults;
+		World->LineTraceMultiByChannel(HitResults, StartLocation, EndLocation, ECC_Visibility);
+
+		for (const FHitResult& HitResult : HitResults) {
+			UStaticMeshComponent* HitMeshComponent = Cast<UStaticMeshComponent>(HitResult.Component.Get());
+			if (HitMeshComponent == nullptr) continue; // The hit is not a UStaticMeshComponent
+			if (HitMeshComponent == PrimaryHUD) {
+				UE_LOG(LogTemp, Warning, TEXT("User is gazing on HUD."));
+				return true;
 			}
 		}
+
 	}
+	else {
+		UE_LOG(LogTemp, Warning, TEXT("Failed to deproject screen position to world."));
+	}
+	UE_LOG(LogTemp, Warning, TEXT("User is not gazing on HUD."));
 	return false;
 }
+
 
 bool AEgoVehicle::EstablishEyeTrackerConnection() {
 	try {
@@ -90,11 +115,10 @@ FVector2D AEgoVehicle::GetGazeScreenLocation() {
 	// Load the data into FGazeData
 	ParseGazeData(SurfaceData.gaze_on_surfaces);
 
-	for (int32 i = 0; i < HighestTimestampGazeData.NormPos.Num(); ++i) {
-		LOG("NormPos[%d]: %f", i, HighestTimestampGazeData.NormPos[i]);
-	}
-
-	return FVector2D(-1, -1);
+	// Multiply the normalized coordinates to the game resolution (i.e., equivalent to the screen resolution)
+	UGameUserSettings* GameUserSettings = GEngine->GameUserSettings;
+	FIntPoint ScreenRes = GameUserSettings->GetScreenResolution();
+	return FVector2D(HighestTimestampGazeData.NormPos[0] * ScreenRes[0], HighestTimestampGazeData.NormPos[1] * ScreenRes[1]);
 }
 
 FDcResult AEgoVehicle::GetSurfaceData() {
@@ -173,9 +197,12 @@ void AEgoVehicle::ParseGazeData(FString GazeDataString) {
 					GazeData.Topic = Value.TrimQuotes();
 				}
 				else if (Key == TEXT("norm_pos")) {
+					// Remove the paranthesis in the key
+					Value = Value.Mid(1, Value.Len() - 2);
 					TArray<FString> NormPosValues;
 					Value.ParseIntoArray(NormPosValues, TEXT(", "), true);
 					for (FString NormPosValue : NormPosValues) {
+						LOG("NormPosValue: %s", *NormPosValue);
 						GazeData.NormPos.Add(FCString::Atof(*NormPosValue));
 					}
 				}
