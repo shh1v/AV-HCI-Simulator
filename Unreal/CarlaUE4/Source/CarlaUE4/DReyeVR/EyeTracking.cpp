@@ -69,148 +69,164 @@ bool AEgoVehicle::IsUserGazingOnHUD(const FVector2D& ScreenPosition) {
 }
 
 bool AEgoVehicle::EstablishEyeTrackerConnection() {
-    try {
-        UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Attempting to establish connection"));
-        //  Prepare our context and subscriber
-        Context = new zmq::context_t(1);
-        std::string Address = "127.0.0.1";
-        std::string RequestPort = "50020";
-        zmq::socket_t Requester(*Context, ZMQ_REQ);
-        Requester.connect("tcp://" + Address + ":" + RequestPort);
-        UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Connected to the TCP port"));
+	try {
+		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Attempting to establish connection"));
+		//  Prepare our context and subscriber
+		Context = new zmq::context_t(1);
+		std::string Address = "127.0.0.1";
+		std::string RequestPort = "50020";
+		zmq::socket_t Requester(*Context, ZMQ_REQ);
+		Requester.connect("tcp://" + Address + ":" + RequestPort);
+		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Connected to the TCP port"));
 
-        // Get the SUBSRIBE port to connect for communication
-        std::string RequestString = "SUB_PORT";
-        zmq::message_t Request(RequestString.begin(), RequestString.end());
-        UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Sending request to get SUB PORT"));
-        Requester.send(Request);
-        zmq::message_t Reply;
-        Requester.recv(&Reply);
-        UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Received SUB PORT"));
-        std::string SubscribePort = std::string(static_cast<char*>(Reply.data()), Reply.size());
+		// Get the SUBSRIBE port to connect for communication
+		std::string RequestString = "SUB_PORT";
+		zmq::message_t Request(RequestString.begin(), RequestString.end());
+		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Sending request to get SUB PORT"));
+		Requester.send(Request);
+		zmq::message_t Reply;
+		Requester.recv(&Reply);
+		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Received SUB PORT"));
+		std::string SubscribePort = std::string(static_cast<char*>(Reply.data()), Reply.size());
 
-        // Setup the Subscriber socket
-        Subscriber = new zmq::socket_t(*Context, ZMQ_SUB);
-        UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Connecting to the SUB PORT"));
-        Subscriber->connect("tcp://" + Address + ":" + SubscribePort);
-        UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Connection successful"));
-        Subscriber->setsockopt(ZMQ_SUBSCRIBE, "surface", 7);
-        UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Subscribed to surface topic"));
-    }
-    catch (...) {
-        // Log a generic error message
-        UE_LOG(LogTemp, Error, TEXT("ZeroMQ: Failed to connect to the Pupil labs Network API"));
-        return false;
-    }
-    UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Established connection to the Pupil labs Network API"));
-    return true;
+		// Setup the Subscriber socket
+		Subscriber = new zmq::socket_t(*Context, ZMQ_SUB);
+		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Connecting to the SUB PORT"));
+		Subscriber->connect("tcp://" + Address + ":" + SubscribePort);
+		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Connection successful"));
+		Subscriber->setsockopt(ZMQ_SUBSCRIBE, "surface", 7);
+		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Subscribed to surface topic"));
+	}
+	catch (...) {
+		// Log a generic error message
+		UE_LOG(LogTemp, Error, TEXT("ZeroMQ: Failed to connect to the Pupil labs Network API"));
+		return false;
+	}
+	UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Established connection to the Pupil labs Network API"));
+	return true;
 }
 
-
-// The data from the eye tracker is received in a serialized format, which is then deserialized into a custom Unreal Engine data structure.
-// This structure, FSurfaceData, holds the gaze data and other related information.
-// The function uses the DataConfig library to handle the deserialization process. 
-// This involves preparing a deserialization context, performing the deserialization, and handling any errors that may occur.
-// Once the data is deserialized, the function extracts the gaze location from the data and returns it as a FVector2D.
-// This vector represents the normalized position of the gaze on the surface being tracked, which can be used in the game for various purposes.
-// This is the message that is recevied from ZeroMQ in msgpack format:
-// {
-//     "topic": "surfaces.surface_name",
-//     "name": "surface_name",
-//     "surf_to_img_trans": (
-//         (-394.2704714040225, 62.996680859974035, 833.0782341017057),
-//         (24.939461954010476, 264.1698344383364, 171.09768247735033),
-//         (-0.0031580300961504023, 0.07378146751738948, 1.0),
-//     ),
-//     "img_to_surf_trans": (
-//         (-0.002552357406770253, 1.5534025217146223e-05, 2.1236555655143734),
-//         (0.00025853538051076233, 0.003973842600569134, -0.8952954577358644),
-//         (-2.71355412859636e-05, -0.00029314688183396006, 1.0727627809231568),
-//     ),
-//     "gaze_on_surfaces": (
-//         {
-//             "topic": "gaze.3d.1._on_surface",
-//             "norm_pos": (-0.6709809899330139, 0.41052111983299255),
-//             "confidence": 0.5594810076623645,
-//             "on_surf": False,
-//             "base_data": ("gaze.3d.1.", 714040.132285),
-//             "timestamp": 714040.132285,
-//         },
-//         ...,
-//     ),
-//     # list of fixations associated with
-//     "fixations_on_surfaces": (
-//         {
-//             "topic": "fixations_on_surface",
-//             "norm_pos": (-0.9006409049034119, 0.7738968133926392),
-//             "confidence": 0.8663407531808505,
-//             "on_surf": False,
-//             "base_data": ("fixations", 714039.771958),
-//             "timestamp": 714039.771958,
-//             "id": 27,
-//             "duration": 306.62299995310605,  # in milliseconds
-//             "dispersion": 1.4730711610581475,  # in degrees
-//         },
-//         ...,
-//     ),
-//     # timestamp of the world video frame in which the surface was detected
-//     "timestamp": 714040.103912,
-// }
 FVector2D AEgoVehicle::GetGazeScreenLocation() {
-	//// If everything was successful, one can now use your Destination object
-	//// We return the last gaze position as a FVector2D
-	//if (SurfaceData.gaze_on_surfaces.Num() > 0)
-	//{
-	//	FGazeOnSurface LastGaze = SurfaceData.gaze_on_surfaces[SurfaceData.gaze_on_surfaces.Num() - 1];
-	//	return FVector2D(LastGaze.norm_pos[0], LastGaze.norm_pos[1]);
- //   }
- //   else {
- //       return FVector2D(-1, -1);
- //   }
-    return FVector2D(-1, -1);
+	// Get the updated message from using Zero-MW PUB-SUB
+	GetSurfaceData();
+
+	// Load the data into FGazeData
+	ParseGazeData(SurfaceData.gaze_on_surfaces);
+
+	for (int32 i = 0; i < HighestTimestampGazeData.NormPos.Num(); ++i)
+	{
+		LOG("NormPos[%d]: %f", i, HighestTimestampGazeData.NormPos[i]);
+	}
+
+	return FVector2D(-1, -1);
 }
 
 FDcResult AEgoVehicle::GetSurfaceData() {
-    // Note: using raw C++ types in the following code as it does not interact with UE interface
+	// Note: using raw C++ types in the following code as it does not interact with UE interface
 // Establish connection if not already
-    if (Subscriber == nullptr) {
-        if (!EstablishEyeTrackerConnection()) {
-            UE_LOG(LogTemp, Error, TEXT("ZeroMQ: Failed to connect to the Pupil labs Network API"));
-        }
-    }
+	if (Subscriber == nullptr) {
+		if (!EstablishEyeTrackerConnection()) {
+			UE_LOG(LogTemp, Error, TEXT("ZeroMQ: Failed to connect to the Pupil labs Network API"));
+		}
+	}
 
-    // Receive an update and update to a string
-    zmq::message_t Update;
-    if (!Subscriber->recv(&Update)) {
-        UE_LOG(LogTemp, Error, TEXT("ZeroMQ: Failed to receive update from subscriber"));
-    }
-    std::string Topic(static_cast<char*>(Update.data()), Update.size());
+	// Receive an update and update to a string
+	zmq::message_t Update;
+	if (!Subscriber->recv(&Update)) {
+		UE_LOG(LogTemp, Error, TEXT("ZeroMQ: Failed to receive update from subscriber"));
+	}
+	std::string Topic(static_cast<char*>(Update.data()), Update.size());
 
-    // Receive a message from the server
-    zmq::message_t Message;
-    if (!Subscriber->recv(&Message)) {
-        UE_LOG(LogTemp, Error, TEXT("ZeroMQ: Failed to receive message from subscriber"));
-    }
+	// Receive a message from the server
+	zmq::message_t Message;
+	if (!Subscriber->recv(&Message)) {
+		UE_LOG(LogTemp, Error, TEXT("ZeroMQ: Failed to receive message from subscriber"));
+	}
 
-    // Store the serialized data into a TArray
-    TArray<uint8> DataArray;
-    DataArray.Append(static_cast<uint8*>(Message.data()), Message.size());
+	// Store the serialized data into a TArray
+	TArray<uint8> DataArray;
+	DataArray.Append(static_cast<uint8*>(Message.data()), Message.size());
 
-    // Create a deserializer
-    FDcDeserializer Deserializer;
-    DcSetupMsgPackDeserializeHandlers(Deserializer, EDcMsgPackDeserializeType::StringSoftLazy);
+	// Create a deserializer
+	FDcDeserializer Deserializer;
+	DcSetupMsgPackDeserializeHandlers(Deserializer, EDcMsgPackDeserializeType::StringSoftLazy);
 
-    // Prepare context for this run
-    FDcPropertyDatum Datum(&SurfaceData);
-    FDcMsgPackReader Reader(FDcBlobViewData::From(DataArray));
-    FDcPropertyWriter Writer(Datum);
+	// Prepare context for this run
+	FDcPropertyDatum Datum(&SurfaceData);
+	FDcMsgPackReader Reader(FDcBlobViewData::From(DataArray));
+	FDcPropertyWriter Writer(Datum);
 
-    FDcDeserializeContext Ctx;
-    Ctx.Reader = &Reader;
-    Ctx.Writer = &Writer;
-    Ctx.Deserializer = &Deserializer;
-    DC_TRY(Ctx.Prepare());
+	FDcDeserializeContext Ctx;
+	Ctx.Reader = &Reader;
+	Ctx.Writer = &Writer;
+	Ctx.Deserializer = &Deserializer;
+	DC_TRY(Ctx.Prepare());
 
-    DC_TRY(Deserializer.Deserialize(Ctx));
-    return DcOk();
+	DC_TRY(Deserializer.Deserialize(Ctx));
+	return DcOk();
+}
+
+void AEgoVehicle::ParseGazeData(FString GazeDataString) {
+	float HighestTimestamp = -1.0f;
+	// Remove the square brackets in the strings
+	GazeDataString = GazeDataString.Mid(1, GazeDataString.Len() - 2);
+
+	// Split the FString into individual gaze data entries
+	TArray<FString> GazeDataEntries;
+	GazeDataString.ParseIntoArray(GazeDataEntries, TEXT("}, "), true);
+
+	for (FString Entry : GazeDataEntries) {
+		LOG("Working on the gaze entry: %s", *Entry);
+		Entry = Entry.Replace(TEXT("{"), TEXT(""));
+
+		FTypedGazeData GazeData;
+		TArray<FString> KeyValuePairs;
+		Entry.ParseIntoArray(KeyValuePairs, TEXT(", '"), true);
+
+		for (FString KeyValuePair : KeyValuePairs) {
+			KeyValuePair = KeyValuePair.Replace(TEXT("'"), TEXT(""));
+			LOG("Entry: %s, KeyValuePair: %s", *Entry, *KeyValuePair);
+
+			TArray<FString> KeyAndValue;
+			KeyValuePair.ParseIntoArray(KeyAndValue, TEXT(": "), true);
+			if (KeyAndValue.Num() == 2) {
+				FString Key = KeyAndValue[0].TrimStartAndEnd();
+				FString Value = KeyAndValue[1].TrimStartAndEnd();
+
+				if (Key == TEXT("topic")) {
+					GazeData.Topic = Value.TrimQuotes();
+				}
+				else if (Key == TEXT("norm_pos")) {
+					TArray<FString> NormPosValues;
+					Value.ParseIntoArray(NormPosValues, TEXT(", "), true);
+					for (FString NormPosValue : NormPosValues) {
+						GazeData.NormPos.Add(FCString::Atof(*NormPosValue));
+					}
+				}
+				else if (Key == TEXT("confidence")) {
+					GazeData.Confidence = FCString::Atof(*Value);
+				}
+				else if (Key == TEXT("on_surf")) {
+					GazeData.OnSurf = Value == TEXT("True") ? true : false;
+				}
+				else if (Key == TEXT("base_data")) {
+					// Remove the paranthesis in the key
+					Value = Value.Mid(1, Value.Len() - 2);
+					TArray<FString> BaseDataValues;
+					Value.TrimStartAndEnd().ParseIntoArray(BaseDataValues, TEXT(", "), true);
+					GazeData.BaseData.TopicPrefix = BaseDataValues[0].TrimQuotes();
+					GazeData.BaseData.TimeStamp = FCString::Atof(*BaseDataValues[1]);
+				}
+				else if (Key == TEXT("timestamp")) {
+					GazeData.TimeStamp = FCString::Atof(*Value);
+				}
+			}
+		}
+
+		// If this gaze data has a higher timestamp, store it
+		if (GazeData.TimeStamp > HighestTimestamp) {
+			HighestTimestampGazeData = GazeData;
+			HighestTimestamp = GazeData.TimeStamp;
+		}
+	}
 }

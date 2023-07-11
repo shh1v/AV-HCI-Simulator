@@ -347,12 +347,25 @@ private: // Eye-tracking
     zmq::context_t* Context;    // Stores the context of the zmq proccess
     zmq::socket_t* Subscriber; // Pointer to the sub socket to listen to pupil labs software
     FSurfaceData SurfaceData; // Store all the data from the surface topic
-    bool EstablishEyeTrackerConnection(); // Establish connection to a TCP port for PUBLISH-SUBSCRIBE protocal communication
-    FString SurfaceDataToString(const FSurfaceData& Data);
+    struct FBaseData {
+        FString TopicPrefix;
+        float TimeStamp;
+    };
+    struct FTypedGazeData {
+        FString Topic;
+        TArray<float> NormPos;
+        float Confidence;
+        bool OnSurf;
+        FBaseData BaseData;
+        float TimeStamp;
+    };
+    FTypedGazeData HighestTimestampGazeData; // This will store the latest surface gaze data
 
 public: // Eye-tracking
     bool IsUserGazingOnHUD(const FVector2D& ScreenLocation); // Returns true if the gaze is on the HUD
+    bool EstablishEyeTrackerConnection(); // Establish connection to a TCP port for PUBLISH-SUBSCRIBE protocal communication
     FDcResult GetSurfaceData(); // Get all the surface data from the eye tracker
+    void ParseGazeData(FString GazeDataString); // This method will load data into FGazeData object
     FVector2D GetGazeScreenLocation(); // Returns the screen gaze location from the eye tracker
 
   private: // other

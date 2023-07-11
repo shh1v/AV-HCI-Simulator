@@ -71,9 +71,7 @@ void AEgoVehicle::TerminateNDRT() {
 }
 
 void AEgoVehicle::TickNDRT() {
-	GetSurfaceData();
-	// Check if the gaze is being retrived
-	LOG("SurfaceData: %s", *SurfaceDataToString(SurfaceData));
+	GetGazeScreenLocation();
 }
 
 void AEgoVehicle::ConstructHUD() {
@@ -168,18 +166,4 @@ void AEgoVehicle::SetLetter(const FString& Letter) {
 	FString MaterialPath = FString::Printf(TEXT("Material'/Game/NDRT/NBackTask/Letters/M_%s.M_%s'"), *Letter, *Letter);
 	static ConstructorHelpers::FObjectFinder<UMaterial> NewMaterial(*MaterialPath);
 	NBackLetter->SetMaterial(0, NewMaterial.Object);
-}
-
-FString AEgoVehicle::SurfaceDataToString(const FSurfaceData& Data)
-{
-	FString Result = FString::Printf(TEXT("Topic: %s\n"), *Data.topic);
-	Result += FString::Printf(TEXT("Name: %s\n"), *Data.name);
-	Result += FString::Printf(TEXT("Surface to Image Transform: %s\n"), *Data.surf_to_img_trans);
-	Result += FString::Printf(TEXT("Image to Surface Transform: %s\n"), *Data.img_to_surf_trans);
-	Result += FString::Printf(TEXT("Surface to Distorted Image Transform: %s\n"), *Data.surf_to_dist_img_trans);
-	Result += FString::Printf(TEXT("Distorted Image to Surface Transform: %s\n"), *Data.dist_img_to_surf_trans);
-	Result += FString::Printf(TEXT("Gaze on Surfaces: %s\n"), *Data.gaze_on_surfaces);
-	Result += FString::Printf(TEXT("Fixations on Surfaces: %s\n"), *Data.fixations_on_surfaces);
-	Result += FString::Printf(TEXT("Timestamp: %s\n"), *Data.timestamp);
-	return Result;
 }
