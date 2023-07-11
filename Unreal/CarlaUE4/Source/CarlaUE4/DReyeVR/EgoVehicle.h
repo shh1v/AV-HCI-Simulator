@@ -17,38 +17,11 @@
 #include "FlatHUD.h"                                  // ADReyeVRHUD
 #include "ImageUtils.h"                               // CreateTexture2D
 #include "WheeledVehicle.h"                           // VehicleMovementComponent
+#include <zmq.hpp>                                    // ZeroMQ Plugin
+#include "DcTypes.h"                                  // FDcResult
+#include "MsgPackDatatypes.h"                         // FSurfaceData
 #include <stdio.h>
 #include <vector>
-#include <zmq.hpp>
-#include "MsgPackDatatypes.h"
-
-
-#include "Json/DcJsonReader.h"
-#include "Json/DcJsonWriter.h"
-#include "Deserialize/DcDeserializeTypes.h"
-#include "Deserialize/DcDeserializeUtils.h"
-#include "Deserialize/DcDeserializerSetup.h"
-#include "DcTypes.h"
-#include "Property/DcPropertyDatum.h"
-
-#include "DataConfig/DcEnv.h"
-#include "DataConfig/Automation/DcAutomation.h"
-#include "DataConfig/Deserialize/DcDeserializer.h"
-#include "DataConfig/Deserialize/DcDeserializerSetup.h"
-#include "DataConfig/Property/DcPropertyWriter.h"
-#include "DataConfig/Serialize/DcSerializer.h"
-#include "DataConfig/Serialize/DcSerializerSetup.h"
-#include "DataConfig/Property/DcPropertyReader.h"
-#include "DataConfig/Automation/DcAutomationUtils.h"
-#include "DataConfig/Diagnostic/DcDiagnosticSerDe.h"
-#include "DataConfig/Serialize/DcSerializeUtils.h"
-#include "DataConfig/DcEnv.h"
-#include "DataConfig/DcTypes.h"
-#include "DataConfig/Json/DcJsonReader.h"
-#include "DataConfig/Diagnostic/DcDiagnosticJSON.h"
-#include "DataConfig/Diagnostic/DcDiagnosticCommon.h"
-
-
 #include "EgoVehicle.generated.h"
 
 class ADReyeVRGameMode;

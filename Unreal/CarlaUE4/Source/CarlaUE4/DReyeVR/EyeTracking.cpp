@@ -15,35 +15,12 @@
 #include "Engine/EngineTypes.h"						// Engine Types
 #include <zmq.hpp>									// ZeroMQ plugin
 #include <string>									// Raw string for ZeroMQ
-#include "MsgPack/DcMsgPackReader.h"				// MsgPack Reader
-#include "Property/DcPropertyDatum.h"				// Datum to load retrived message
-#include "Property/DcPropertyWriter.h"				// Property writer
-#include "Deserialize/DcDeserializer.h"				// Deserialize retrived data
-#include "MsgPackDatatypes.h"						// Custom datatype to handle incoming data
-#include "Json/DcJsonReader.h"
-#include "Json/DcJsonWriter.h"
-#include "Deserialize/DcDeserializeTypes.h"
-#include "Deserialize/DcDeserializeUtils.h"
-#include "Deserialize/DcDeserializerSetup.h"
-#include "DcTypes.h"
-#include "Property/DcPropertyDatum.h"
-
-#include "DataConfig/DcEnv.h"
-#include "DataConfig/Automation/DcAutomation.h"
-#include "DataConfig/Deserialize/DcDeserializer.h"
-#include "DataConfig/Deserialize/DcDeserializerSetup.h"
-#include "DataConfig/Property/DcPropertyWriter.h"
-#include "DataConfig/Serialize/DcSerializer.h"
-#include "DataConfig/Serialize/DcSerializerSetup.h"
-#include "DataConfig/Property/DcPropertyReader.h"
-#include "DataConfig/Automation/DcAutomationUtils.h"
-#include "DataConfig/Diagnostic/DcDiagnosticSerDe.h"
-#include "DataConfig/Serialize/DcSerializeUtils.h"
-#include "DataConfig/DcEnv.h"
-#include "DataConfig/DcTypes.h"
-#include "DataConfig/Json/DcJsonReader.h"
-#include "DataConfig/Diagnostic/DcDiagnosticJSON.h"
-#include "DataConfig/Diagnostic/DcDiagnosticCommon.h"
+#include "MsgPack/DcMsgPackReader.h"				// MsgPackReader
+#include "Property/DcPropertyDatum.h"				// Datum
+#include "Property/DcPropertyWriter.h"				// PropertyWriter
+#include "Deserialize/DcDeserializer.h"				// Deserializer
+#include "Deserialize/DcDeserializerSetup.h"		// EDcMsgPackDeserializeType
+#include "MsgPackDatatypes.h"						// MsgPackDatatypes
 
 bool AEgoVehicle::IsUserGazingOnHUD(const FVector2D& ScreenPosition) {
 	FVector WorldLocation, WorldDirection; // These variables will be set by DeprojectScreenPositionToWorld
@@ -113,8 +90,7 @@ FVector2D AEgoVehicle::GetGazeScreenLocation() {
 	// Load the data into FGazeData
 	ParseGazeData(SurfaceData.gaze_on_surfaces);
 
-	for (int32 i = 0; i < HighestTimestampGazeData.NormPos.Num(); ++i)
-	{
+	for (int32 i = 0; i < HighestTimestampGazeData.NormPos.Num(); ++i) {
 		LOG("NormPos[%d]: %f", i, HighestTimestampGazeData.NormPos[i]);
 	}
 
@@ -149,7 +125,7 @@ FDcResult AEgoVehicle::GetSurfaceData() {
 
 	// Create a deserializer
 	FDcDeserializer Deserializer;
-	DcSetupMsgPackDeserializeHandlers(Deserializer, EDcMsgPackDeserializeType::StringSoftLazy);
+	DcSetupMsgPackDeserializeHandlers(Deserializer, EDcMsgPackDeserializeType::Default);
 
 	// Prepare context for this run
 	FDcPropertyDatum Datum(&SurfaceData);
@@ -216,7 +192,7 @@ void AEgoVehicle::ParseGazeData(FString GazeDataString) {
 					Value.TrimStartAndEnd().ParseIntoArray(BaseDataValues, TEXT(", "), true);
 					GazeData.BaseData.TopicPrefix = BaseDataValues[0].TrimQuotes();
 					GazeData.BaseData.TimeStamp = FCString::Atof(*BaseDataValues[1]);
-				}
+				} 
 				else if (Key == TEXT("timestamp")) {
 					GazeData.TimeStamp = FCString::Atof(*Value);
 				}
