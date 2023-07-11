@@ -172,75 +172,14 @@ void AEgoVehicle::SetLetter(const FString& Letter) {
 
 FString AEgoVehicle::SurfaceDataToString(const FSurfaceData& Data)
 {
-	FString result = FString::Printf(TEXT("FSurfaceData:\nTopic: %s\nName: %s\nTimestamp: %f\n"), *Data.topic, *Data.name, Data.timestamp);
-
-	for (const FFloatArray& ffa : Data.surf_to_img_trans)
-	{
-		result += TEXT("\nSurf to Img Trans: ");
-		for (const float& f : ffa.data)
-		{
-			result += FString::Printf(TEXT("%f "), f);
-		}
-	}
-
-	for (const FFloatArray& ffa : Data.img_to_surf_trans)
-	{
-		result += TEXT("\nImg to Surf Trans: ");
-		for (const float& f : ffa.data)
-		{
-			result += FString::Printf(TEXT("%f "), f);
-		}
-	}
-
-	for (const FFloatArray& ffa : Data.surf_to_dist_img_trans)
-	{
-		result += TEXT("\nSurf to Dist Img Trans: ");
-		for (const float& f : ffa.data)
-		{
-			result += FString::Printf(TEXT("%f "), f);
-		}
-	}
-
-	for (const FFloatArray& ffa : Data.dist_img_to_surf_trans)
-	{
-		result += TEXT("\nDist Img to Surf Trans: ");
-		for (const float& f : ffa.data)
-		{
-			result += FString::Printf(TEXT("%f "), f);
-		}
-	}
-
-	for (const FGazeOnSurface& gos : Data.gaze_on_surfaces)
-	{
-		result += FString::Printf(TEXT("\nFGazeOnSurface:\nTopic: %s\nConfidence: %f\nOn Surf: %s\nTimestamp: %f"),
-			*gos.topic, gos.confidence, gos.on_surf ? TEXT("True") : TEXT("False"), gos.timestamp);
-
-		for (const float& f : gos.norm_pos)
-		{
-			result += FString::Printf(TEXT("\nNorm Pos: %f"), f);
-		}
-
-		for (const FString& s : gos.base_data)
-		{
-			result += FString::Printf(TEXT("\nBase Data: %s"), *s);
-		}
-	}
-
-	for (const FFixationsOnSurface& fos : Data.fixations_on_surfaces)
-	{
-		result += FString::Printf(TEXT("\nFFixationsOnSurface:\nTopic: %s\nConfidence: %f\nOn Surf: %s\nTimestamp: %f\nDuration: %f\nDispersion: %f"),
-			*fos.topic, fos.confidence, fos.on_surf ? TEXT("True") : TEXT("False"), fos.timestamp, fos.duration, fos.dispersion);
-
-		for (const float& f : fos.norm_pos)
-		{
-			result += FString::Printf(TEXT("\nNorm Pos: %f"), f);
-		}
-
-		for (const FString& s : fos.base_data)
-		{
-			result += FString::Printf(TEXT("\nBase Data: %s"), *s);
-		}
-	}
-
-	return result;
+	FString Result = FString::Printf(TEXT("Topic: %s\n"), *Data.topic);
+	Result += FString::Printf(TEXT("Name: %s\n"), *Data.name);
+	Result += FString::Printf(TEXT("Surface to Image Transform: %s\n"), *Data.surf_to_img_trans);
+	Result += FString::Printf(TEXT("Image to Surface Transform: %s\n"), *Data.img_to_surf_trans);
+	Result += FString::Printf(TEXT("Surface to Distorted Image Transform: %s\n"), *Data.surf_to_dist_img_trans);
+	Result += FString::Printf(TEXT("Distorted Image to Surface Transform: %s\n"), *Data.dist_img_to_surf_trans);
+	Result += FString::Printf(TEXT("Gaze on Surfaces: %s\n"), *Data.gaze_on_surfaces);
+	Result += FString::Printf(TEXT("Fixations on Surfaces: %s\n"), *Data.fixations_on_surfaces);
+	Result += FString::Printf(TEXT("Timestamp: %s\n"), *Data.timestamp);
+	return Result;
 }

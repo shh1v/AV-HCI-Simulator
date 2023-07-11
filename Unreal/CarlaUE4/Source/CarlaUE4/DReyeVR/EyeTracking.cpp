@@ -157,16 +157,17 @@ bool AEgoVehicle::EstablishEyeTrackerConnection() {
 //     "timestamp": 714040.103912,
 // }
 FVector2D AEgoVehicle::GetGazeScreenLocation() {
-	// If everything was successful, one can now use your Destination object
-	// We return the last gaze position as a FVector2D
-	if (SurfaceData.gaze_on_surfaces.Num() > 0)
-	{
-		FGazeOnSurface LastGaze = SurfaceData.gaze_on_surfaces[SurfaceData.gaze_on_surfaces.Num() - 1];
-		return FVector2D(LastGaze.norm_pos[0], LastGaze.norm_pos[1]);
-    }
-    else {
-        return FVector2D(-1, -1);
-    }
+	//// If everything was successful, one can now use your Destination object
+	//// We return the last gaze position as a FVector2D
+	//if (SurfaceData.gaze_on_surfaces.Num() > 0)
+	//{
+	//	FGazeOnSurface LastGaze = SurfaceData.gaze_on_surfaces[SurfaceData.gaze_on_surfaces.Num() - 1];
+	//	return FVector2D(LastGaze.norm_pos[0], LastGaze.norm_pos[1]);
+ //   }
+ //   else {
+ //       return FVector2D(-1, -1);
+ //   }
+    return FVector2D(-1, -1);
 }
 
 FDcResult AEgoVehicle::GetSurfaceData() {
@@ -197,7 +198,7 @@ FDcResult AEgoVehicle::GetSurfaceData() {
 
     // Create a deserializer
     FDcDeserializer Deserializer;
-    DcSetupMsgPackDeserializeHandlers(Deserializer, EDcMsgPackDeserializeType::Default);
+    DcSetupMsgPackDeserializeHandlers(Deserializer, EDcMsgPackDeserializeType::StringSoftLazy);
 
     // Prepare context for this run
     FDcPropertyDatum Datum(&SurfaceData);
