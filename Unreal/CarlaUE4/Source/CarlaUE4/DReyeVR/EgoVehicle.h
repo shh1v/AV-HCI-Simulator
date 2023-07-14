@@ -335,11 +335,11 @@ private: // Eye-tracking
     FTypedGazeData HighestTimestampGazeData; // This will store the latest surface gaze data
 
 public: // Eye-tracking
-    bool IsUserGazingOnHUD(const FVector2D& ScreenLocation); // Returns true if the gaze is on the HUD
+    bool IsUserGazingOnHUD(); // Returns true if the gaze is on the HUD
     bool EstablishEyeTrackerConnection(); // Establish connection to a TCP port for PUBLISH-SUBSCRIBE protocal communication
     FDcResult GetSurfaceData(); // Get all the surface data from the eye tracker
     void ParseGazeData(FString GazeDataString); // This method will load data into FGazeData object
-    FVector2D GetGazeScreenLocation(); // Returns the screen gaze location from the eye tracker
+    FVector2D GetGazeHUDLocation(); // Returns the screen gaze location from the eye tracker
 
   private: // other
     void DebugLines() const;

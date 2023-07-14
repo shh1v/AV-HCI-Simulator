@@ -24,49 +24,8 @@
 #include "Deserialize/DcDeserializerSetup.h"		// EDcMsgPackDeserializeType
 #include "MsgPackDatatypes.h"						// MsgPackDatatypes
 
-bool AEgoVehicle::IsUserGazingOnHUD(const FVector2D& ScreenPosition) {
-	if (!ensure(this != nullptr)) {
-		UE_LOG(LogTemp, Warning, TEXT("AEgoVehicle is nullptr."));
-		return false;
-	}
-
-	APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
-	if (!ensure(PlayerController != nullptr)) {
-		UE_LOG(LogTemp, Warning, TEXT("PlayerController is nullptr or not an APlayerController."));
-		return false;
-	}
-
-	FVector WorldLocation, WorldDirection; // These variables will be set by DeprojectScreenPositionToWorld
-	if (PlayerController->DeprojectScreenPositionToWorld(ScreenPosition.X, ScreenPosition.Y, WorldLocation, WorldDirection)) {
-		FHitResult HitResult;
-		FVector StartLocation = WorldLocation;
-		FVector EndLocation = WorldLocation + WorldDirection * 1000; // 100 is just the ray length. Change if necessary
-
-		UWorld* World = GetWorld();
-		if (!ensure(World != nullptr)) {
-			UE_LOG(LogTemp, Warning, TEXT("World is nullptr."));
-			return false;
-		}
-
-		// Perform the line trace and collect all the static mesh that were hit
-		TArray<FHitResult> HitResults;
-		World->LineTraceMultiByChannel(HitResults, StartLocation, EndLocation, ECC_Visibility);
-
-		for (const FHitResult& HitResult : HitResults) {
-			UStaticMeshComponent* HitMeshComponent = Cast<UStaticMeshComponent>(HitResult.Component.Get());
-			if (HitMeshComponent == nullptr) continue; // The hit is not a UStaticMeshComponent
-			if (HitMeshComponent == PrimaryHUD) {
-				UE_LOG(LogTemp, Warning, TEXT("User is gazing on HUD."));
-				return true;
-			}
-		}
-
-	}
-	else {
-		UE_LOG(LogTemp, Warning, TEXT("Failed to deproject screen position to world."));
-	}
-	UE_LOG(LogTemp, Warning, TEXT("User is not gazing on HUD."));
-	return false;
+bool AEgoVehicle::IsUserGazingOnHUD() {
+	return HighestTimestampGazeData.OnSurf;
 }
 
 
@@ -108,17 +67,10 @@ bool AEgoVehicle::EstablishEyeTrackerConnection() {
 	return true;
 }
 
-FVector2D AEgoVehicle::GetGazeScreenLocation() {
-	// Get the updated message from using Zero-MW PUB-SUB
-	GetSurfaceData();
-
-	// Load the data into FGazeData
-	ParseGazeData(SurfaceData.gaze_on_surfaces);
-
+FVector2D AEgoVehicle::GetGazeHUDLocation() {
 	// Multiply the normalized coordinates to the game resolution (i.e., equivalent to the screen resolution)
-	UGameUserSettings* GameUserSettings = GEngine->GameUserSettings;
-	FIntPoint ScreenRes = GameUserSettings->GetScreenResolution();
-	return FVector2D(HighestTimestampGazeData.NormPos[0] * ScreenRes[0], HighestTimestampGazeData.NormPos[1] * ScreenRes[1]);
+	// Note/WARNING: The screen resolution values are hard coded
+	return FVector2D(HighestTimestampGazeData.NormPos[0], HighestTimestampGazeData.NormPos[1]);
 }
 
 FDcResult AEgoVehicle::GetSurfaceData() {

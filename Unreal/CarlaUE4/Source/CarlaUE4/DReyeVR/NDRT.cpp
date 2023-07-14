@@ -71,21 +71,18 @@ void AEgoVehicle::TerminateNDRT() {
 }
 
 void AEgoVehicle::TickNDRT() {
-	FVector2D GazeScreenLocation = GetGazeScreenLocation();
-	bool gazeOnHUD = IsUserGazingOnHUD(GazeScreenLocation);
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("ScreenLocation: (%f, %f)"), GazeScreenLocation[0], GazeScreenLocation[1]));
+	// Get the updated message from using Zero-MW PUB-SUB
+	GetSurfaceData();
 
-	// Just for logging purposes
-	if (gazeOnHUD) {
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Gaze on head-up display"));
+	// Load the data into FGazeData
+	ParseGazeData(SurfaceData.gaze_on_surfaces);
+
+	// Just for debugging
+	if (IsUserGazingOnHUD()) {
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("OnHUD: TRUE"));
 	}
 	else {
-		if (HighestTimestampGazeData.OnSurf) {
-			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("Gaze on road"));
-		}
-		else {
-			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, TEXT("Gaze out of the scope of game"));
-		}
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("OnHUD: FALSE"));
 	}
 }
 
