@@ -17,9 +17,11 @@
 #include "FlatHUD.h"                                  // ADReyeVRHUD
 #include "ImageUtils.h"                               // CreateTexture2D
 #include "WheeledVehicle.h"                           // VehicleMovementComponent
+#include <zmq.hpp>                                    // ZeroMQ Plugin
+#include "DcTypes.h"                                  // FDcResult
+#include "MsgPackDatatypes.h"                         // FSurfaceData
 #include <stdio.h>
 #include <vector>
-
 #include "EgoVehicle.generated.h"
 
 class ADReyeVRGameMode;
@@ -313,6 +315,31 @@ class CARLAUE4_API AEgoVehicle : public ACarlaWheeledVehicle
     void SetVisibilityOfNDRT(bool visibility);    // Completely hide/appear the head-up display (and subsequently pase the NDRT if not done already)
     void TerminateNDRT();   // Destroy the NDRT head-up display and terminate the NDRT
     void TickNDRT(); // Update the NDRT on every tick based on its individual implementation
+
+private: // Eye-tracking
+    zmq::context_t* Context;    // Stores the context of the zmq proccess
+    zmq::socket_t* Subscriber; // Pointer to the sub socket to listen to pupil labs software
+    FSurfaceData SurfaceData; // Store all the data from the surface topic
+    struct FBaseData {
+        FString TopicPrefix;
+        float TimeStamp;
+    };
+    struct FTypedGazeData {
+        FString Topic;
+        TArray<float> NormPos;
+        float Confidence;
+        bool OnSurf;
+        FBaseData BaseData;
+        float TimeStamp;
+    };
+    FTypedGazeData HighestTimestampGazeData; // This will store the latest surface gaze data
+
+public: // Eye-tracking
+    bool IsUserGazingOnHUD(); // Returns true if the gaze is on the HUD
+    bool EstablishEyeTrackerConnection(); // Establish connection to a TCP port for PUBLISH-SUBSCRIBE protocal communication
+    FDcResult GetSurfaceData(); // Get all the surface data from the eye tracker
+    void ParseGazeData(FString GazeDataString); // This method will load data into FGazeData object
+    FVector2D GetGazeHUDLocation(); // Returns the screen gaze location from the eye tracker
 
   private: // other
     void DebugLines() const;

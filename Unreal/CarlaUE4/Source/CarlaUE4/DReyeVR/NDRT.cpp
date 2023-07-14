@@ -49,6 +49,9 @@ void AEgoVehicle::StartNDRT() {
 		MediaPlayer->OpenSource(MediaPlayerSource);
 		break;
 	}
+
+	// Establish connection with the eye-tracker
+	EstablishEyeTrackerConnection();
 }
 
 void AEgoVehicle::ToggleNDRT(bool active) {
@@ -68,7 +71,19 @@ void AEgoVehicle::TerminateNDRT() {
 }
 
 void AEgoVehicle::TickNDRT() {
+	// Get the updated message from using Zero-MW PUB-SUB
+	GetSurfaceData();
 
+	// Load the data into FGazeData
+	ParseGazeData(SurfaceData.gaze_on_surfaces);
+
+	// Just for debugging
+	if (IsUserGazingOnHUD()) {
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("OnHUD: TRUE"));
+	}
+	else {
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("OnHUD: FALSE"));
+	}
 }
 
 void AEgoVehicle::ConstructHUD() {
@@ -130,7 +145,7 @@ void AEgoVehicle::ConstructNBackElements() {
 	static ConstructorHelpers::FObjectFinder<UMaterial> NewMaterial(*MaterialPath);
 	NBackTitle->SetMaterial(0, NewMaterial.Object);
 }
-	
+
 void AEgoVehicle::ConstructTVShowElements() {
 	// Initializing the static mesh for the media player with a default texture
 	MediaPlayerMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("TV-show Pane"));
@@ -159,9 +174,8 @@ void AEgoVehicle::ConstructTVShowElements() {
 
 
 void AEgoVehicle::SetLetter(const FString& Letter) {
-
 	if (NBackLetter == nullptr) return; // NBackLetter is not initialized yet
 	FString MaterialPath = FString::Printf(TEXT("Material'/Game/NDRT/NBackTask/Letters/M_%s.M_%s'"), *Letter, *Letter);
-	static ConstructorHelpers::FObjectFinder<UMaterial> NewMaterial (*MaterialPath);
+	static ConstructorHelpers::FObjectFinder<UMaterial> NewMaterial(*MaterialPath);
 	NBackLetter->SetMaterial(0, NewMaterial.Object);
 }
