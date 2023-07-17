@@ -1,12 +1,29 @@
 // Copyright (c) 2023 Okanagan Visualization & Interaction (OVI) Lab at the University of British Columbia. This work is licensed under the terms of the MIT license. For a copy, see <https://opensource.org/lic
 
-#include "DReyeVR/LogitechData.h"
+#include "ConfigFile.h"
+#include "Misc/App.h"
+#include "LogitechData.h"
 
-void LogitechData::ReadExperimentFiles()
+/* Have to seperately define a method for reaction time as it has to be as precise as possible */
+
+void LogitechData::LogReactionTime(RTTimer TimerStatus)
 {
+	if (TimerStatus == RTTimer::Start)
+	{
+		check(ReactionTime == -1.0f);
+		ReactionTime = FApp::GetCurrentTime(); // Store the initial timestamp
+	}
+	else
+	{
+		check(ReactionTime != -1.0f); // Ensure a valid timestamp was stored
+		float TimeDifference = FApp::GetCurrentTime() - ReactionTime;
+		check(TimeDifference > 0.0f); // Ensure the time difference is strictly greater than zero
+		ReactionTime = TimeDifference; // Update ReactionTime with the time difference
+	}
 }
 
-void LogitechData::LogNewData(const struct DIJOYSTATE2* WheelState)
+
+void LogitechData::LogLogitechData(const struct DIJOYSTATE2* WheelState)
 {
 	/// NOTE: obtained these from LogitechWheelInputDevice.cpp:~111
 	// -32768 to 32767. -32768 = all the way to the left. 32767 = all the way to the right.
@@ -37,6 +54,7 @@ void LogitechData::LogNewData(const struct DIJOYSTATE2* WheelState)
 
 void LogitechData::WriteData()
 {
+	// Writing individual data arrays as files
 }
 
 void LogitechData::ResetDataArrays()

@@ -21,6 +21,7 @@
 class CARLAUE4_API LogitechData
 {
 private:
+	float ReactionTime;
 	TArray<FDateTime> Timestamps;
 	TArray<float> SteeringWheelAngles;
 	TArray<float> SteeringWheelVelocities;
@@ -28,8 +29,9 @@ private:
 	TArray<float> BrakingInputs;
 	
 public:
-	void ReadExperimentFiles(); // Reads the trial variables values
-	void LogNewData(const struct DIJOYSTATE2* WheelState);	//	Will be called in every tick to append new data retrived from the logitech steering wheels
+	enum class RTLogAction { Start, EndLog };
+	void LogReactionTime(RTLogAction action);
+	void LogLogitechData(const struct DIJOYSTATE2* WheelState);	//	Will be called in every tick to append new data retrived from the logitech steering wheels
 	void WriteData();		// Finally write data once a TOR is finished
 	void ResetDataArrays();	// Reset the raw data arrays, preparing for recording the next TOR performance
 };
