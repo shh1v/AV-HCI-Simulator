@@ -269,6 +269,9 @@ class CARLAUE4_API AEgoVehicle : public ACarlaWheeledVehicle
     enum class TaskType {NBackTask, TVShowTask}; // Change the behaviour of the NDRT based on the task type provided
     // The following value will determine the 
     TaskType CurrentTaskType = TaskType::TVShowTask; // Should be dynamically retrived from a config file
+    enum class InterruptionParadigm { SelfRegulated, SystemRecommended, SystemInitiated}; // Change the behaviour of the NDRT based on the task type provided
+    // The following value will determine the 
+    InterruptionParadigm CurrentInterruptionParadigm = InterruptionParadigm::SelfRegulated; // Should be dynamically retrived from a config file
     // Primary Display: Present the NDRT; Secondary Display: Present the alerts
     UPROPERTY(Category = NDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* PrimaryHUD;

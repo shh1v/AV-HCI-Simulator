@@ -18,20 +18,23 @@
  * This code works in company with DReyeVRPawn
  */
 
-class CARLAUE4_API LogitechData
+class CARLAUE4_API DataLogging
 {
 private:
-	float ReactionTime;
+	float ReactionTime = -1.0f;
 	TArray<FDateTime> Timestamps;
-	TArray<float> SteeringWheelAngles;
-	TArray<float> SteeringWheelVelocities;
-	TArray<float> AccelerationInputs;
-	TArray<float> BrakingInputs;
-	
+	TArray<FString> SteeringWheelAngles;
+	TArray<FString> SteeringWheelVelocities;
+	TArray<FString> AccelerationInputs;
+	TArray<FString> BrakingInputs;
+	const TArray<FString> FixedHeaderRow = { "ParticipantID", "BlockNumber", "TrialNumber", "TaskType", "TaskSetting", "TrafficComplexity", "Timestamp"};
+
 public:
-	enum class RTLogAction { Start, EndLog };
-	void LogReactionTime(RTLogAction action);
+	enum class RTTimer{ Start, Stop };
+	TArray<FString> ReturnHeaderRow(const FString& DataPoint, bool IncludeTimestamp);
+	void LogReactionTime(RTTimer TimerStatus);
 	void LogLogitechData(const struct DIJOYSTATE2* WheelState);	//	Will be called in every tick to append new data retrived from the logitech steering wheels
+	void AppendArrayToCSV(const TArray<FString>& HeaderNames, const TArray<FString>& HeaderData, const TArray<FString>& LoggedData, bool WithTimeStamp);
 	void WriteData();		// Finally write data once a TOR is finished
-	void ResetDataArrays();	// Reset the raw data arrays, preparing for recording the next TOR performance
+	void EraseData();	// Reset the raw data arrays, preparing for recording the next TOR performance
 };
