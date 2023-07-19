@@ -3,28 +3,18 @@
 #define M_PI    3.14159265358979323846
 
 #include "DReyeVRUtils.h"
-#include "DataLogging.h"
+#include "DataLogger.h"
 
 /* Have to seperately define a method for reaction time as it has to be as precise as possible */
 
-void DataLogging::LogReactionTime(RTTimer TimerStatus)
+void DataLogger::LogReactionTime(const FDateTime& TORIssuanceTime)
 {
-	if (TimerStatus == RTTimer::Start)
-	{
-		check(ReactionTime == -1.0f);
-		ReactionTime = FPlatformTime::Seconds();; // Store the initial timestamp
-	}
-	else
-	{
-		check(ReactionTime != -1.0f); // Ensure a valid timestamp was stored
-		float TimeDifference = FPlatformTime::Seconds() - ReactionTime;
-		check(TimeDifference > 0.0f); // Ensure the time difference is strictly greater than zero
-		ReactionTime = TimeDifference; // Update ReactionTime with the time difference
-	}
+	check(ReactionTime == -1.0f);
+	ReactionTime = (FDateTime::Now() - TORIssuanceTime).GetTotalSeconds();
+	check(ReactionTime != 0.0f);
 }
 
-
-void DataLogging::LogLogitechData(const struct DIJOYSTATE2* WheelState)
+void DataLogger::LogLogitechData(const struct DIJOYSTATE2* WheelState)
 {
 	/// NOTE: obtained these from LogitechWheelInputDevice.cpp:~111
 	// -32768 to 32767. -32768 = all the way to the left. 32767 = all the way to the right.
@@ -53,7 +43,7 @@ void DataLogging::LogLogitechData(const struct DIJOYSTATE2* WheelState)
 	check(Timestamps.Num() == SteeringWheelAngles.Num() == SteeringWheelVelocities.Num() == AccelerationInputs.Num() == BrakingInputs.Num());
 }
 
-void DataLogging::EraseData()
+void DataLogger::EraseData()
 {
 	// Erase all the data (most likely for the next trial)
 	ReactionTime = -1.0f;
@@ -63,7 +53,7 @@ void DataLogging::EraseData()
 	BrakingInputs.Empty();
 }
 
-void DataLogging::WriteData()
+void DataLogger::WriteData()
 {
 	// Preparing the Header file for the CSV files
 	// [ParticipantID, BlockNumber, TrialNumber, TaskType, TaskSetting, TrafficComplexity, Timestamp, DataPoint]
@@ -86,13 +76,16 @@ void DataLogging::WriteData()
 	AppendArrayToCSV(ReturnHeaderRow("SteeringWheelVelocities", true), HeaderRow, SteeringWheelVelocities, true);
 	AppendArrayToCSV(ReturnHeaderRow("AccelerationInputs", true), HeaderRow, AccelerationInputs, true);
 	AppendArrayToCSV(ReturnHeaderRow("BrakingInputs", true), HeaderRow, BrakingInputs, true);
+
+	// Lastly, clear the data variables for using it again
+	EraseData();
 }
 
 
 /*
 * Note the header row does not have the timestamp element. So, it will have to be manually added in the function
 */
-void DataLogging::AppendArrayToCSV(const TArray<FString>& HeaderNames, const TArray<FString>& HeaderData, const TArray<FString>& LoggedData, bool WithTimeStamp)
+void DataLogger::AppendArrayToCSV(const TArray<FString>& HeaderNames, const TArray<FString>& HeaderData, const TArray<FString>& LoggedData, bool WithTimeStamp)
 {
 	FString CSVFilePath = FPaths::Combine(CarlaUE4Path, FString::Printf(TEXT("LoggedData/%s"), *HeaderNames[HeaderNames.Num() - 1]));
 	// Check if the file exists
@@ -132,7 +125,7 @@ void DataLogging::AppendArrayToCSV(const TArray<FString>& HeaderNames, const TAr
 	}
 }
 
-TArray<FString> DataLogging::ReturnHeaderRow(const FString& DataPoint, bool IncludeTimestamp) {
+TArray<FString> DataLogger::ReturnHeaderRow(const FString& DataPoint, bool IncludeTimestamp) {
 	// Make a copy of FixedHeaderRow
 	TArray<FString> TempArray = FixedHeaderRow;
 	if (!IncludeTimestamp) {
