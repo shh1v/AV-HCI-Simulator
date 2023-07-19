@@ -3,6 +3,7 @@
 #include "Camera/CameraComponent.h" // UCameraComponent
 #include "Engine/Scene.h"           // FPostProcessSettings
 #include "GameFramework/Pawn.h"     // CreatePlayerInputComponent
+#include "DataLogger.h"             // Data Logging
 
 #ifndef _WIN32
 // can only use LogitechWheel plugin on Windows! :(
@@ -143,4 +144,8 @@ class ADReyeVRPawn : public APawn
     // "Pedals will output a value of 0.5 until the wheel/pedals receive any kind of input."
     // https://github.com/HARPLab/LogitechWheelPlugin
     bool bPedalsDefaulting = true;
+
+private:
+    ////////////////:LOGGING:////////////////
+    DataLogger *Logger; // DataLogger Object to run loggin operations
 };

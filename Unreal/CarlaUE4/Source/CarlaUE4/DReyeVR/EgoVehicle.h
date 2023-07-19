@@ -265,10 +265,27 @@ class CARLAUE4_API AEgoVehicle : public ACarlaWheeledVehicle
     class ADReyeVRCustomActor *AutopilotIndicator;
     bool bInitializedAutopilotIndicator = false;
 
+public: // Game signaling: Very risky to make them public, but is required to not declare additional get/set methods
+    FDateTime TORIssuanceTime;
+
+public: // Game signaling
+    enum class VehicleStatus { ManualMode, AutopilotStarting, AutopilotRunning, PreAlert, InterleavingMode, TakeOverMode };
+    void UpdateVehicleStatus(VehicleStatus NewStatus); // Chnage the vehicle status by ensuring old status is robust
+    void RetrieveVehicleStatus(); // Update the vehicles status using ZeroMQ PUB-SUB
+    VehicleStatus GetCurrVehicleStatus();
+    VehicleStatus GetOldVehicleStatus();
+
+private: // Game signaling
+    VehicleStatus CurrVehicleStatus = VehicleStatus::ManualMode; // This stores the current tick's vehicle status
+    VehicleStatus OldVehicleStatus = VehicleStatus::ManualMode; // This stores the previous tick's vehicle status
+
   private: // Non-Driving-Related Task
     enum class TaskType {NBackTask, TVShowTask}; // Change the behaviour of the NDRT based on the task type provided
     // The following value will determine the 
     TaskType CurrentTaskType = TaskType::TVShowTask; // Should be dynamically retrived from a config file
+    enum class InterruptionParadigm { SelfRegulated, SystemRecommended, SystemInitiated}; // Change the behaviour of the NDRT based on the task type provided
+    // The following value will determine the 
+    InterruptionParadigm CurrentInterruptionParadigm = InterruptionParadigm::SelfRegulated; // Should be dynamically retrived from a config file
     // Primary Display: Present the NDRT; Secondary Display: Present the alerts
     UPROPERTY(Category = NDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* PrimaryHUD;

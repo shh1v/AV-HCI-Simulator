@@ -332,3 +332,4 @@ struct ConfigFile
 };
 
 static ConfigFile GeneralParams(FPaths::Combine(CarlaUE4Path, TEXT("Config/DReyeVRConfig.ini")));
+static ConfigFile ExperimentParams(FPaths::Combine(CarlaUE4Path, TEXT("Config/ExperimentConfig.ini")));

@@ -1089,3 +1089,36 @@ void AEgoVehicle::DebugLines() const
     }
 #endif
 }
+
+/// ========================================== ///
+/// -------------:GAME SIGNALING:------------- ///
+/// ========================================== ///
+
+void AEgoVehicle::UpdateVehicleStatus(VehicleStatus NewStatus)
+{
+    OldVehicleStatus = CurrVehicleStatus;
+    CurrVehicleStatus = NewStatus;
+
+    // Some parameters setting, which are used in different components of the game
+    if (OldVehicleStatus == VehicleStatus::InterleavingMode && CurrVehicleStatus == VehicleStatus::TakeOverMode) {
+        // A take-over request has just been issued
+        TORIssuanceTime = FDateTime::Now();
+    }
+}
+
+AEgoVehicle::VehicleStatus AEgoVehicle::GetCurrVehicleStatus()
+{
+    return CurrVehicleStatus;
+}
+
+AEgoVehicle::VehicleStatus AEgoVehicle::GetOldVehicleStatus()
+{
+    return OldVehicleStatus;
+}
+
+void AEgoVehicle::RetrieveVehicleStatus()
+{
+    // Retrive the vehicle status
+    // Update the status
+    UpdateVehicleStatus(VehicleStatus::ManualMode);
+}
