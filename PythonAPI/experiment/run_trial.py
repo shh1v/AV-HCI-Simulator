@@ -8,13 +8,18 @@
 
 """Script used to run trials for the research study."""
 
+# Standard library imports
 import glob
 import os
 import sys
 import time
 
+# Local imports
 import carla
+from agents.navigation.basic_agent import BasicAgent
+from agents.navigation.behavior_agent import BehaviorAgent
 
+# Other library imports
 import argparse
 import logging
 

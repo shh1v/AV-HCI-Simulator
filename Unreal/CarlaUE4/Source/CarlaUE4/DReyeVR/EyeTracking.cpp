@@ -25,7 +25,13 @@
 #include "MsgPackDatatypes.h"						// MsgPackDatatypes
 
 bool AEgoVehicle::IsUserGazingOnHUD() {
+
 	return HighestTimestampGazeData.OnSurf;
+	if (bZMQEyeDataRetrive)
+	{
+		return HighestTimestampGazeData.OnSurf;
+	}
+	return false;
 }
 
 
@@ -36,17 +42,27 @@ bool AEgoVehicle::EstablishEyeTrackerConnection() {
 		Context = new zmq::context_t(1);
 		std::string Address = "127.0.0.1";
 		std::string RequestPort = "50020";
+		int bCommSuccess = false; // Used for error handling
 		zmq::socket_t Requester(*Context, ZMQ_REQ);
 		Requester.connect("tcp://" + Address + ":" + RequestPort);
 		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Connected to the TCP port"));
+
+		// Set send and recv timeout to 500 milliseconds.
+		int timeout = 500;
+		Requester.setsockopt(ZMQ_SNDTIMEO, &timeout, sizeof(timeout));
+		Requester.setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
 
 		// Get the SUBSRIBE port to connect for communication
 		std::string RequestString = "SUB_PORT";
 		zmq::message_t Request(RequestString.begin(), RequestString.end());
 		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Sending request to get SUB PORT"));
-		Requester.send(Request);
+		if (!Requester.send(Request)) {
+			throw std::runtime_error("Send operation timed out.");
+		}
 		zmq::message_t Reply;
-		Requester.recv(&Reply);
+		if (!Requester.recv(&Reply)) {
+			throw std::runtime_error("Recieve operation timed out.");
+		}
 		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Received SUB PORT"));
 		std::string SubscribePort = std::string(static_cast<char*>(Reply.data()), Reply.size());
 
@@ -64,27 +80,31 @@ bool AEgoVehicle::EstablishEyeTrackerConnection() {
 		return false;
 	}
 	UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Established connection to the Pupil labs Network API"));
+	bZMQEyeConnection = true;
 	return true;
 }
 
 FVector2D AEgoVehicle::GetGazeHUDLocation() {
 	// Multiply the normalized coordinates to the game resolution (i.e., equivalent to the screen resolution)
 	// Note/WARNING: The screen resolution values are hard coded
-	return FVector2D(HighestTimestampGazeData.NormPos[0], HighestTimestampGazeData.NormPos[1]);
+	if (bZMQEyeDataRetrive)
+	{
+		return FVector2D(HighestTimestampGazeData.NormPos[0], HighestTimestampGazeData.NormPos[1]);
+	}
+	return FVector2D(-1, -1);
 }
 
 FDcResult AEgoVehicle::GetSurfaceData() {
 	// Note: using raw C++ types in the following code as it does not interact with UE interface
-// Establish connection if not already
-	if (Subscriber == nullptr) {
-		if (!EstablishEyeTrackerConnection()) {
-			UE_LOG(LogTemp, Error, TEXT("ZeroMQ: Failed to connect to the Pupil labs Network API"));
-		}
+	// Establish connection if not already
+	if (!bZMQEyeConnection) {
+		return FDcResult{ FDcResult::EStatus::Error };
 	}
 
 	// Receive an update and update to a string
 	zmq::message_t Update;
 	if (!Subscriber->recv(&Update)) {
+		bZMQEyeDataRetrive = false;
 		UE_LOG(LogTemp, Error, TEXT("ZeroMQ: Failed to receive update from subscriber"));
 	}
 	std::string Topic(static_cast<char*>(Update.data()), Update.size());
@@ -92,6 +112,7 @@ FDcResult AEgoVehicle::GetSurfaceData() {
 	// Receive a message from the server
 	zmq::message_t Message;
 	if (!Subscriber->recv(&Message)) {
+		bZMQEyeDataRetrive = false;
 		UE_LOG(LogTemp, Error, TEXT("ZeroMQ: Failed to receive message from subscriber"));
 	}
 
@@ -113,12 +134,17 @@ FDcResult AEgoVehicle::GetSurfaceData() {
 	Ctx.Writer = &Writer;
 	Ctx.Deserializer = &Deserializer;
 	DC_TRY(Ctx.Prepare());
-
+	bZMQEyeDataRetrive = true;
 	DC_TRY(Deserializer.Deserialize(Ctx));
 	return DcOk();
 }
 
 void AEgoVehicle::ParseGazeData(FString GazeDataString) {
+	// Return if data was not retrived from the eye-tracker
+	if (!bZMQEyeDataRetrive) {
+		return;
+	}
+
 	float HighestTimestamp = -1.0f;
 	// Remove the square brackets in the strings
 	GazeDataString = GazeDataString.Mid(1, GazeDataString.Len() - 2);

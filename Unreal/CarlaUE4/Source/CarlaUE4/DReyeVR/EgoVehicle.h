@@ -334,6 +334,8 @@ private: // Game signaling
     void TickNDRT(); // Update the NDRT on every tick based on its individual implementation
 
 private: // Eye-tracking
+    bool bZMQEyeConnection = false; // True if connection is established
+    bool bZMQEyeDataRetrive = false; // True if data is retrived from ZMQ
     zmq::context_t* Context;    // Stores the context of the zmq proccess
     zmq::socket_t* Subscriber; // Pointer to the sub socket to listen to pupil labs software
     FSurfaceData SurfaceData; // Store all the data from the surface topic
