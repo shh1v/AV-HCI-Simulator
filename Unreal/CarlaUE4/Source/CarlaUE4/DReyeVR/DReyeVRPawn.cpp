@@ -572,7 +572,7 @@ void ADReyeVRPawn::LogitechWheelUpdate()
         }
         else
         {
-            // Log the reaction time is the thresh was achieved and autopilot status was on
+            // Log the reaction time if the thresh was achieved and autopilot status was on
             if (EgoVehicle->GetCurrVehicleStatus() == AEgoVehicle::VehicleStatus::TakeOverMode && (bAutoPilotStatus || bTORTimeOut) && !bThreshChange)
             {
                 Logger->LogReactionTime(EgoVehicle->TORIssuanceTime);

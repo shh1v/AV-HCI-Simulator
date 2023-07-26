@@ -11,11 +11,14 @@
 # Standard library imports
 import glob
 import os
-import sys
 import time
+import sys
+sys.path.append('../examples')
 
 # Local imports
 import carla
+from experiment_utils import ExperimentHelper
+from DReyeVR_utils import find_ego_vehicle
 from agents.navigation.basic_agent import BasicAgent
 from agents.navigation.behavior_agent import BehaviorAgent
 
@@ -46,14 +49,33 @@ def main(**kargs):
         #
         # Run the simulation in synchronous mode with fixed time
         # step when not recording driving performance or running any traffic scenarios.
-    
+        ExperimentHelper.set_synchronous_mode(world)
+
+        # waypoints = world.get_map().generate_waypoints(1)
+        # for w in waypoints:
+        #     world.debug.draw_string(w.transform.location, 'O', draw_shadow=False,
+        #                                     color=carla.Color(r=255, g=0, b=0), life_time=120.0,
+        #                                     persistent_lines=True)
+
+        # Setting actors starting position to the start of the route
+        DReyeVR_vehicle = find_ego_vehicle(world)
+        DReyeVR_vehicle.set_transform(carla.Transform(carla.Location(8.5, 19.3, 0), carla.Rotation(0, -90.3, 0)))
+        world.tick()
+
+        while True:
+            world.tick()
+            print(f"Ego Vehicle: {DReyeVR_vehicle.get_control()}")
+
+
+        ExperimentHelper.set_asynchronous_mode(world)
+
     finally:
         pass
 
 if __name__ == '__main__':
 
     try:
-        main()
+        main(host='127.0.0.1', port=2000, tm_port=8000)
     except KeyboardInterrupt:
         pass
     finally:

@@ -1,4 +1,5 @@
 #include "EgoVehicle.h"
+#include "DReyeVRPawn.h"
 #include "Math/NumericLimits.h" // TNumericLimits<float>::Max
 #include <string>               // std::string, std::wstring
 
@@ -262,9 +263,16 @@ void AEgoVehicle::TickVehicleInputs()
     ManualInputs.Brake = VehicleInputs.Brake + bIncludeLast * LastAppliedControl.Brake;
     ManualInputs.Throttle = VehicleInputs.Throttle + bIncludeLast * LastAppliedControl.Throttle;
     ManualInputs.bReverse = bReverse;
-    this->ApplyVehicleControl(ManualInputs, EVehicleInputPriority::User);
-    // send these inputs to the Carla (parent) vehicle
-    FlushVehicleControl();
 
+    // Only apply vehicle when the ManualInput parameters are non-zero
+    // If we are at this point of execution, the pedals will not be defaulting
+    if (!FMath::IsNearlyEqual(ManualInputs.Steer, 0.f, 0.02f) ||
+        !FMath::IsNearlyEqual(ManualInputs.Brake, 0.f, 0.02f) ||
+        !FMath::IsNearlyEqual(ManualInputs.Throttle, 0.f, 0.02f))
+    {
+        this->ApplyVehicleControl(ManualInputs, EVehicleInputPriority::User);
+        // send these inputs to the Carla (parent) vehicle
+        FlushVehicleControl();
+    }
     VehicleInputs = DReyeVR::UserInputs(); // clear inputs for this frame
 }
