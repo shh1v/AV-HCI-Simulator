@@ -13,70 +13,77 @@ import glob
 import os
 import time
 import sys
-sys.path.append('../examples')
+import subprocess
 
 # Local imports
 import carla
 from experiment_utils import ExperimentHelper
-from DReyeVR_utils import find_ego_vehicle
-from agents.navigation.basic_agent import BasicAgent
-from agents.navigation.behavior_agent import BehaviorAgent
+from examples.DReyeVR_utils import find_ego_vehicle
 
 # Other library imports
-import argparse
 import logging
 
 def main(**kargs):
     logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
 
+    global client
     client = carla.Client(kargs['host'], kargs['port'])
     client.set_timeout(10.0)
-    synchronous_master = False
 
-    try:
-        world = client.get_world()
+    ExperimentHelper.set_simulation_mode(client=client, synchronous_mode=False)
 
-        traffic_manager = client.get_trafficmanager(kargs['tm_port'])
-        traffic_manager.set_global_distance_to_leading_vehicle(2.5)
-        traffic_manager.set_respawn_dormant_vehicles(True) # See
-        traffic_manager.set_hybrid_physics_mode(True) # TODO: Set DReyeVR's role to hero
-        traffic_manager.set_hybrid_physics_radius(70.0)
+    # ====== Config File ======
+    config_file_path = "../../Unreal/CarlaUE4/Config/ExperimentConfig.ini"  # Fixed typo in variable name
+    config_file = ExperimentHelper.get_experiment_config(config_file=config_file_path)
+    # =========================
 
-        # Simulation Syncronization
-        #
-        # Run the simulation in asynchronous mode with variable time (default)
-        # step when not recording driving performance or running any traffic scenarios.
-        #
-        # Run the simulation in synchronous mode with fixed time
-        # step when not recording driving performance or running any traffic scenarios.
-        ExperimentHelper.set_synchronous_mode(world)
+    # Change the working directory to ScenarioRunner
+    os.chdir("../../../scenario_runner")  # Change directory to the scenario folder
 
-        # waypoints = world.get_map().generate_waypoints(1)
-        # for w in waypoints:
-        #     world.debug.draw_string(w.transform.location, 'O', draw_shadow=False,
-        #                                     color=carla.Color(r=255, g=0, b=0), life_time=120.0,
-        #                                     persistent_lines=True)
+    index = 1
+    sections = config_file.sections()
+    while index < len(sections):
+        section = sections[index]
+        try:
+            print(f"Scenario for trial {section} is prepared.")
+            prompt = get_prompt()
+            
+            if prompt in ["previous", "prev"]:
+                index = max(index - 1, 1)
+            else:
+                # python scenario_runner.py --route srunner/data/take_over_routes_debug.xml srunner/data/take_over_scenarios.json --agent srunner/autoagents/npc_agent.py --timeout --sync --output
+                command = [
+                    'python',
+                    'scenario_runner.py',
+                    '--route',
+                    'srunner/data/take_over_routes_debug.xml',
+                    'srunner/data/take_over_scenarios.json',
+                    '--agent',
+                    'srunner/autoagents/npc_agent.py',
+                    '--timeout',
+                    '5',
+                    '--sync',
+                    '--output'
+                ]
 
-        # Setting actors starting position to the start of the route
-        DReyeVR_vehicle = find_ego_vehicle(world)
-        DReyeVR_vehicle.set_transform(carla.Transform(carla.Location(8.5, 19.3, 0), carla.Rotation(0, -90.3, 0)))
-        world.tick()
+                # Execute the command and connect the standard output and error streams directly
+                subprocess.run(command, stderr=subprocess.STDOUT)  # Added stderr=subprocess.STDOUT
+                index += 1
 
-        while True:
-            world.tick()
-            print(f"Ego Vehicle: {DReyeVR_vehicle.get_control()}")
+        except KeyError:
+            print(f"KeyError: Section: {section}")
+        except:
+            print(f"Unexpected error: {sys.exc_info()[0]}\n{sys.exc_info()[1]}")
 
-
-        ExperimentHelper.set_asynchronous_mode(world)
-
-    finally:
-        pass
+def get_prompt():
+    prompt = input("Type 'current' to start the current scenario and 'previous' for the previous scenario: ").lower().strip()
+    while prompt not in ["current", "curr", "previous", "prev"]:
+        prompt = input("Invalid input: Type 'current' to start the current scenario and 'previous' for the previous scenario: ").lower().strip()
+    return prompt
 
 if __name__ == '__main__':
 
     try:
         main(host='127.0.0.1', port=2000, tm_port=8000)
     except KeyboardInterrupt:
-        pass
-    finally:
-        print('\ndone.')
+        print('\nInterrupted by keyboard, exiting...')

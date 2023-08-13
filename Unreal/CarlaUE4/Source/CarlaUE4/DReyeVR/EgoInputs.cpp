@@ -1,5 +1,4 @@
 #include "EgoVehicle.h"
-#include "DReyeVRPawn.h"
 #include "Math/NumericLimits.h" // TNumericLimits<float>::Max
 #include <string>               // std::string, std::wstring
 
