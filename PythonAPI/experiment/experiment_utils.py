@@ -22,7 +22,7 @@ class ExperimentHelper:
     @staticmethod
     def sleep(world, duration):
         start_time = time.time()
-        while (duration.time() - start_time) < duration:
+        while (time.time() - start_time) < duration:
             if world.get_settings().synchronous_mode:
                 world.tick()
 

@@ -267,7 +267,8 @@ void AEgoVehicle::TickVehicleInputs()
     // If we are at this point of execution, the pedals will not be defaulting
     if (!FMath::IsNearlyEqual(ManualInputs.Steer, 0.f, 0.02f) ||
         !FMath::IsNearlyEqual(ManualInputs.Brake, 0.f, 0.02f) ||
-        !FMath::IsNearlyEqual(ManualInputs.Throttle, 0.f, 0.02f))
+        !FMath::IsNearlyEqual(ManualInputs.Throttle, 0.f, 0.02f) ||
+        GetAutopilotStatus())
     {
         this->ApplyVehicleControl(ManualInputs, EVehicleInputPriority::User);
         // send these inputs to the Carla (parent) vehicle
