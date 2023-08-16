@@ -19,9 +19,8 @@
 #include "WheeledVehicle.h"                           // VehicleMovementComponent
 #include <zmq.hpp>                                    // ZeroMQ Plugin
 #include "DcTypes.h"                                  // FDcResult
-#include "MsgPackDatatypes.h"                         // FSurfaceData
+#include "DataConfigDatatypes.h"                      // FSurfaceData, FVehicleStatusData
 #include <stdio.h>
-#include <vector>
 #include "EgoVehicle.generated.h"
 
 class ADReyeVRGameMode;
@@ -265,19 +264,26 @@ class CARLAUE4_API AEgoVehicle : public ACarlaWheeledVehicle
     class ADReyeVRCustomActor *AutopilotIndicator;
     bool bInitializedAutopilotIndicator = false;
 
-public: // Game signaling: Very risky to make them public, but is required to not declare additional get/set methods
-    FDateTime TORIssuanceTime;
+//public: // Game signaling: Very risky to make them public, but is required to not declare additional get/set methods
+//    FDateTime TORIssuanceTime;
 
 public: // Game signaling
-    enum class VehicleStatus { ManualMode, AutopilotStarting, AutopilotRunning, PreAlert, InterleavingMode, TakeOverMode };
-    void UpdateVehicleStatus(VehicleStatus NewStatus); // Chnage the vehicle status by ensuring old status is robust
-    void RetrieveVehicleStatus(); // Update the vehicles status using ZeroMQ PUB-SUB
+    enum class VehicleStatus { ManualDrive, AutoPilot, PreAlertAutopilot, TakeOver};
+    void UpdateVehicleStatus(VehicleStatus NewStatus); // Change the vehicle status by ensuring old status is robust
+    FDcResult RetrieveVehicleStatus(); // Update the vehicles status using ZeroMQ PUB-SUB
     VehicleStatus GetCurrVehicleStatus();
     VehicleStatus GetOldVehicleStatus();
 
 private: // Game signaling
-    VehicleStatus CurrVehicleStatus = VehicleStatus::ManualMode; // This stores the current tick's vehicle status
-    VehicleStatus OldVehicleStatus = VehicleStatus::ManualMode; // This stores the previous tick's vehicle status
+    VehicleStatus CurrVehicleStatus = VehicleStatus::ManualDrive; // This stores the current tick's vehicle status
+    VehicleStatus OldVehicleStatus = VehicleStatus::ManualDrive; // This stores the previous tick's vehicle status
+    bool bZMQVehicleStatusConnection = false; // Stores if connection is established
+    bool bZMQVehicleStatusDataRetrive = false; // Stores if connection is established
+    zmq::context_t* VehicleStatusContext;    // Stores the context of the zmq proccess
+    zmq::socket_t* VehicleStatusSubscriber; // Pointer to the sub socket to listen to python client
+    FVehicleStatusData VehicleStatusData; // Stores the vehucle status dict sent by python client
+    bool EstablishVehicleStatusConnection(); // Establish connection to Client ZMQ
+    bool SendVehicleStatus(); // Send new vehicle data to python client
 
   private: // Non-Driving-Related Task
     enum class TaskType {NBackTask, TVShowTask}; // Change the behaviour of the NDRT based on the task type provided
@@ -336,8 +342,8 @@ private: // Game signaling
 private: // Eye-tracking
     bool bZMQEyeConnection = false; // True if connection is established
     bool bZMQEyeDataRetrive = false; // True if data is retrived from ZMQ
-    zmq::context_t* Context;    // Stores the context of the zmq proccess
-    zmq::socket_t* Subscriber; // Pointer to the sub socket to listen to pupil labs software
+    zmq::context_t* EyeContext;    // Stores the context of the zmq proccess
+    zmq::socket_t* EyeSubscriber; // Pointer to the sub socket to listen to pupil labs software
     FSurfaceData SurfaceData; // Store all the data from the surface topic
     struct FBaseData {
         FString TopicPrefix;

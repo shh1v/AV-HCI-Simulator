@@ -2,13 +2,11 @@
 #include "Carla/Actor/ActorAttribute.h"             // FActorAttribute
 #include "Carla/Actor/ActorRegistry.h"              // Register
 #include "Carla/Game/CarlaStatics.h"                // GetCurrentEpisode
-#include "Carla/Vehicle/CarlaWheeledVehicleState.h" // ECarlaWheeledVehicleState
 #include "DReyeVRPawn.h"                            // ADReyeVRPawn
 #include "DrawDebugHelpers.h"                       // Debug Line/Sphere
 #include "Engine/EngineTypes.h"                     // EBlendMode
 #include "Engine/World.h"                           // GetWorld
 #include "GameFramework/Actor.h"                    // Destroy
-#include "Kismet/KismetSystemLibrary.h"             // PrintString, QuitGame
 #include "Math/Rotator.h"                           // RotateVector, Clamp
 #include "Math/UnrealMathUtility.h"                 // Clamp
 
@@ -1088,37 +1086,4 @@ void AEgoVehicle::DebugLines() const
                       FColor::Yellow, false, -1, 0, 1);
     }
 #endif
-}
-
-/// ========================================== ///
-/// -------------:GAME SIGNALING:------------- ///
-/// ========================================== ///
-
-void AEgoVehicle::UpdateVehicleStatus(VehicleStatus NewStatus)
-{
-    OldVehicleStatus = CurrVehicleStatus;
-    CurrVehicleStatus = NewStatus;
-
-    // Some parameters setting, which are used in different components of the game
-    if (OldVehicleStatus == VehicleStatus::InterleavingMode && CurrVehicleStatus == VehicleStatus::TakeOverMode) {
-        // A take-over request has just been issued
-        TORIssuanceTime = FDateTime::Now();
-    }
-}
-
-AEgoVehicle::VehicleStatus AEgoVehicle::GetCurrVehicleStatus()
-{
-    return CurrVehicleStatus;
-}
-
-AEgoVehicle::VehicleStatus AEgoVehicle::GetOldVehicleStatus()
-{
-    return OldVehicleStatus;
-}
-
-void AEgoVehicle::RetrieveVehicleStatus()
-{
-    // Retrive the vehicle status
-    // Update the status
-    UpdateVehicleStatus(VehicleStatus::ManualMode);
 }

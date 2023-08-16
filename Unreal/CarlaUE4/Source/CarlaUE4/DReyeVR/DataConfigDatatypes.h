@@ -1,6 +1,6 @@
 #pragma once
 #include "CoreMinimal.h"
-#include "MsgPackDatatypes.generated.h"
+#include "DataConfigDatatypes.generated.h"
 
 // NOTE: The following document has inconsistent naming conventions compared to the recommended conventions of Unreal Engine.
 // This is because the names, or keys, must match the key names in the retrieved data.
@@ -27,4 +27,16 @@ struct FSurfaceData
 	UPROPERTY() FString fixations_on_surfaces;
 
 	UPROPERTY() FString timestamp;
+};
+
+USTRUCT()
+struct FVehicleStatusData
+{
+	GENERATED_BODY()
+
+	UPROPERTY() FString from;
+
+	UPROPERTY() FString timestamp;
+
+	UPROPERTY() FString message;
 };

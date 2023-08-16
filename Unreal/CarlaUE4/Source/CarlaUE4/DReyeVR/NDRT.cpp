@@ -1,21 +1,13 @@
 #include "EgoVehicle.h"
-#include "Carla/Actor/ActorAttribute.h"             // FActorAttribute
-#include "Carla/Actor/ActorRegistry.h"              // Register
 #include "Carla/Game/CarlaStatics.h"                // GetCurrentEpisode
-#include "Carla/Vehicle/CarlaWheeledVehicleState.h" // ECarlaWheeledVehicleState
-#include "DReyeVRPawn.h"                            // ADReyeVRPawn
 #include "Engine/EngineTypes.h"                     // EBlendMode
-#include "Engine/World.h"                           // GetWorld
 #include "GameFramework/Actor.h"                    // Destroy
-#include "Kismet/KismetSystemLibrary.h"             // PrintString, QuitGame
-#include "Math/Rotator.h"                           // RotateVector, Clamp
 #include "Math/UnrealMathUtility.h"                 // Clamp
 #include "UObject/ConstructorHelpers.h"				// ConstructorHelpers
 #include "MediaPlayer.h"
 #include "FileMediaSource.h"
 #include "MediaTexture.h"
 #include "MediaSoundComponent.h"
-#include "Materials/MaterialInstanceDynamic.h"
 
 
 

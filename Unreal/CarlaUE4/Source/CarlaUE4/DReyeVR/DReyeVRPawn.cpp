@@ -3,7 +3,6 @@
 #include "EgoVehicle.h"                        // AEgoVehicle, and some singals for data logging
 #include "HeadMountedDisplayFunctionLibrary.h" // SetTrackingOrigin, GetWorldToMetersScale
 #include "HeadMountedDisplayTypes.h"           // ESpectatorScreenMode
-#include "Materials/MaterialInstanceDynamic.h" // UMaterialInstanceDynamic
 #include "UObject/UObjectGlobals.h"            // LoadObject, NewObject
 
 ADReyeVRPawn::ADReyeVRPawn(const FObjectInitializer &ObjectInitializer) : Super(ObjectInitializer)

@@ -1,20 +1,5 @@
 #include "EgoVehicle.h"
-#include "Carla/Actor/ActorAttribute.h"             // FActorAttribute
-#include "Carla/Actor/ActorRegistry.h"              // Register
 #include "Carla/Game/CarlaStatics.h"                // GetCurrentEpisode
-#include "Carla/Vehicle/CarlaWheeledVehicleState.h" // ECarlaWheeledVehicleState
-#include "DReyeVRPawn.h"                            // ADReyeVRPawn
-#include "Engine/EngineTypes.h"                     // EBlendMode
-#include "Engine/World.h"                           // GetWorld
-#include "Engine/Engine.h"							// GEngine
-#include "GameFramework/GameUserSettings.h"			// GetScreenResolution
-#include "GameFramework/Actor.h"                    // Destroy
-#include "GameFramework/PlayerController.h"         // Deproject screen coordinates
-#include "Kismet/KismetSystemLibrary.h"             // PrintString, QuitGame
-#include "Math/Rotator.h"                           // RotateVector, Clamp
-#include "Math/UnrealMathUtility.h"                 // Clamp
-#include "UObject/ConstructorHelpers.h"				// ConstructorHelpers
-#include "Engine/EngineTypes.h"						// Engine Types
 #include <zmq.hpp>									// ZeroMQ plugin
 #include <string>									// Raw string for ZeroMQ
 #include "MsgPack/DcMsgPackReader.h"				// MsgPackReader
@@ -22,11 +7,8 @@
 #include "Property/DcPropertyWriter.h"				// PropertyWriter
 #include "Deserialize/DcDeserializer.h"				// Deserializer
 #include "Deserialize/DcDeserializerSetup.h"		// EDcMsgPackDeserializeType
-#include "MsgPackDatatypes.h"						// MsgPackDatatypes
 
 bool AEgoVehicle::IsUserGazingOnHUD() {
-
-	return HighestTimestampGazeData.OnSurf;
 	if (bZMQEyeDataRetrive)
 	{
 		return HighestTimestampGazeData.OnSurf;
@@ -37,42 +19,47 @@ bool AEgoVehicle::IsUserGazingOnHUD() {
 
 bool AEgoVehicle::EstablishEyeTrackerConnection() {
 	try {
-		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Attempting to establish connection"));
+		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Attempting to establish eye-tracker connection"));
 		//  Prepare our context and subscriber
-		Context = new zmq::context_t(1);
+		EyeContext = new zmq::context_t(1);
 		std::string Address = "127.0.0.1";
 		std::string RequestPort = "50020";
 		int bCommSuccess = false; // Used for error handling
-		zmq::socket_t Requester(*Context, ZMQ_REQ);
+		zmq::socket_t Requester(*EyeContext, ZMQ_REQ);
 		Requester.connect("tcp://" + Address + ":" + RequestPort);
-		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Connected to the TCP port"));
+		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Connected to the eye-tracker TCP port"));
 
-		// Set send and recv timeout to 500 milliseconds.
-		int timeout = 500;
+		// Set send and recv timeout to 1 millisecond.
+		int timeout = 1;
 		Requester.setsockopt(ZMQ_SNDTIMEO, &timeout, sizeof(timeout));
 		Requester.setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
 
-		// Get the SUBSRIBE port to connect for communication
+		// Get the SUBSCRIBE port to connect for communication
 		std::string RequestString = "SUB_PORT";
 		zmq::message_t Request(RequestString.begin(), RequestString.end());
-		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Sending request to get SUB PORT"));
+		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Sending request to get eye-tracker SUB PORT"));
 		if (!Requester.send(Request)) {
-			throw std::runtime_error("Send operation timed out.");
+			throw std::runtime_error("Eye-tracker send operation timed out.");
 		}
 		zmq::message_t Reply;
 		if (!Requester.recv(&Reply)) {
-			throw std::runtime_error("Recieve operation timed out.");
+			throw std::runtime_error("Eye-tracker recieve operation timed out.");
 		}
-		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Received SUB PORT"));
+		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Received eye-tracker SUB PORT"));
 		std::string SubscribePort = std::string(static_cast<char*>(Reply.data()), Reply.size());
 
 		// Setup the Subscriber socket
-		Subscriber = new zmq::socket_t(*Context, ZMQ_SUB);
-		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Connecting to the SUB PORT"));
-		Subscriber->connect("tcp://" + Address + ":" + SubscribePort);
-		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Connection successful"));
-		Subscriber->setsockopt(ZMQ_SUBSCRIBE, "surface", 7);
-		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Subscribed to surface topic"));
+		EyeSubscriber = new zmq::socket_t(*EyeContext, ZMQ_SUB);
+
+		// Setting 1 ms recv timeout
+		EyeSubscriber->setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
+
+		// Connecting
+		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Connecting to the eye-tracker SUB PORT"));
+		EyeSubscriber->connect("tcp://" + Address + ":" + SubscribePort);
+		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Eye-tracker connection successful"));
+		EyeSubscriber->setsockopt(ZMQ_SUBSCRIBE, "surface", 7);
+		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Subscribed to eye-tracker surface topic"));
 	}
 	catch (...) {
 		// Log a generic error message
@@ -103,7 +90,7 @@ FDcResult AEgoVehicle::GetSurfaceData() {
 
 	// Receive an update and update to a string
 	zmq::message_t Update;
-	if (!Subscriber->recv(&Update)) {
+	if (!EyeSubscriber->recv(&Update)) {
 		bZMQEyeDataRetrive = false;
 		UE_LOG(LogTemp, Error, TEXT("ZeroMQ: Failed to receive update from subscriber"));
 	}
@@ -111,7 +98,7 @@ FDcResult AEgoVehicle::GetSurfaceData() {
 
 	// Receive a message from the server
 	zmq::message_t Message;
-	if (!Subscriber->recv(&Message)) {
+	if (!EyeSubscriber->recv(&Message)) {
 		bZMQEyeDataRetrive = false;
 		UE_LOG(LogTemp, Error, TEXT("ZeroMQ: Failed to receive message from subscriber"));
 	}
@@ -134,8 +121,8 @@ FDcResult AEgoVehicle::GetSurfaceData() {
 	Ctx.Writer = &Writer;
 	Ctx.Deserializer = &Deserializer;
 	DC_TRY(Ctx.Prepare());
-	bZMQEyeDataRetrive = true;
 	DC_TRY(Deserializer.Deserialize(Ctx));
+	bZMQEyeDataRetrive = true;
 	return DcOk();
 }
 
