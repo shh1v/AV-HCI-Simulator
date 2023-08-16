@@ -2,13 +2,11 @@
 #include "Carla/Game/CarlaStatics.h"                // GetCurrentEpisode
 #include "Engine/EngineTypes.h"                     // EBlendMode
 #include "GameFramework/Actor.h"                    // Destroy
-#include "Math/UnrealMathUtility.h"                 // Clamp
 #include "UObject/ConstructorHelpers.h"				// ConstructorHelpers
 #include "MediaPlayer.h"
 #include "FileMediaSource.h"
 #include "MediaTexture.h"
 #include "MediaSoundComponent.h"
-
 
 
 void AEgoVehicle::SetupNDRT() {
@@ -69,17 +67,30 @@ void AEgoVehicle::TickNDRT() {
 	// Load the data into FGazeData
 	ParseGazeData(SurfaceData.gaze_on_surfaces);
 
-	// Just for debugging
-	if (IsUserGazingOnHUD()) {
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("OnHUD: TRUE"));
-	}
-	else {
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("OnHUD: FALSE"));
+	//// Just for debugging
+	//if (IsUserGazingOnHUD()) {
+	//	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("OnHUD: TRUE"));
+	//}
+	//else {
+	//	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("OnHUD: FALSE"));
+	//}
+
+	// Retrieve the Vehicle Status
+	RetrieveVehicleStatus();
+
+	// Update the vehicle status
+	UpdateVehicleStatus();
+
+	if (bZMQVehicleStatusDataRetrive){
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Black, FString::Printf(TEXT("From: %s, Time: %s, Data: %s"), *VehicleStatusData.from, *VehicleStatusData.timestamp, *VehicleStatusData.vehicle_status));
+	} else
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, TEXT("Vehicle Status: Not sent yet"));
 	}
 }
 
 void AEgoVehicle::ConstructHUD() {
-	// Creating the primary head-up dispay to display the non-driving related task
+	// Creating the primary head-up display to display the non-driving related task
 	PrimaryHUD = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Primary HUD"));
 	PrimaryHUD->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
 	PrimaryHUD->SetCollisionEnabled(ECollisionEnabled::NoCollision);

@@ -93,6 +93,7 @@ FDcResult AEgoVehicle::GetSurfaceData() {
 	if (!EyeSubscriber->recv(&Update)) {
 		bZMQEyeDataRetrive = false;
 		UE_LOG(LogTemp, Error, TEXT("ZeroMQ: Failed to receive update from subscriber"));
+		return FDcResult{ FDcResult::EStatus::Error };
 	}
 	std::string Topic(static_cast<char*>(Update.data()), Update.size());
 
@@ -100,7 +101,8 @@ FDcResult AEgoVehicle::GetSurfaceData() {
 	zmq::message_t Message;
 	if (!EyeSubscriber->recv(&Message)) {
 		bZMQEyeDataRetrive = false;
-		UE_LOG(LogTemp, Error, TEXT("ZeroMQ: Failed to receive message from subscriber"));
+		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Failed to receive message from subscriber"));
+		return FDcResult{ FDcResult::EStatus::Error };
 	}
 
 	// Store the serialized data into a TArray

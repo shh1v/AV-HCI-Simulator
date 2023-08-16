@@ -268,7 +268,8 @@ class CARLAUE4_API AEgoVehicle : public ACarlaWheeledVehicle
 //    FDateTime TORIssuanceTime;
 
 public: // Game signaling
-    enum class VehicleStatus { ManualDrive, AutoPilot, PreAlertAutopilot, TakeOver};
+    enum class VehicleStatus { ManualDrive, AutoPilot, PreAlertAutopilot, TakeOver, Unknown };
+    void UpdateVehicleStatus(); // Change the vehicle status by ensuring old status is robust
     void UpdateVehicleStatus(VehicleStatus NewStatus); // Change the vehicle status by ensuring old status is robust
     FDcResult RetrieveVehicleStatus(); // Update the vehicles status using ZeroMQ PUB-SUB
     VehicleStatus GetCurrVehicleStatus();
@@ -281,7 +282,7 @@ private: // Game signaling
     bool bZMQVehicleStatusDataRetrive = false; // Stores if connection is established
     zmq::context_t* VehicleStatusContext;    // Stores the context of the zmq proccess
     zmq::socket_t* VehicleStatusSubscriber; // Pointer to the sub socket to listen to python client
-    FVehicleStatusData VehicleStatusData; // Stores the vehucle status dict sent by python client
+    FVehicleStatusData VehicleStatusData; // Stores the vehicle status dict sent by python client
     bool EstablishVehicleStatusConnection(); // Establish connection to Client ZMQ
     bool SendVehicleStatus(); // Send new vehicle data to python client
 

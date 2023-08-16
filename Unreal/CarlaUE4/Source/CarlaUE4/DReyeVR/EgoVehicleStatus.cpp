@@ -13,25 +13,25 @@ bool AEgoVehicle::EstablishVehicleStatusConnection() {
 		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Attempting to establish python client side connection"));
 		//  Prepare our context
 		VehicleStatusContext = new zmq::context_t(1);
-		std::string Address = "ipc:///tmp/client-publisher";
-		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Connected to the python client TCP port"));
-
+		std::string Address = "tcp://localhost";
+		std::string AddressPort = "5555"
 		// Setup the Subscriber socket
 		VehicleStatusSubscriber = new zmq::socket_t(*VehicleStatusContext, ZMQ_SUB);
 
 		// Setting 1 ms recv timeout
-		const int timeout = 1;  // 1 ms
+		const int timeout = 100;  // 1 ms
 		VehicleStatusSubscriber->setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
+		// Setup default topic
+		VehicleStatusSubscriber->setsockopt(ZMQ_SUBSCRIBE, "", 0);
 
-		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Connecting to the python client SUB PORT"));
-		VehicleStatusSubscriber->connect(Address);
+		// Connect
+		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Connecting to the python client"));
+		VehicleStatusSubscriber->connect(Address + ":" + AddressPort);
 		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: python client connection successful"));
-		VehicleStatusSubscriber->setsockopt(ZMQ_SUBSCRIBE, "vehiclestatus");
-		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Subscribed to python client's vehicle status topic"));
 	}
 	catch (...) {
 		// Log a generic error message
-		UE_LOG(LogTemp, Error, TEXT("ZeroMQ: Failed to connect to the python client network API"));
+		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Failed to connect to the python client network API"));
 		return false;
 	}
 	UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Established connection to the python client Network API"));
@@ -41,23 +41,18 @@ bool AEgoVehicle::EstablishVehicleStatusConnection() {
 
 FDcResult AEgoVehicle::RetrieveVehicleStatus() {
 	// Note: using raw C++ types in the following code as it does not interact with UE interface
+
 	// Establish connection if not already
-	// NOTE: CPU intensive EstablishVehicleStatusConnection needs to be called as python client will start later
-	if (!bZMQVehicleStatusConnection && EstablishVehicleStatusConnection()) {
+	if (!bZMQVehicleStatusConnection && !EstablishVehicleStatusConnection()) {
+		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Connection not established!"));
 		return FDcResult{ FDcResult::EStatus::Error };
 	}
 
-	// Receive an update and update to a string
-	zmq::message_t Update;
-	if (!VehicleStatusSubscriber->recv(&Update)) {
-		bZMQVehicleStatusDataRetrive = false;
-	}
-	std::string Topic(static_cast<char*>(Update.data()), Update.size());
-
 	// Receive a message from the server
 	zmq::message_t Message;
-	if (!EyeSubscriber->recv(&Message)) {
+	if (!VehicleStatusSubscriber->recv(&Message)) {
 		bZMQVehicleStatusDataRetrive = false;
+		return FDcResult{ FDcResult::EStatus::Error };
 	}
 
 	// Store the serialized data into a TArray
@@ -83,11 +78,37 @@ FDcResult AEgoVehicle::RetrieveVehicleStatus() {
 	return DcOk();
 }
 
+void AEgoVehicle::UpdateVehicleStatus()
+{
+	// Not possible to update the status if data is not retrived
+	if (!bZMQVehicleStatusDataRetrive) {
+		return;
+	}
+
+	OldVehicleStatus = CurrVehicleStatus;
+	if (VehicleStatusData.vehicle_status == "ManualDrive") {
+		CurrVehicleStatus = VehicleStatus::ManualDrive;
+	}
+	else if (VehicleStatusData.vehicle_status == "AutoPilot") {
+		CurrVehicleStatus = VehicleStatus::AutoPilot;
+	}
+	else if (VehicleStatusData.vehicle_status == "PreAlertAutopilot") {
+		CurrVehicleStatus = VehicleStatus::PreAlertAutopilot;
+	}
+	else if (VehicleStatusData.vehicle_status == "TakeOver") {
+		CurrVehicleStatus = VehicleStatus::TakeOver;
+	}
+	else {
+		CurrVehicleStatus = VehicleStatus::Unknown;
+	}
+}
+
 void AEgoVehicle::UpdateVehicleStatus(VehicleStatus NewStatus)
 {
 	OldVehicleStatus = CurrVehicleStatus;
 	CurrVehicleStatus = NewStatus;
 }
+
 
 bool AEgoVehicle::SendVehicleStatus()
 {
