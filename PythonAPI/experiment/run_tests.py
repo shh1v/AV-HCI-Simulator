@@ -35,8 +35,8 @@ def main(**kargs):
     ExperimentHelper.set_simulation_mode(client=client, synchronous_mode=False)
     while True:
         ExperimentHelper.send_vehicle_status(vehicle_status="AutoPilot")
+        print(f"Received VehicleStatus", ExperimentHelper.receive_vehicle_status())
         world.tick()
-        ExperimentHelper.sleep(world, 0.1)
 
 if __name__ == '__main__':
 

@@ -269,8 +269,7 @@ class CARLAUE4_API AEgoVehicle : public ACarlaWheeledVehicle
 
 public: // Game signaling
     enum class VehicleStatus { ManualDrive, AutoPilot, PreAlertAutopilot, TakeOver, Unknown };
-    void UpdateVehicleStatus(); // Change the vehicle status by ensuring old status is robust
-    void UpdateVehicleStatus(VehicleStatus NewStatus); // Change the vehicle status by ensuring old status is robust
+    void UpdateVehicleStatus(VehicleStatus NewStatus); // Change the vehicle status by ensuring old status is robust and send to client
     FDcResult RetrieveVehicleStatus(); // Update the vehicles status using ZeroMQ PUB-SUB
     VehicleStatus GetCurrVehicleStatus();
     VehicleStatus GetOldVehicleStatus();
@@ -278,13 +277,14 @@ public: // Game signaling
 private: // Game signaling
     VehicleStatus CurrVehicleStatus = VehicleStatus::ManualDrive; // This stores the current tick's vehicle status
     VehicleStatus OldVehicleStatus = VehicleStatus::ManualDrive; // This stores the previous tick's vehicle status
-    bool bZMQVehicleStatusConnection = false; // Stores if connection is established
-    bool bZMQVehicleStatusDataRetrive = false; // Stores if connection is established
-    zmq::context_t* VehicleStatusContext;    // Stores the context of the zmq proccess
-    zmq::socket_t* VehicleStatusSubscriber; // Pointer to the sub socket to listen to python client
+    bool bZMQVehicleStatusReceiveConnection = false; // Stores if connection is established
+    bool bZMQVehicleStatusDataRetrieve = false; // Stores if connection is established
+    zmq::context_t* VehicleStatusReceiveContext;    // Stores the receive context of the zmq process
+    zmq::context_t* VehicleStatusSendContext;    // Stores the send context of the zmq process
+    zmq::socket_t* VehicleStatusSubscriber; // Pointer to the receive socket to listen to python client
+    zmq::socket_t* VehicleStatusPublisher; // Pointer to the send socket to listen to python client
     FVehicleStatusData VehicleStatusData; // Stores the vehicle status dict sent by python client
     bool EstablishVehicleStatusConnection(); // Establish connection to Client ZMQ
-    bool SendVehicleStatus(); // Send new vehicle data to python client
 
   private: // Non-Driving-Related Task
     enum class TaskType {NBackTask, TVShowTask}; // Change the behaviour of the NDRT based on the task type provided

@@ -78,15 +78,15 @@ void AEgoVehicle::TickNDRT() {
 	// Retrieve the Vehicle Status
 	RetrieveVehicleStatus();
 
-	// Update the vehicle status
-	UpdateVehicleStatus();
-
-	if (bZMQVehicleStatusDataRetrive){
+	if (bZMQVehicleStatusDataRetrieve){
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Black, FString::Printf(TEXT("From: %s, Time: %s, Data: %s"), *VehicleStatusData.from, *VehicleStatusData.timestamp, *VehicleStatusData.vehicle_status));
 	} else
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, TEXT("Vehicle Status: Not sent yet"));
 	}
+
+	// Update Vehicle Status
+	UpdateVehicleStatus(VehicleStatus::ManualDrive);
 }
 
 void AEgoVehicle::ConstructHUD() {
