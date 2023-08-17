@@ -11,7 +11,9 @@ import msgpack as serializer
 from examples.DReyeVR_utils import find_ego_vehicle
 
 class ExperimentHelper:
-
+    """
+    This class contains helper functions for the experiment.
+    """
     @staticmethod
     def set_simulation_mode(client, synchronous_mode=True, fixed_delta_seconds=0.05):
         # Setting simulation mode
@@ -51,7 +53,7 @@ class ExperimentHelper:
 
 
 
-class VehicleStatus:
+class VehicleBehaviourSuite:
     """
     The VehicleStatus class is used to send and receive vehicle status between the scenario runner and carla server.
     Note that this class exclusively has class variables and static methods to ensure that only one instance of this class is created.
@@ -74,31 +76,31 @@ class VehicleStatus:
     publisher_socket = None
 
     # Store the local vehicle status currently known
-    vehicle_status = "Unknown"
+    local_vehicle_status = "Unknown"
 
     @staticmethod
     def _establish_CARLA_connection():
         # Create ZMQ socket for receiving vehicle status from carla server
-        if (ExperimentHelper.carla_subscriber_context == None or ExperimentHelper.subscriber_socket == None):
-            ExperimentHelper.carla_subscriber_context = zmq.Context()
-            ExperimentHelper.carla_subscriber_socket = ExperimentHelper.subscriber_context.socket(zmq.SUB)
-            ExperimentHelper.carla_subscriber_socket.setsockopt_string(zmq.SUBSCRIBE, "")
-            ExperimentHelper.carla_subscriber_socket.setsockopt(zmq.RCVTIMEO, 1)  # 1 ms timeout
-            ExperimentHelper.carla_subscriber_socket.connect("tcp://localhost:5556")
+        if (VehicleBehaviourSuite.carla_subscriber_context == None or VehicleBehaviourSuite.subscriber_socket == None):
+            VehicleBehaviourSuite.carla_subscriber_context = zmq.Context()
+            VehicleBehaviourSuite.carla_subscriber_socket = VehicleBehaviourSuite.subscriber_context.socket(zmq.SUB)
+            VehicleBehaviourSuite.carla_subscriber_socket.setsockopt_string(zmq.SUBSCRIBE, "")
+            VehicleBehaviourSuite.carla_subscriber_socket.setsockopt(zmq.RCVTIMEO, 1)  # 1 ms timeout
+            VehicleBehaviourSuite.carla_subscriber_socket.connect("tcp://localhost:5556")
 
         # Create ZMQ socket for receiving vehicle status from scenario runner
-        if (ExperimentHelper.carla_subscriber_context == None or ExperimentHelper.subscriber_socket == None):
-            ExperimentHelper.scenario_runner_context = zmq.Context()
-            ExperimentHelper.scenario_runner_socket = ExperimentHelper.subscriber_context.socket(zmq.SUB)
-            ExperimentHelper.scenario_runner_socket.setsockopt_string(zmq.SUBSCRIBE, "")
-            ExperimentHelper.scenario_runner_socket.setsockopt(zmq.RCVTIMEO, 1)  # 1 ms timeout
-            ExperimentHelper.scenario_runner_socket.connect("tcp://localhost:5557")
+        if (VehicleBehaviourSuite.carla_subscriber_context == None or VehicleBehaviourSuite.subscriber_socket == None):
+            VehicleBehaviourSuite.scenario_runner_context = zmq.Context()
+            VehicleBehaviourSuite.scenario_runner_socket = VehicleBehaviourSuite.subscriber_context.socket(zmq.SUB)
+            VehicleBehaviourSuite.scenario_runner_socket.setsockopt_string(zmq.SUBSCRIBE, "")
+            VehicleBehaviourSuite.scenario_runner_socket.setsockopt(zmq.RCVTIMEO, 1)  # 1 ms timeout
+            VehicleBehaviourSuite.scenario_runner_socket.connect("tcp://localhost:5557")
 
         # Create ZMQ socket for sending vehicle control to carla server/scenario_runner
-        if (ExperimentHelper.publisher_context == None or ExperimentHelper.publisher_socket == None):
-            ExperimentHelper.publisher_context = zmq.Context()
-            ExperimentHelper.publisher_socket = ExperimentHelper.publisher_context.socket(zmq.PUB)
-            ExperimentHelper.publisher_socket.bind("tcp://*:5555")
+        if (VehicleBehaviourSuite.publisher_context == None or VehicleBehaviourSuite.publisher_socket == None):
+            VehicleBehaviourSuite.publisher_context = zmq.Context()
+            VehicleBehaviourSuite.publisher_socket = VehicleBehaviourSuite.publisher_context.socket(zmq.PUB)
+            VehicleBehaviourSuite.publisher_socket.bind("tcp://*:5555")
 
     @staticmethod
     def send_vehicle_status(vehicle_status):
@@ -106,9 +108,13 @@ class VehicleStatus:
         Send vehicle status to the carla
         """
         # Create ZMQ socket if not created
-        if (VehicleStatus.publisher_context == None or VehicleStatus.publisher_context == None):
-            VehicleStatus._establish_CARLA_connection()
+        if (VehicleBehaviourSuite.publisher_context == None or VehicleBehaviourSuite.publisher_context == None):
+            VehicleBehaviourSuite._establish_CARLA_connection()
 
+        if vehicle_status not in ["ManualDrive", "AutoPilot", "PreAlertAutopilot", "TakeOver"]:
+            raise Exception(f"Invalid vehicle status: {vehicle_status}")
+        else:
+            VehicleBehaviourSuite.local_vehicle_status = vehicle_status
         # Send vehicle status
         message = {
             "from": "client",
@@ -118,16 +124,16 @@ class VehicleStatus:
         serialized_message = serializer.packb(message, use_bin_type=True)
         
         # Send the the message
-        VehicleStatus.publisher_socket.send(serialized_message)
+        VehicleBehaviourSuite.publisher_socket.send(serialized_message)
         print(f"Sent vehicle status: {vehicle_status}")
 
     @staticmethod
     def receive_carla_vehicle_status():
         # Create ZMQ socket if not created
-        if (VehicleStatus.carla_subscriber_socket == None or VehicleStatus.carla_subscriber_socket == None):
-            VehicleStatus._establish_CARLA_connection()
+        if (VehicleBehaviourSuite.carla_subscriber_socket == None or VehicleBehaviourSuite.carla_subscriber_socket == None):
+            VehicleBehaviourSuite._establish_CARLA_connection()
         try:
-            message = VehicleStatus.carla_subscriber_socket.recv()
+            message = VehicleBehaviourSuite.carla_subscriber_socket.recv()
             message_dict = json.loads(message)
         except Exception as e:
             print(f"Exception: {e}")
@@ -141,10 +147,10 @@ class VehicleStatus:
     @staticmethod
     def receive_scrnario_runner_vehicle_status():
         # Create ZMQ socket if not created
-        if (VehicleStatus.scenario_runner_socket == None or VehicleStatus.scenario_runner_socket == None):
-            VehicleStatus._establish_CARLA_connection()
+        if (VehicleBehaviourSuite.scenario_runner_socket == None or VehicleBehaviourSuite.scenario_runner_socket == None):
+            VehicleBehaviourSuite._establish_CARLA_connection()
         try:
-            message = VehicleStatus.scenario_runner_socket.recv()
+            message = VehicleBehaviourSuite.scenario_runner_socket.recv()
             message_dict = json.loads(message)
         except Exception as e:
             print(f"Exception: {e}")
@@ -162,8 +168,8 @@ class VehicleStatus:
         This will automatically also change the behaviour of the ego vehicle required.
         """
         # Receive vehicle status from carla server and scenario runner
-        carla_vehicle_status = VehicleStatus.receive_carla_vehicle_status()
-        scenario_runner_vehicle_status = VehicleStatus.receive_scenario_runner_vehicle_status()
+        carla_vehicle_status = VehicleBehaviourSuite.receive_carla_vehicle_status()
+        scenario_runner_vehicle_status = VehicleBehaviourSuite.receive_scenario_runner_vehicle_status()
 
         # Check if the received vehicle status is valid based on the publishers individual role
         if carla_vehicle_status["vehicle_status"] not in ["Unknown", "ManualDrive"]:
@@ -182,20 +188,20 @@ class VehicleStatus:
         # Now, we can update the local vehicle status and execute any required behaviour
         if carla_vehicle_status["vehicle_status"] != "Unknown":
             # This means that the carla server is sending the vehicle status, and it has to be "ManualDrive"
+            VehicleBehaviourSuite.local_vehicle_status = "ManualDrive"
+
             # Turn ego_vehicle's autopilot off. This needs to be through client side as there is a bug in carla server
             ego_vehicle.set_autopilot(False)
+
+            # TODO: Start logging driving performance data here
         elif scenario_runner_vehicle_status["vehicle_status"] != "Unknown":
             # This means that the scenario runner is sending the vehicle status, and it has to be "AutoPilot", "PreAlertAutopilot", or "TakeOver"
             # Turn ego_vehicle's autopilot on. This needs to be through client side as there is a bug in carla server
-            ExperimentHelper.send_vehicle_status(scenario_runner_vehicle_status["vehicle_status"])
+            VehicleBehaviourSuite.send_vehicle_status(scenario_runner_vehicle_status["vehicle_status"])
+            VehicleBehaviourSuite.local_vehicle_status = scenario_runner_vehicle_status["vehicle_status"]
+            
+            # TODO: Start logging reaction time when TOR status is retrived
         else:
             # This means that both carla server and scenario runner are sending "Unknown" vehicle status
             # This is not an error as it is possible that both carla server and scenario runner are not sending any vehicle status
             pass
-
-        
-        # Send the vehicle status to scenario runner
-        VehicleStatus.send_vehicle_status(VehicleStatus.vehicle_status)
-
-        # Return the vehicle status
-        return VehicleStatus.vehicle_status
