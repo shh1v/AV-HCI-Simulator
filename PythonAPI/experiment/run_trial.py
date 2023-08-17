@@ -9,11 +9,9 @@
 """Script used to run trials for the research study."""
 
 # Standard library imports
-import glob
 import os
-import time
-import sys
 import subprocess
+import multiprocessing
 
 # Local imports
 import carla
@@ -44,36 +42,39 @@ def main(**kargs):
     sections = config_file.sections()
     while index < len(sections):
         section = sections[index]
-        try:
-            print(f"Scenario for trial {section} is prepared.")
-            prompt = get_prompt()
-            
-            if prompt in ["previous", "prev"]:
-                index = max(index - 1, 1)
-            else:
-                # python scenario_runner.py --route srunner/data/take_over_routes_debug.xml srunner/data/take_over_scenarios.json --agent srunner/autoagents/npc_agent.py --timeout --sync --output
-                command = [
-                    'python',
-                    'scenario_runner.py',
-                    '--route',
-                    'srunner/data/take_over_routes_debug.xml',
-                    'srunner/data/take_over_scenarios.json',
-                    '--agent',
-                    'srunner/autoagents/npc_agent.py',
-                    '--timeout',
-                    '5',
-                    '--sync',
-                    '--output'
-                ]
 
-                # Execute the command and connect the standard output and error streams directly
-                subprocess.run(command, stderr=subprocess.STDOUT)  # Added stderr=subprocess.STDOUT
-                index += 1
+        # Preparing and running the scenario
+        print(f"Scenario for trial {section} is prepared.")
+        prompt = get_prompt()
+        
+        if prompt in ["previous", "prev"]:
+            index = max(index - 1, 1)
+        else:
+            # python scenario_runner.py --route srunner/data/take_over_routes_debug.xml srunner/data/take_over_scenarios.json --agent srunner/autoagents/npc_agent.py --timeout --sync --output
+            command = [
+                'python',
+                'scenario_runner.py',
+                '--route',
+                'srunner/data/take_over_routes_debug.xml',
+                'srunner/data/take_over_scenarios.json',
+                '--agent',
+                'srunner/autoagents/npc_agent.py',
+                '--timeout',
+                '5',
+                '--sync',
+                '--output'
+            ]
 
-        except KeyError:
-            print(f"KeyError: Section: {section}")
-        except:
-            print(f"Unexpected error: {sys.exc_info()[0]}\n{sys.exc_info()[1]}")
+            # Execute in thread vehicle status checking
+            vehicle_status_process = multiprocessing.Process(target=check_vehicle_status_change)
+            vehicle_status_process.start()
+
+            # Execute the command and connect the standard output and error streams directly
+            subprocess.run(command, stderr=subprocess.STDOUT)  # Added stderr=subprocess.STDOUT
+            index += 1
+
+            # When the scenario is finished, stop the vehicle status checking thread
+
 
 def get_prompt():
     prompt = input("Type 'current' to start the current scenario and 'previous' for the previous scenario: ").lower().strip()

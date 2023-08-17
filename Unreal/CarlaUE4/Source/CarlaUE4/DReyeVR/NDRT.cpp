@@ -80,9 +80,8 @@ void AEgoVehicle::TickNDRT() {
 
 	if (bZMQVehicleStatusDataRetrieve){
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Black, FString::Printf(TEXT("From: %s, Time: %s, Data: %s"), *VehicleStatusData.from, *VehicleStatusData.timestamp, *VehicleStatusData.vehicle_status));
-	} else
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, TEXT("Vehicle Status: Not sent yet"));
+	} else {
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, TEXT("Vehicle Status: Not received"));
 	}
 
 	// Update Vehicle Status
