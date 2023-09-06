@@ -12,79 +12,107 @@
 import os
 import subprocess
 import multiprocessing
+import argparse
+
+import traceback
 
 # Local imports
 import carla
-from experiment_utils import ExperimentHelper
-from examples.DReyeVR_utils import find_ego_vehicle
+from experiment_utils import ExperimentHelper, VehicleBehaviourSuite
 
 # Other library imports
 import logging
 
-def main(**kargs):
+def main(args):
     logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
 
-    global client
-    client = carla.Client(kargs['host'], kargs['port'])
-    client.set_timeout(10.0)
-
-    ExperimentHelper.set_simulation_mode(client=client, synchronous_mode=False)
-
-    # ====== Config File ======
-    config_file_path = "../../Unreal/CarlaUE4/Config/ExperimentConfig.ini"  # Fixed typo in variable name
+    config_file_path = "../../Unreal/CarlaUE4/Config/ExperimentConfig.ini"
     config_file = ExperimentHelper.get_experiment_config(config_file=config_file_path)
-    # =========================
 
-    # Change the working directory to ScenarioRunner
-    os.chdir("../../../scenario_runner")  # Change directory to the scenario folder
+    os.chdir("../../../scenario_runner")
 
     index = 1
     sections = config_file.sections()
     while index < len(sections):
         section = sections[index]
 
-        # Preparing and running the scenario
         print(f"Scenario for trial {section} is prepared.")
-        prompt = get_prompt()
+        action = get_prompt()
         
-        if prompt in ["previous", "prev"]:
+        if action == "previous":
             index = max(index - 1, 1)
-        else:
-            # python scenario_runner.py --route srunner/data/take_over_routes_debug.xml srunner/data/take_over_scenarios.json --agent srunner/autoagents/npc_agent.py --timeout --sync --output
+        elif action == "skip":
+            index += 1
+            continue
+        else: # current
             command = [
-                'python',
-                'scenario_runner.py',
-                '--route',
-                'srunner/data/take_over_routes_debug.xml',
-                'srunner/data/take_over_scenarios.json',
-                '--agent',
-                'srunner/autoagents/npc_agent.py',
-                '--timeout',
-                '5',
-                '--sync',
-                '--output'
+                'python', 'scenario_runner.py',
+                '--route', 'srunner/data/take_over_routes_debug.xml', 'srunner/data/take_over_scenarios.json',
+                '--agent', 'srunner/autoagents/npc_agent.py',
+                '--timeout', '5',
+                '--sync', '--output'
             ]
-
-            # Execute in thread vehicle status checking
-            vehicle_status_process = multiprocessing.Process(target=check_vehicle_status_change)
+        try:
+            execution_flag = multiprocessing.Value('b', True)
+        
+            # Start vehicle status check process
+            vehicle_status_process = multiprocessing.Process(target=vehicle_status_check, args=(args.host, args.port, args.worker_threads, config_file, index, execution_flag))
             vehicle_status_process.start()
 
-            # Execute the command and connect the standard output and error streams directly
-            subprocess.run(command, stderr=subprocess.STDOUT)  # Added stderr=subprocess.STDOUT
+            # Directly run the scenario in the main flow
+            subprocess.run(command, stderr=subprocess.STDOUT)
+            execution_flag.value = False
+
+            # Wait for the vehicle status process to terminate
+            vehicle_status_process.join()
+            
             index += 1
+        except (TypeError, ValueError, AttributeError) as e:      
+            print(f"{type(e).__name__} occurred: {e}")
+            print(traceback.format_exc())
 
-            # When the scenario is finished, stop the vehicle status checking thread
+        except Exception as e:
+            print(f"An unexpected error of type {type(e).__name__} occurred: {e}")
+            print(traceback.format_exc())
 
+def vehicle_status_check(host, port, threads, config_file, index, execution_flag):
+    try:
+        # Connect to the server
+        client = carla.Client(host, port, worker_threads=0)
+        client.set_timeout(10.0)
+        world = client.get_world()
+
+        # Set synchronous mode to false
+        ExperimentHelper.set_simulation_mode(client=client, synchronous_mode=False)
+
+        # Start checking vehicle status and behaviour
+        while execution_flag.value:
+            world.wait_for_tick()
+            VehicleBehaviourSuite.vehicle_status_tick(world, config_file, index)
+        VehicleBehaviourSuite.vehicle_status_terminate()
+    except Exception as e:
+        print("Exception occurred in vehicle status check thread:", e)
+        print(traceback.format_exc())
 
 def get_prompt():
-    prompt = input("Type 'current' to start the current scenario and 'previous' for the previous scenario: ").lower().strip()
-    while prompt not in ["current", "curr", "previous", "prev"]:
-        prompt = input("Invalid input: Type 'current' to start the current scenario and 'previous' for the previous scenario: ").lower().strip()
+    choices = ["current", "previous", "skip"]
+    prompt = input("Choices: 'current' (start the current scenario), 'previous' (go back), 'skip' (skip current scenario). Enter choice: ").lower().strip()
+    
+    while prompt not in choices:
+        prompt = input(f"Invalid input. Choose from {choices}. Enter choice: ").lower().strip()
+
     return prompt
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="Run trials for research study.")
+    parser.add_argument("--host", default="127.0.0.1", help="Host IP for Carla Client")
+    parser.add_argument("--port", type=int, default=2000, help="Port for Carla Client") # WARNING: This port is used for secondary client connection
+    parser.add_argument("--tm_port", type=int, default=8000, help="Traffic Manager port for Carla Client")
+    parser.add_argument("--worker_threads", type=int, default=8000, help="Worker Threads for Carla Client")
+
+    args = parser.parse_args()
 
     try:
-        main(host='127.0.0.1', port=2000, tm_port=8000)
+        main(args)
     except KeyboardInterrupt:
-        print('\nInterrupted by keyboard, exiting...')
+        print("Cancelled by user. Bye!")

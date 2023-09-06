@@ -78,14 +78,27 @@ void AEgoVehicle::TickNDRT() {
 	// Retrieve the Vehicle Status
 	RetrieveVehicleStatus();
 
-	if (bZMQVehicleStatusDataRetrieve){
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Black, FString::Printf(TEXT("From: %s, Time: %s, Data: %s"), *VehicleStatusData.from, *VehicleStatusData.timestamp, *VehicleStatusData.vehicle_status));
-	} else {
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, TEXT("Vehicle Status: Not received"));
+	FString VehicleStatusString;
+	switch (GetCurrVehicleStatus()) {
+	case VehicleStatus::ManualDrive:
+		VehicleStatusString = FString("ManualDrive");
+		break;
+	case VehicleStatus::AutoPilot:
+		VehicleStatusString = FString("AutoPilot");
+		break;
+	case VehicleStatus::PreAlertAutopilot:
+		VehicleStatusString = FString("PreAlertAutopilot");
+		break;
+	case VehicleStatus::TakeOver:
+		VehicleStatusString = FString("TakeOver");
+		break;
+	case VehicleStatus::TakeOverManual:
+		VehicleStatusString = FString("TakeOverManual");
+		break;
+	default:
+		VehicleStatusString = FString("Unknown");
 	}
-
-	// Update Vehicle Status
-	UpdateVehicleStatus(VehicleStatus::ManualDrive);
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Black, FString::Printf(TEXT("Vehicle Status: %s"), *VehicleStatusString));
 }
 
 void AEgoVehicle::ConstructHUD() {

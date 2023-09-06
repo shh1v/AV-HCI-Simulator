@@ -268,16 +268,26 @@ class CARLAUE4_API AEgoVehicle : public ACarlaWheeledVehicle
 //    FDateTime TORIssuanceTime;
 
 public: // Game signaling
-    enum class VehicleStatus { ManualDrive, AutoPilot, PreAlertAutopilot, TakeOver, Unknown };
+    enum class VehicleStatus { ManualDrive, AutoPilot, PreAlertAutopilot, TakeOver, TakeOverManual, Unknown };
+    /*
+     * Vehicle status descriptions:
+     * ManualDrive: The vehicle is driving manually.
+     * AutoPilot: The vehicle is driving by itself. No supervision is required by the driver.
+     * PreAlertAutopilot: AutoPilot is running, but the driver is expected to take-over soon as a TOR is issued.
+     * TakeOver: TOR is issued and the driver is expected to take-over. ADS is still available and running
+     * TakeOverManual: Driver has given sufficient input, automation is turned off, and the vehicle is fully controlled by the driver.
+     * Unknown: Status not known. This status has no functionality. Mainly used for error handling and waiting for status to be received.
+     */
     void UpdateVehicleStatus(VehicleStatus NewStatus); // Change the vehicle status by ensuring old status is robust and send to client
+    void SendCurrVehicleStatus(); // Send the locally stored current vehicle status
     FDcResult RetrieveVehicleStatus(); // Update the vehicles status using ZeroMQ PUB-SUB
     VehicleStatus GetCurrVehicleStatus();
     VehicleStatus GetOldVehicleStatus();
 
 private: // Game signaling
-    VehicleStatus CurrVehicleStatus = VehicleStatus::ManualDrive; // This stores the current tick's vehicle status
-    VehicleStatus OldVehicleStatus = VehicleStatus::ManualDrive; // This stores the previous tick's vehicle status
-    bool bZMQVehicleStatusReceiveConnection = false; // Stores if connection is established
+    VehicleStatus CurrVehicleStatus = VehicleStatus::Unknown; // This stores the current tick's vehicle status
+    VehicleStatus OldVehicleStatus = VehicleStatus::Unknown; // This stores the previous tick's vehicle status
+    bool bZMQVehicleStatusConnection = false; // Stores if connection is established
     bool bZMQVehicleStatusDataRetrieve = false; // Stores if connection is established
     zmq::context_t* VehicleStatusReceiveContext;    // Stores the receive context of the zmq process
     zmq::context_t* VehicleStatusSendContext;    // Stores the send context of the zmq process
@@ -285,11 +295,12 @@ private: // Game signaling
     zmq::socket_t* VehicleStatusPublisher; // Pointer to the send socket to listen to python client
     FVehicleStatusData VehicleStatusData; // Stores the vehicle status dict sent by python client
     bool EstablishVehicleStatusConnection(); // Establish connection to Client ZMQ
+    bool TerminateVehicleStatusConnection(); // Terminate connection to Client ZMQ
 
   private: // Non-Driving-Related Task
     enum class TaskType {NBackTask, TVShowTask}; // Change the behaviour of the NDRT based on the task type provided
     // The following value will determine the 
-    TaskType CurrentTaskType = TaskType::TVShowTask; // Should be dynamically retrived from a config file
+    TaskType CurrentTaskType = TaskType::TVShowTask; // Should be dynamically retrieved from a config file
     enum class InterruptionParadigm { SelfRegulated, SystemRecommended, SystemInitiated}; // Change the behaviour of the NDRT based on the task type provided
     // The following value will determine the 
     InterruptionParadigm CurrentInterruptionParadigm = InterruptionParadigm::SelfRegulated; // Should be dynamically retrived from a config file
@@ -362,7 +373,8 @@ private: // Eye-tracking
 
 public: // Eye-tracking
     bool IsUserGazingOnHUD(); // Returns true if the gaze is on the HUD
-    bool EstablishEyeTrackerConnection(); // Establish connection to a TCP port for PUBLISH-SUBSCRIBE protocal communication
+    bool EstablishEyeTrackerConnection(); // Establish connection to a TCP port for PUBLISH-SUBSCRIBE protocol communication
+    bool TerminateEyeTrackerConnection(); // Terminate connection to a TCP port for PUBLISH-SUBSCRIBE protocol communication
     FDcResult GetSurfaceData(); // Get all the surface data from the eye tracker
     void ParseGazeData(FString GazeDataString); // This method will load data into FGazeData object
     FVector2D GetGazeHUDLocation(); // Returns the screen gaze location from the eye tracker

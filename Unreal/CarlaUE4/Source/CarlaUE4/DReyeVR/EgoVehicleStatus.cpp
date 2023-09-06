@@ -36,21 +36,73 @@ bool AEgoVehicle::EstablishVehicleStatusConnection() {
 		VehicleStatusPublisher->bind(SendAddress.c_str());
 		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: python client connection successful"));
 	}
-	catch (...) {
+	catch (const std::exception& e) {
 		// Log a generic error message
 		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Failed to connect to the python client network API"));
+		FString ExceptionMessage = FString(ANSI_TO_TCHAR(e.what()));
+		UE_LOG(LogTemp, Error, TEXT("Exception caught: %s"), *ExceptionMessage);
 		return false;
 	}
 	UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Established connection to the python client Network API"));
-	bZMQVehicleStatusReceiveConnection = true;
+	bZMQVehicleStatusConnection = true;
 	return true;
 }
+
+bool AEgoVehicle::TerminateVehicleStatusConnection() {
+	// Check if the connection was even established
+	if (!bZMQVehicleStatusConnection) {
+		UE_LOG(LogTemp, Warning, TEXT("ZeroMQ: Attempting to terminate a connection that was never established."));
+		return false;
+	}
+
+	try {
+		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Attempting to terminate python client side connection"));
+
+		// Close the Subscriber and Publisher sockets
+		if (VehicleStatusSubscriber) {
+			VehicleStatusSubscriber->close();
+			delete VehicleStatusSubscriber;
+			VehicleStatusSubscriber = nullptr;
+		}
+
+		if (VehicleStatusPublisher) {
+			VehicleStatusPublisher->close();
+			delete VehicleStatusPublisher;
+			VehicleStatusPublisher = nullptr;
+		}
+
+		// Terminate the contexts
+		if (VehicleStatusReceiveContext) {
+			delete VehicleStatusReceiveContext;
+			VehicleStatusReceiveContext = nullptr;
+		}
+
+		if (VehicleStatusSendContext) {
+			delete VehicleStatusSendContext;
+			VehicleStatusSendContext = nullptr;
+		}
+
+		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: python client connection terminated successfully"));
+	}
+	catch (const std::exception& e) {
+		// Log a generic error message
+		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Failed to terminate the python client network API connection"));
+		FString ExceptionMessage = FString(ANSI_TO_TCHAR(e.what()));
+		UE_LOG(LogTemp, Error, TEXT("Exception caught: %s"), *ExceptionMessage);
+		return false;
+	}
+
+	UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Terminated connection to the python client Network API"));
+	bZMQVehicleStatusConnection = false;
+	return true;
+}
+
 
 FDcResult AEgoVehicle::RetrieveVehicleStatus() {
 	// Note: using raw C++ types in the following code as it does not interact with UE interface
 
 	// Establish connection if not already
-	if (!bZMQVehicleStatusReceiveConnection && !EstablishVehicleStatusConnection()) {
+	if (!bZMQVehicleStatusConnection && !EstablishVehicleStatusConnection()) {
 		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Connection not established!"));
 		return FDcResult{ FDcResult::EStatus::Error };
 	}
@@ -95,6 +147,10 @@ FDcResult AEgoVehicle::RetrieveVehicleStatus() {
 		CurrVehicleStatus = VehicleStatus::PreAlertAutopilot;
 	}
 	else if (VehicleStatusData.vehicle_status == "TakeOver") {
+		CurrVehicleStatus = VehicleStatus::TakeOverManual;
+
+	}
+	else if (VehicleStatusData.vehicle_status == "TakeOverManual") {
 		CurrVehicleStatus = VehicleStatus::TakeOver;
 	}
 	else {
@@ -120,13 +176,16 @@ void AEgoVehicle::UpdateVehicleStatus(VehicleStatus NewStatus)
 	case VehicleStatus::TakeOver:
 		VehicleStatusString = FString("TakeOver");
 		break;
+	case VehicleStatus::TakeOverManual:
+		VehicleStatusString = FString("TakeOverManual");
+		break;
 	default:
 		VehicleStatusString = FString("Unknown");
 	}
 
 	// Send the new status
-	if (!VehicleStatusPublisher) {
-		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Publisher not initialized!"));
+	if (!bZMQVehicleStatusConnection && !EstablishVehicleStatusConnection()) {
+		UE_LOG(LogTemp, Warning, TEXT("ZeroMQ: Publisher not initialized!"));
 		return;
 	}
 
@@ -134,7 +193,9 @@ void AEgoVehicle::UpdateVehicleStatus(VehicleStatus NewStatus)
 
 	// Get the current timestamp.
 	FDateTime CurrentTime = FDateTime::Now();
-	FString Timestamp = CurrentTime.ToString(TEXT("%d/%m/%Y %H:%M:%S.%f"));
+	FString TimestampWithoutMilliseconds = CurrentTime.ToString(TEXT("%d/%m/%Y %H:%M:%S"));
+	int32 Milliseconds = CurrentTime.GetMillisecond();
+	FString Timestamp = FString::Printf(TEXT("%s.%03d"), *TimestampWithoutMilliseconds, Milliseconds);
 
 	// Construct the "dictionary" as an FString.
 	FString DictFString = FString::Printf(TEXT("{ \"from\": \"%s\", \"timestamp\": \"%s\", \"vehicle_status\": \"%s\" }"), *From, *Timestamp, *VehicleStatusString);
@@ -160,6 +221,64 @@ void AEgoVehicle::UpdateVehicleStatus(VehicleStatus NewStatus)
 	// Finally, if all successful, change the local variables
 	OldVehicleStatus = CurrVehicleStatus;
 	CurrVehicleStatus = NewStatus;
+}
+
+void AEgoVehicle::SendCurrVehicleStatus()
+{
+	FString VehicleStatusString;
+	switch (CurrVehicleStatus) {
+	case VehicleStatus::ManualDrive:
+		VehicleStatusString = FString("ManualDrive");
+		break;
+	case VehicleStatus::AutoPilot:
+		VehicleStatusString = FString("AutoPilot");
+		break;
+	case VehicleStatus::PreAlertAutopilot:
+		VehicleStatusString = FString("PreAlertAutopilot");
+		break;
+	case VehicleStatus::TakeOver:
+		VehicleStatusString = FString("TakeOver");
+		break;
+	case VehicleStatus::TakeOverManual:
+		VehicleStatusString = FString("TakeOverManual");
+		break;
+	default:
+		VehicleStatusString = FString("Unknown");
+	}
+
+	// Send the new status
+	if (!bZMQVehicleStatusConnection && !EstablishVehicleStatusConnection()) {
+		UE_LOG(LogTemp, Warning, TEXT("ZeroMQ: Publisher not initialized!"));
+		return;
+	}
+
+	FString From = TEXT("carla");
+
+	// Get the current timestamp.
+	FDateTime CurrentTime = FDateTime::Now();
+	FString TimestampWithoutMilliseconds = CurrentTime.ToString(TEXT("%d/%m/%Y %H:%M:%S"));
+	int32 Milliseconds = CurrentTime.GetMillisecond();
+	FString Timestamp = FString::Printf(TEXT("%s.%03d"), *TimestampWithoutMilliseconds, Milliseconds);
+
+	// Construct the "dictionary" as an FString.
+	FString DictFString = FString::Printf(TEXT("{ \"from\": \"%s\", \"timestamp\": \"%s\", \"vehicle_status\": \"%s\" }"), *From, *Timestamp, *VehicleStatusString);
+
+	// Convert the FString to a std::string to be used with ZeroMQ.
+	std::string DictStdString(TCHAR_TO_UTF8(*DictFString));
+
+	try {
+		// Send the message
+		zmq::message_t Message(DictStdString.size());
+		memcpy(Message.data(), DictStdString.c_str(), DictStdString.size());
+
+		VehicleStatusPublisher->send(Message);
+
+		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Sent message: %s"), *DictFString);
+
+	}
+	catch (...) {
+		UE_LOG(LogTemp, Error, TEXT("ZeroMQ: Failed to send message."));
+	}
 }
 
 AEgoVehicle::VehicleStatus AEgoVehicle::GetCurrVehicleStatus()

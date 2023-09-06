@@ -530,14 +530,17 @@ void ADReyeVRPawn::LogitechWheelUpdate()
     else
     {
         /// NOTE: directly calling the EgoVehicle functions
-        bool bAutoPilotStatus = EgoVehicle->GetAutopilotStatus();
+        //bool bAutoPilotStatus = EgoVehicle->GetAutopilotStatus();
         bool bNoThreshChange = (FMath::IsNearlyEqual(WheelRotation, WheelRotationLast, LogiThresh) &&
             FMath::IsNearlyEqual(AccelerationPedal, AccelerationPedalLast, LogiThresh) &&
             FMath::IsNearlyEqual(BrakePedal, BrakePedalLast, LogiThresh));
 
-        if (bAutoPilotStatus && bNoThreshChange)
+        if (/*bAutoPilotStatus && */ bNoThreshChange)
         {
-            // let the autopilot drive if the user is not putting significant inputs
+            // bAutoPilotStatus is commented out because it is not representative of automated vehicle control as it
+            // only returns true for traffic manager autopilot not auto agents of scenario runner.
+
+            // let the autopilot or auto agent drive if the user is not putting significant inputs
             // ie. if their inputs are close enough to what was previously input
             /// TODO: this system might break down if the autopilot is putting in sufficiently
             ///       strong inputs, since the autopilot controls might might inadvertently
@@ -546,8 +549,16 @@ void ADReyeVRPawn::LogitechWheelUpdate()
         }
         else
         {
-            // driver has issued sufficient input to warrant manual takeover (disables autopilot)
-            //EgoVehicle->SetAutopilot(false); Commented this out since there appears to be a bug. Currently possible only through Client side
+            // Driver has issued sufficient input to warrant manual takeover (disables autopilot)
+            //EgoVehicle->SetAutopilot(false); // BUG: Currently possible only through Client side
+
+            // Send the vehicle to the client to turn off autopilot
+            if (EgoVehicle->GetCurrVehicleStatus() == AEgoVehicle::VehicleStatus::TakeOver) {
+                // NOTE: But only do so once, as it will case confusion at the client side
+				EgoVehicle->UpdateVehicleStatus(AEgoVehicle::VehicleStatus::TakeOverManual);
+            }
+
+			// Register manual inputs by the driver
             EgoVehicle->AddSteering(WheelRotation);
             EgoVehicle->AddThrottle(AccelerationPedal);
             EgoVehicle->AddBrake(BrakePedal);

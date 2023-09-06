@@ -71,6 +71,45 @@ bool AEgoVehicle::EstablishEyeTrackerConnection() {
 	return true;
 }
 
+bool AEgoVehicle::TerminateEyeTrackerConnection() {
+	// Check if the connection was even established
+	if (!bZMQEyeConnection) {
+		UE_LOG(LogTemp, Warning, TEXT("ZeroMQ: Attempting to terminate an eye-tracker connection that was never established."));
+		return false;
+	}
+
+	try {
+		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Attempting to terminate eye-tracker connection"));
+
+		// Close the Subscriber socket
+		if (EyeSubscriber) {
+			EyeSubscriber->close();
+			delete EyeSubscriber;
+			EyeSubscriber = nullptr;
+		}
+
+		// Terminate the context
+		if (EyeContext) {
+			delete EyeContext;
+			EyeContext = nullptr;
+		}
+
+		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Eye-tracker connection terminated successfully"));
+	}
+	catch (const std::exception& e) {
+		// Log a generic error message
+		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Failed to terminate the eye-tracker connection"));
+		FString ExceptionMessage = FString(ANSI_TO_TCHAR(e.what()));
+		UE_LOG(LogTemp, Error, TEXT("Exception caught: %s"), *ExceptionMessage);
+		return false;
+	}
+
+	UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Terminated connection to the Pupil labs Network API"));
+	bZMQEyeConnection = false;
+	return true;
+}
+
+
 FVector2D AEgoVehicle::GetGazeHUDLocation() {
 	// Multiply the normalized coordinates to the game resolution (i.e., equivalent to the screen resolution)
 	// Note/WARNING: The screen resolution values are hard coded
