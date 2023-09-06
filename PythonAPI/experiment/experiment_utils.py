@@ -4,6 +4,8 @@ import sys
 import os
 import configparser
 import json
+import re
+import traceback
 
 import zmq
 import msgpack as serializer
@@ -75,32 +77,43 @@ class VehicleBehaviourSuite:
     publisher_context = None
     publisher_socket = None
 
+    # Store the ordered vehicle status
+    ordered_vehicle_status = ["Unknown", "ManualDrive", "AutoPilot", "PreAlertAutopilot", "TakeOver", "TakeOverManual"]
+
     # Store the local vehicle status currently known
+    previous_local_vehicle_status = "Unknown"
     local_vehicle_status = "Unknown"
+
+    # log performance data variable
+    log_takeover_performance_data = False
+    log_interleaving_performance = False
 
     @staticmethod
     def _establish_CARLA_connection():
         # Create ZMQ socket for receiving vehicle status from carla server
-        if (VehicleBehaviourSuite.carla_subscriber_context == None or VehicleBehaviourSuite.subscriber_socket == None):
+        if (VehicleBehaviourSuite.carla_subscriber_context == None or VehicleBehaviourSuite.carla_subscriber_socket == None):
             VehicleBehaviourSuite.carla_subscriber_context = zmq.Context()
-            VehicleBehaviourSuite.carla_subscriber_socket = VehicleBehaviourSuite.subscriber_context.socket(zmq.SUB)
+            VehicleBehaviourSuite.carla_subscriber_socket = VehicleBehaviourSuite.carla_subscriber_context.socket(zmq.SUB)
             VehicleBehaviourSuite.carla_subscriber_socket.setsockopt_string(zmq.SUBSCRIBE, "")
             VehicleBehaviourSuite.carla_subscriber_socket.setsockopt(zmq.RCVTIMEO, 1)  # 1 ms timeout
             VehicleBehaviourSuite.carla_subscriber_socket.connect("tcp://localhost:5556")
+            print("ZMQ: Connected to carla server")
 
         # Create ZMQ socket for receiving vehicle status from scenario runner
-        if (VehicleBehaviourSuite.carla_subscriber_context == None or VehicleBehaviourSuite.subscriber_socket == None):
+        if (VehicleBehaviourSuite.scenario_runner_context == None or VehicleBehaviourSuite.scenario_runner_socket == None):
             VehicleBehaviourSuite.scenario_runner_context = zmq.Context()
-            VehicleBehaviourSuite.scenario_runner_socket = VehicleBehaviourSuite.subscriber_context.socket(zmq.SUB)
+            VehicleBehaviourSuite.scenario_runner_socket = VehicleBehaviourSuite.scenario_runner_context.socket(zmq.SUB)
             VehicleBehaviourSuite.scenario_runner_socket.setsockopt_string(zmq.SUBSCRIBE, "")
             VehicleBehaviourSuite.scenario_runner_socket.setsockopt(zmq.RCVTIMEO, 1)  # 1 ms timeout
             VehicleBehaviourSuite.scenario_runner_socket.connect("tcp://localhost:5557")
+            print("ZMQ: Connected to scenario runner")
 
         # Create ZMQ socket for sending vehicle control to carla server/scenario_runner
         if (VehicleBehaviourSuite.publisher_context == None or VehicleBehaviourSuite.publisher_socket == None):
             VehicleBehaviourSuite.publisher_context = zmq.Context()
             VehicleBehaviourSuite.publisher_socket = VehicleBehaviourSuite.publisher_context.socket(zmq.PUB)
             VehicleBehaviourSuite.publisher_socket.bind("tcp://*:5555")
+            print("ZMQ: Bound to port 5555 for sending vehicle status")
 
     @staticmethod
     def send_vehicle_status(vehicle_status):
@@ -111,7 +124,7 @@ class VehicleBehaviourSuite:
         if (VehicleBehaviourSuite.publisher_context == None or VehicleBehaviourSuite.publisher_context == None):
             VehicleBehaviourSuite._establish_CARLA_connection()
 
-        if vehicle_status not in ["ManualDrive", "AutoPilot", "PreAlertAutopilot", "TakeOver"]:
+        if vehicle_status not in VehicleBehaviourSuite.ordered_vehicle_status:
             raise Exception(f"Invalid vehicle status: {vehicle_status}")
         
         VehicleBehaviourSuite.local_vehicle_status = vehicle_status
@@ -121,7 +134,7 @@ class VehicleBehaviourSuite:
             "timestamp": datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3],
             "vehicle_status": vehicle_status
         }
-        serialized_message = serializer.packb(message, use_bin_type=True)
+        serialized_message = serializer.packb(message, use_bin_type=True) # Note: The message is serialized because carla by default deserialize the message
         
         # Send the the message
         VehicleBehaviourSuite.publisher_socket.send(serialized_message)
@@ -130,13 +143,20 @@ class VehicleBehaviourSuite:
     @staticmethod
     def receive_carla_vehicle_status():
         # Create ZMQ socket if not created
-        if (VehicleBehaviourSuite.carla_subscriber_socket == None or VehicleBehaviourSuite.carla_subscriber_socket == None):
+        if (VehicleBehaviourSuite.carla_subscriber_context == None or VehicleBehaviourSuite.carla_subscriber_socket == None):
             VehicleBehaviourSuite._establish_CARLA_connection()
         try:
             message = VehicleBehaviourSuite.carla_subscriber_socket.recv()
             message_dict = json.loads(message)
+            # print("Received message:", message_dict)
+        except zmq.Again:  # This exception is raised on timeout
+            # print(f"Didn't receive any message from carla server at {datetime.datetime.now().strftime('%d/%m/%Y %H:%M:%S.%f')[:-3]}")
+            return {"from": "carla",
+                    "timestamp": datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3],
+                    "vehicle_status": "Unknown"}
         except Exception as e:
-            print(f"Exception: {e}")
+            # print("Unexpected error:")
+            print(traceback.format_exc())
             return {"from": "carla",
                     "timestamp": datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3],
                     "vehicle_status": "Unknown"}
@@ -147,13 +167,20 @@ class VehicleBehaviourSuite:
     @staticmethod
     def receive_scenario_runner_vehicle_status():
         # Create ZMQ socket if not created
-        if (VehicleBehaviourSuite.scenario_runner_socket == None or VehicleBehaviourSuite.scenario_runner_socket == None):
+        if (VehicleBehaviourSuite.scenario_runner_context == None or VehicleBehaviourSuite.scenario_runner_socket == None):
             VehicleBehaviourSuite._establish_CARLA_connection()
         try:
             message = VehicleBehaviourSuite.scenario_runner_socket.recv()
             message_dict = json.loads(message)
+            # print("Received message:", message_dict)
+        except zmq.Again:  # This exception is raised on timeout
+            # print(f"Didn't receive any message from scenario runner at {datetime.datetime.now().strftime('%d/%m/%Y %H:%M:%S.%f')[:-3]}")
+            return {"from": "scenario_runner",
+                    "timestamp": datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3],
+                    "vehicle_status": "Unknown"}
         except Exception as e:
-            print(f"Exception: {e}")
+            # print("Unexpected error:")
+            print(traceback.format_exc())
             return {"from": "scenario_runner",
                     "timestamp": datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3],
                     "vehicle_status": "Unknown"}
@@ -162,50 +189,90 @@ class VehicleBehaviourSuite:
         return message_dict
     
     @staticmethod
-    def vehicle_status_tick(world, config):
+    def vehicle_status_tick(world, config_file, index):
         """
         This method should be called every tick to update the vehicle status
-        This will automatically also change the behaviour of the ego vehicle required.
+        This will automatically also change the behaviour of the ego vehicle required, and call logging functions if required.
+        NOTE: that the status will be continously sent by the two components (carla and scenario runner) until the trial is over.
+        Carla must at all times receieve the most up to date vehicle status. Scenario runner does not require the most up to date vehicle status.
         """
         # Receive vehicle status from carla server and scenario runner
         carla_vehicle_status = VehicleBehaviourSuite.receive_carla_vehicle_status()
         scenario_runner_vehicle_status = VehicleBehaviourSuite.receive_scenario_runner_vehicle_status()
 
-        # Check if the received vehicle status is valid based on the publishers individual role in the experiment
-        if carla_vehicle_status["vehicle_status"] not in ["Unknown", "ManualDrive"]:
-            raise Exception(f"Carla server does not have permission to send vehicle status: {carla_vehicle_status['vehicle_status']}")
-        if scenario_runner_vehicle_status["vehicle_status"] not in ["Unknown", "AutoPilot", "PreAlertAutopilot", "TakeOver"]:
-            raise Exception(f"Scenario runner does not have permission to send vehicle status: {scenario_runner_vehicle_status['vehicle_status']}")
+        # NOTE: Signal checking from individual components is removed as carla sends back the signal it got.
 
-        # Check if there is not vehicle status conflicts
-        if carla_vehicle_status["vehicle_status"] != "Unknown" and scenario_runner_vehicle_status["vehicle_status"] != "Unknown":
-            raise Exception(f"Both carla server and scenario runner are sending vehicle status: {carla_vehicle_status['vehicle_status']} and {scenario_runner_vehicle_status['vehicle_status']}")
+        # Check if there is not vehicle status conflicts. If there is a conflict, determine the correct vehicle status
+        VehicleBehaviourSuite.previous_local_vehicle_status = VehicleBehaviourSuite.local_vehicle_status
+        if VehicleBehaviourSuite.ordered_vehicle_status.index(carla_vehicle_status["vehicle_status"]) <= VehicleBehaviourSuite.ordered_vehicle_status.index(scenario_runner_vehicle_status["vehicle_status"]):
+            # This means that scenario runner is sending a vehicle status that comes after in a trial procedure. Hence its the most up to date vehicle status
+            VehicleBehaviourSuite.local_vehicle_status = scenario_runner_vehicle_status["vehicle_status"]
+            # If scenario runner has sent an updated vehicle status, let carla server know about it
+            VehicleBehaviourSuite.send_vehicle_status(scenario_runner_vehicle_status["vehicle_status"])
+        else:
+            # This means that carla server is sending a vehicle status that comes after in a trial procedure. Hence its the most up to date vehicle status
+            VehicleBehaviourSuite.local_vehicle_status = carla_vehicle_status["vehicle_status"]
 
         # Get the ego vehicle as it is required to change the behaviour
-        ego_vehicle = find_ego_vehicle(world)
- 
-        # Now, we can update the local vehicle status and execute any required behaviour for the experiment
-        if carla_vehicle_status["vehicle_status"] != "Unknown": #  i.e., carla_vehicle_status["vehicle_status"] == "ManualDrive"
-            # This means that the carla server is sending the vehicle status, and it has to be "ManualDrive"
-            old_vehicle_status = VehicleBehaviourSuite.local_vehicle_status
-            VehicleBehaviourSuite.local_vehicle_status = "ManualDrive"
+        ego_vehicle = find_ego_vehicle(world, verbose=False)
 
-            if old_vehicle_status == "TakeOver":
+        # Now, execute any required behaviour based on the potential updated vehicle status
+        if VehicleBehaviourSuite.previous_local_vehicle_status != VehicleBehaviourSuite.local_vehicle_status:
+            # This means that the vehicle status has changed. Hence, execute the required behaviour
+            if VehicleBehaviourSuite.local_vehicle_status == "PreAlertAutopilot":
+                VehicleBehaviourSuite.log_interleaving_performance = True
+            elif VehicleBehaviourSuite.local_vehicle_status == "TakeOver":
+                DrivingPerformance.start_logging_reaction_time(True)
+            elif VehicleBehaviourSuite.local_vehicle_status == "TakeOverManual":
                 # Turn ego_vehicle's autopilot off. This needs to be through client side as there is a bug in carla server
                 ego_vehicle.set_autopilot(False)
-                # TODO: Start logging the driving performance data here
+                # Stop logging the eye-interleaving data
+                VehicleBehaviourSuite.log_interleaving_performance = False
+                # TODO: Save the eye-interleaving data
+                # Start logging the performance data
+                VehicleBehaviourSuite.log_takeover_performance_data = True
+                DrivingPerformance.set_configuration(config_file, index)
+                DrivingPerformance.start_logging_reaction_time(False)
 
-        elif scenario_runner_vehicle_status["vehicle_status"] != "Unknown":
-            # This means that the scenario runner is sending the vehicle status, and it has to be "AutoPilot", "PreAlertAutopilot", or "TakeOver"
-            # Turn ego_vehicle's autopilot on. This needs to be through client side as there is a bug in carla server
-            VehicleBehaviourSuite.send_vehicle_status(scenario_runner_vehicle_status["vehicle_status"])
-            VehicleBehaviourSuite.local_vehicle_status = scenario_runner_vehicle_status["vehicle_status"]
-            
-            # TODO: Start logging reaction time when TOR status is retrived
-        else:
-            # This means that both carla server and scenario runner are sending "Unknown" vehicle status
-            # This is not an error as it is possible that both carla server and scenario runner are not sending any vehicle status
-            pass
+        # Log the performance data if required
+        if VehicleBehaviourSuite.log_takeover_performance_data:
+            DrivingPerformance.performance_tick(world, ego_vehicle)
+
+        if VehicleBehaviourSuite.log_interleaving_performance:
+            EyeTracking.interleaving_performance_tick()
+    
+    @staticmethod
+    def vehicle_status_terminate():
+        """
+        This method is used to terminate the the whole trial
+        """
+        # Stop logging the performance data
+        DrivingPerformance.save_performance_data()
+
+        # Peacefully terminating all the ZMQ variables
+        DrivingPerformance.reset_variables()
+
+    @staticmethod
+    def reset_variables():
+        DrivingPerformance.carla_subscriber_context.term()
+        DrivingPerformance.carla_subscriber_socket.close()
+        DrivingPerformance.scenario_runner_context.term()
+        DrivingPerformance.scenario_runner_socket.close()
+        DrivingPerformance.publisher_context.term()
+        DrivingPerformance.publisher_socket.close()
+
+        # Setting them None so that they are re-initialized when the next trial starts
+        DrivingPerformance.carla_subscriber_context = None
+        DrivingPerformance.carla_subscriber_context = None
+        DrivingPerformance.scenario_runner_context = None
+        DrivingPerformance.scenario_runner_socket = None
+        DrivingPerformance.publisher_context = None
+        DrivingPerformance.publisher_socket = None
+
+        # Resetting the other variables
+        DrivingPerformance.local_vehicle_status = "Unknown"
+        DrivingPerformance.log_performance_data = False
+
 
 class DrivingPerformance:
 
@@ -214,10 +281,11 @@ class DrivingPerformance:
     reaction_time = None
 
     # Store the configuration
-    config = None
+    config_file = None
+    index = -1
 
     # Header for all the metrics
-    common_header = ["ParticipantID", "BlockNumber", "TrialNumber", "TaskType", "TaskSetting", "TrafficComplexity", "Timestamp"]
+    common_header = ["ParticipantID", "InterruptionParadigm", "BlockNumber", "TrialNumber", "TaskType", "TaskSetting", "TrafficComplexity", "Timestamp"]
 
     # Pandas dataframe to store the driving performance data
     reaction_time_df = None
@@ -226,6 +294,9 @@ class DrivingPerformance:
     steering_angles_df = None
     lane_offset_df = None
     speed_df = None
+
+    # Storing map as get_map() is a heavy operation
+    carla_map = None
 
     @staticmethod
     def _init_dfs():
@@ -263,8 +334,10 @@ class DrivingPerformance:
             raise Exception("Reaction variables are not in the correct state!")
 
     @staticmethod
-    def set_configuration(config):
-        DrivingPerformance.config = config
+    def set_configuration(config_file, index):
+        # config is a dictionary with the required IV values set for the trial
+        DrivingPerformance.config_file = config_file
+        DrivingPerformance.index = index
 
     @staticmethod
     def performance_tick(world, ego_vehicle):
@@ -280,10 +353,25 @@ class DrivingPerformance:
         braking_input = vehicle_control.brake # NOTE: This is normalized between 0 and 1
         throttle_input = vehicle_control.throttle # NOTE: This is normalized between 0 and 1
         steering_angle = vehicle_control.steer * 450 # NOTE: The logitech wheel can rotate 450 degrees on one side.
-        lane_offset = vehicle_location.distance(world.get_map().get_waypoint(vehicle_location).transform.location)
 
-        #         
-        common_row_elements = [DrivingPerformance.config["ParticipantID"], DrivingPerformance.config["BlockNumber"], DrivingPerformance.config["TrialNumber"], DrivingPerformance.config["TaskType"], DrivingPerformance.config["TaskSetting"], DrivingPerformance.config["TrafficComplexity"], timestamp]
+        # Make sure we have the map
+        DrivingPerformance.world_map = world.get_map() if DrivingPerformance.world_map is None else DrivingPerformance.world_map
+
+        lane_offset = vehicle_location.distance(DrivingPerformance.world_map.get_waypoint(vehicle_location).transform.location)
+
+        # Store the common elements for ease of use
+        gen_section = DrivingPerformance.config_file.sections()[0]
+        curr_section_name = DrivingPerformance.config_file.sections()[DrivingPerformance.index]
+        curr_section = DrivingPerformance.config_file[curr_section_name]
+        match = re.match(r"(Block\d+)(Trial\d+)", curr_section_name)
+        common_row_elements = [gen_section["ParticipantID"],
+                               gen_section["InterruptionParadigm"],
+                               match.group(1) if match else "UnknownBlock",
+                               match.group(2) if match else "UnknownTrial",
+                               curr_section["NDRTTaskType"],
+                               curr_section["TaskSetting"],
+                               curr_section["Traffic"],
+                               timestamp]
 
         # Store all the raw measurements in the dataframes
         DrivingPerformance.braking_input_df.loc[len(DrivingPerformance.braking_input_df)] = common_row_elements + [braking_input]
@@ -291,7 +379,8 @@ class DrivingPerformance:
         DrivingPerformance.steering_angles_df.loc[len(DrivingPerformance.steering_angles_df)] = common_row_elements + [steering_angle]
         DrivingPerformance.lane_offset_df.loc[len(DrivingPerformance.lane_offset_df)] = common_row_elements + [lane_offset]
 
-        # TODO: Store the eye-data into the dataframes
+        # Log the eye-tracking data here
+        EyeTracking.TOR_performance_tick()
     
     @staticmethod
     def save_performance_data():
@@ -304,4 +393,14 @@ class DrivingPerformance:
 
 
 class EyeTracking:
-    pass
+    @staticmethod
+    def establish_eye_tracking_connection():
+        pass
+
+    @staticmethod
+    def interleaving_performance_tick():
+        pass
+
+    @staticmethod
+    def TOR_performance_tick():
+        pass
