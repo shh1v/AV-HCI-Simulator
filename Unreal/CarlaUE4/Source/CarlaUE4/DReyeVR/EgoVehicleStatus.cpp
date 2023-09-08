@@ -147,11 +147,11 @@ FDcResult AEgoVehicle::RetrieveVehicleStatus() {
 		CurrVehicleStatus = VehicleStatus::PreAlertAutopilot;
 	}
 	else if (VehicleStatusData.vehicle_status == "TakeOver") {
-		CurrVehicleStatus = VehicleStatus::TakeOverManual;
+		CurrVehicleStatus = VehicleStatus::TakeOver;
 
 	}
 	else if (VehicleStatusData.vehicle_status == "TakeOverManual") {
-		CurrVehicleStatus = VehicleStatus::TakeOver;
+		CurrVehicleStatus = VehicleStatus::TakeOverManual;
 	}
 	else {
 		CurrVehicleStatus = VehicleStatus::Unknown;

@@ -515,7 +515,6 @@ void ADReyeVRPawn::LogitechWheelUpdate()
 
     // weird behaviour: "Pedals will output a value of 0.5 until the wheel/pedals receive any kind of input"
     // as per https://github.com/HARPLab/LogitechWheelPlugin
-    /*This does not impact my current research trial as the driver will first start with driving the vehicle manually */
     if (bPedalsDefaulting)
     {
         // this bPedalsDefaulting flag is initially set to not send inputs when the pedals are "defaulting", once the
@@ -526,43 +525,32 @@ void ADReyeVRPawn::LogitechWheelUpdate()
         {
             bPedalsDefaulting = false;
         }
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("WARNING: Pedals defaulting"));
+
     }
     else
     {
-        /// NOTE: directly calling the EgoVehicle functions
-        //bool bAutoPilotStatus = EgoVehicle->GetAutopilotStatus();
-        bool bNoThreshChange = (FMath::IsNearlyEqual(WheelRotation, WheelRotationLast, LogiThresh) &&
-            FMath::IsNearlyEqual(AccelerationPedal, AccelerationPedalLast, LogiThresh) &&
-            FMath::IsNearlyEqual(BrakePedal, BrakePedalLast, LogiThresh));
+        // Calculate the threshold change once
+        bool bThreshChange = !FMath::IsNearlyEqual(WheelRotation, WheelRotationLast, LogiThresh) ||
+            !FMath::IsNearlyEqual(AccelerationPedal, AccelerationPedalLast, LogiThresh) ||
+            !FMath::IsNearlyEqual(BrakePedal, BrakePedalLast, LogiThresh);
 
-        if (/*bAutoPilotStatus && */ bNoThreshChange)
-        {
-            // bAutoPilotStatus is commented out because it is not representative of automated vehicle control as it
-            // only returns true for traffic manager autopilot not auto agents of scenario runner.
+        AEgoVehicle::VehicleStatus currStatus = EgoVehicle->GetCurrVehicleStatus();
 
-            // let the autopilot or auto agent drive if the user is not putting significant inputs
-            // ie. if their inputs are close enough to what was previously input
-            /// TODO: this system might break down if the autopilot is putting in sufficiently
-            ///       strong inputs, since the autopilot controls might might inadvertently
-            ///       be considered as human-input controls which amplifies the input and
-            ///       causes a positive cycle loop (which would be better avoided)
+        // Check and update the vehicle status when necessary
+        if (currStatus == AEgoVehicle::VehicleStatus::TakeOver && bThreshChange) {
+            EgoVehicle->UpdateVehicleStatus(AEgoVehicle::VehicleStatus::TakeOverManual);
         }
-        else
-        {
-            // Driver has issued sufficient input to warrant manual takeover (disables autopilot)
-            //EgoVehicle->SetAutopilot(false); // BUG: Currently possible only through Client side
 
-            // Send the vehicle to the client to turn off autopilot
-            if (EgoVehicle->GetCurrVehicleStatus() == AEgoVehicle::VehicleStatus::TakeOver) {
-                // NOTE: But only do so once, as it will case confusion at the client side
-				EgoVehicle->UpdateVehicleStatus(AEgoVehicle::VehicleStatus::TakeOverManual);
-            }
-
-			// Register manual inputs by the driver
+        // The control modifications are performed in several conditions so we group them together
+        if (currStatus == AEgoVehicle::VehicleStatus::ManualDrive ||
+            currStatus == AEgoVehicle::VehicleStatus::TakeOverManual ||
+            (currStatus == AEgoVehicle::VehicleStatus::TakeOver && bThreshChange)) {
             EgoVehicle->AddSteering(WheelRotation);
             EgoVehicle->AddThrottle(AccelerationPedal);
             EgoVehicle->AddBrake(BrakePedal);
         }
+
     }
     // save the last values for the wheel & pedals
     WheelRotationLast = WheelRotation;
