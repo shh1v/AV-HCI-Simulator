@@ -138,7 +138,6 @@ class VehicleBehaviourSuite:
         
         # Send the the message
         VehicleBehaviourSuite.publisher_socket.send(serialized_message)
-        print(f"Sent vehicle status: {vehicle_status}")
 
     @staticmethod
     def receive_carla_vehicle_status():
@@ -200,8 +199,6 @@ class VehicleBehaviourSuite:
         carla_vehicle_status = VehicleBehaviourSuite.receive_carla_vehicle_status()
         scenario_runner_vehicle_status = VehicleBehaviourSuite.receive_scenario_runner_vehicle_status()
 
-        # NOTE: Signal checking from individual components is removed as carla sends back the signal it got.
-
         # Check if there is not vehicle status conflicts. If there is a conflict, determine the correct vehicle status
         VehicleBehaviourSuite.previous_local_vehicle_status = VehicleBehaviourSuite.local_vehicle_status
         if VehicleBehaviourSuite.ordered_vehicle_status.index(carla_vehicle_status["vehicle_status"]) <= VehicleBehaviourSuite.ordered_vehicle_status.index(scenario_runner_vehicle_status["vehicle_status"]):
@@ -226,6 +223,7 @@ class VehicleBehaviourSuite:
             elif VehicleBehaviourSuite.local_vehicle_status == "TakeOverManual":
                 # Turn ego_vehicle's autopilot off. This needs to be through client side as there is a bug in carla server
                 ego_vehicle.set_autopilot(False)
+                print(f"Ego vehicle's autopilot turned off.")
                 # Stop logging the eye-interleaving data
                 VehicleBehaviourSuite.log_interleaving_performance = False
                 # TODO: Save the eye-interleaving data
@@ -250,28 +248,31 @@ class VehicleBehaviourSuite:
         DrivingPerformance.save_performance_data()
 
         # Peacefully terminating all the ZMQ variables
-        DrivingPerformance.reset_variables()
+        VehicleBehaviourSuite.reset_variables()
 
     @staticmethod
     def reset_variables():
-        DrivingPerformance.carla_subscriber_context.term()
-        DrivingPerformance.carla_subscriber_socket.close()
-        DrivingPerformance.scenario_runner_context.term()
-        DrivingPerformance.scenario_runner_socket.close()
-        DrivingPerformance.publisher_context.term()
-        DrivingPerformance.publisher_socket.close()
+        VehicleBehaviourSuite.carla_subscriber_context.term()
+        VehicleBehaviourSuite.carla_subscriber_socket.close()
+        VehicleBehaviourSuite.scenario_runner_context.term()
+        VehicleBehaviourSuite.scenario_runner_socket.close()
+        VehicleBehaviourSuite.publisher_context.term()
+        VehicleBehaviourSuite.publisher_socket.close()
 
         # Setting them None so that they are re-initialized when the next trial starts
-        DrivingPerformance.carla_subscriber_context = None
-        DrivingPerformance.carla_subscriber_context = None
-        DrivingPerformance.scenario_runner_context = None
-        DrivingPerformance.scenario_runner_socket = None
-        DrivingPerformance.publisher_context = None
-        DrivingPerformance.publisher_socket = None
+        VehicleBehaviourSuite.carla_subscriber_context = None
+        VehicleBehaviourSuite.carla_subscriber_context = None
+        VehicleBehaviourSuite.scenario_runner_context = None
+        VehicleBehaviourSuite.scenario_runner_socket = None
+        VehicleBehaviourSuite.publisher_context = None
+        VehicleBehaviourSuite.publisher_socket = None
 
         # Resetting the other variables
-        DrivingPerformance.local_vehicle_status = "Unknown"
-        DrivingPerformance.log_performance_data = False
+        VehicleBehaviourSuite.local_vehicle_status = "Unknown"
+        VehicleBehaviourSuite.previous_local_vehicle_status = "Unknown"
+        VehicleBehaviourSuite.log_performance_data = False
+
+        # TODO: Reset all the eye-tracking and driving performance variables
 
 
 class DrivingPerformance:
@@ -296,7 +297,7 @@ class DrivingPerformance:
     speed_df = None
 
     # Storing map as get_map() is a heavy operation
-    carla_map = None
+    world_map = None
 
     @staticmethod
     def _init_dfs():
@@ -351,6 +352,8 @@ class DrivingPerformance:
         # Get all the raw measurements
         timestamp = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3]
         braking_input = vehicle_control.brake # NOTE: This is normalized between 0 and 1
+        if braking_input > 1:
+            print(f"Braking input is greater than 1: {braking_input}")
         throttle_input = vehicle_control.throttle # NOTE: This is normalized between 0 and 1
         steering_angle = vehicle_control.steer * 450 # NOTE: The logitech wheel can rotate 450 degrees on one side.
 
@@ -360,7 +363,7 @@ class DrivingPerformance:
         lane_offset = vehicle_location.distance(DrivingPerformance.world_map.get_waypoint(vehicle_location).transform.location)
 
         # Store the common elements for ease of use
-        gen_section = DrivingPerformance.config_file.sections()[0]
+        gen_section = DrivingPerformance.config_file[DrivingPerformance.config_file.sections()[0]]
         curr_section_name = DrivingPerformance.config_file.sections()[DrivingPerformance.index]
         curr_section = DrivingPerformance.config_file[curr_section_name]
         match = re.match(r"(Block\d+)(Trial\d+)", curr_section_name)
@@ -384,7 +387,11 @@ class DrivingPerformance:
     
     @staticmethod
     def save_performance_data():
-        # Save the dataframes into csv files
+        # Ensure the directory exists
+        if not os.path.exists("PerformanceData"):
+            os.makedirs("PerformanceData")
+
+        # Save the dataframes to the files
         DrivingPerformance.braking_input_df.to_csv("PerformanceData/braking_input.csv")
         DrivingPerformance.throttle_input_df.to_csv("PerformanceData/throttle_input.csv")
         DrivingPerformance.steering_angles_df.to_csv("PerformanceData/steering_angles.csv")
