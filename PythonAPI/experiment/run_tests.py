@@ -1,51 +1,55 @@
 # Standard library imports
-import zmq
-import datetime
-import json
-import traceback
+import time
 
-carla_subscriber_context = None
-carla_subscriber_socket = None
+# Local imports
+import carla
+from examples.DReyeVR_utils import find_ego_vehicle
 
-def _establish_CARLA_connection():
-    global carla_subscriber_context
-    global carla_subscriber_socket
+def sleep(world, duration=10):
+    """
+    Sleep for the given number of seconds while the world ticks in the background
+    """
+    curr_time = time.time()
+    while time.time() - curr_time < duration:
+        world.tick()
 
-    # Create ZMQ socket for receiving vehicle status from carla server
-    if (carla_subscriber_context == None or carla_subscriber_socket == None):
-        carla_subscriber_context = zmq.Context()
-        carla_subscriber_socket = carla_subscriber_context.socket(zmq.SUB)
-        carla_subscriber_socket.setsockopt_string(zmq.SUBSCRIBE, "")
-        carla_subscriber_socket.setsockopt(zmq.RCVTIMEO, 2000)  # 1 ms timeout
-        carla_subscriber_socket.connect("tcp://localhost:5557")
-        print("ZMQ: Connected to carla server")
+if __name__ == "__main__":
+    # Connect to the server
+    client = carla.Client("127.0.0.1", 2000)
+    client.set_timeout(10.0)
+    world = client.get_world()
 
-def receive_carla_vehicle_status():
-    global carla_subscriber_context
-    global carla_subscriber_socket
+    # Make the server synchronous
+    settings = client.get_world().get_settings()
+    settings.synchronous_mode = True
+    settings.fixed_delta_seconds = 1/20.0 # 20 Hz
+    client.get_world().apply_settings(settings)
 
-    # Create ZMQ socket if not created
-    if (carla_subscriber_context == None or carla_subscriber_socket == None):
-        _establish_CARLA_connection()
-    try:
-        message = carla_subscriber_socket.recv()
-        message_dict = json.loads(message)
-        print("Received message:", message_dict)
-    except zmq.Again:  # This exception is raised on timeout
-        # print(f"Didn't receive any message from carla server at {datetime.datetime.now().strftime('%d/%m/%Y %H:%M:%S.%f')[:-3]}")
-        return {"from": "carla",
-                "timestamp": datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3],
-                "vehicle_status": "Unknown"}
-    except Exception as e:
-        print("Unexpected error:")
-        print(traceback.format_exc())
-        return {"from": "carla",
-                "timestamp": datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3],
-                "vehicle_status": "Unknown"}
-    
-    # message_dict will have sender name, timestamp, and vehicle status
-    return message_dict
+    # Setting Traffic Manager 1 parameters
+    tm1 = client.get_trafficmanager(8000)
+    tm1.set_synchronous_mode(True)
 
-if __name__ == '__main__':
-    while True:
-        receive_carla_vehicle_status()
+    # Setting Traffic Manager 2 parameters
+    tm2 = client.get_trafficmanager(8005)
+    tm2.set_synchronous_mode(False)
+
+    # Now, find the ego vehicle and turn on autopilot
+    DReyeVR_vehicle = find_ego_vehicle(world, True)
+    DReyeVR_vehicle.set_autopilot(True, tm1.get_port())
+    print("DReyeVR vehicle autopilot turned on.")
+
+    # Now, wait for 5 seconds. The sleep method simply calls world.tick() for the given number of seconds
+    sleep(world, 5.0)
+
+    # Turn on autopilot for the DReyeVR vehicle using Traffic Manager 2
+    DReyeVR_vehicle.set_autopilot(False, tm2.get_port())
+    print("DReyeVR vehicle autopilot turned off.")
+
+    # Now wait for 5 seconds
+    sleep(world, 5.0)
+
+    # Make the server asynchronous again
+    settings = client.get_world().get_settings()
+    settings.synchronous_mode = False
+    settings.fixed_delta_seconds = None
+    client.get_world().apply_settings(settings)

@@ -53,17 +53,14 @@ def main(args):
                 '--sync', '--output'
             ]
         try:
-            execution_flag = multiprocessing.Value('b', True)
-        
             # Start vehicle status check process
-            vehicle_status_process = multiprocessing.Process(target=vehicle_status_check, args=(args.host, args.port, args.worker_threads, config_file, index, execution_flag))
+            vehicle_status_process = multiprocessing.Process(target=vehicle_status_check, args=(args.host, args.port, args.worker_threads, config_file, index))
             vehicle_status_process.start()
 
             # Directly run the scenario in the main flow
             subprocess.run(command, stderr=subprocess.STDOUT)
-            execution_flag.value = False
 
-            # Wait for the vehicle status process to terminate
+            # Wait for the vehicle status process to terminate. This will be done when CARLA sends a signal that the trial is over.
             vehicle_status_process.join()
             
             index += 1
@@ -75,21 +72,28 @@ def main(args):
             print(f"An unexpected error of type {type(e).__name__} occurred: {e}")
             print(traceback.format_exc())
 
-def vehicle_status_check(host, port, threads, config_file, index, execution_flag):
+def vehicle_status_check(host, port, threads, config_file, index):
     try:
         # Connect to the server
-        client = carla.Client(host, port, worker_threads=0)
+        client = carla.Client(host, port, worker_threads=threads)
         client.set_timeout(10.0)
         world = client.get_world()
 
-        # Set synchronous mode to false
-        ExperimentHelper.set_simulation_mode(client=client, synchronous_mode=False)
+        # Set synchronous mode as the scenario runner is also running in synchronous mode
+        # NOTE: The provided tm_port is set to 8005 instead of 8000 as the scenario runner is using 8000
+        ExperimentHelper.set_simulation_mode(client=client, synchronous_mode=False, tm_synchronous_mode=False, tm_port=8005)
 
         # Start checking vehicle status and behaviour
-        while execution_flag.value:
+        while True:
+            # Wait for the simulation to tick
             world.wait_for_tick()
-            VehicleBehaviourSuite.vehicle_status_tick(world, config_file, index)
-        VehicleBehaviourSuite.vehicle_status_terminate()
+
+            # Check the vehicle status and execute any required behaviour. Also return a bool that tells you if the trial is over.
+            trial_status = VehicleBehaviourSuite.vehicle_status_tick(world, config_file, index)
+
+            # If the trial is over, terminate the process
+            if not trial_status:
+                break
     except Exception as e:
         print("Exception occurred in vehicle status check thread:", e)
         print(traceback.format_exc())
@@ -108,7 +112,7 @@ if __name__ == '__main__':
     parser.add_argument("--host", default="127.0.0.1", help="Host IP for Carla Client")
     parser.add_argument("--port", type=int, default=2000, help="Port for Carla Client") # WARNING: This port is used for secondary client connection
     parser.add_argument("--tm_port", type=int, default=8000, help="Traffic Manager port for Carla Client")
-    parser.add_argument("--worker_threads", type=int, default=8000, help="Worker Threads for Carla Client")
+    parser.add_argument("--worker_threads", type=int, default=0, help="Worker Threads for Carla Client")
 
     args = parser.parse_args()
 

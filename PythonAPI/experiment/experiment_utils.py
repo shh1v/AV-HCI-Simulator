@@ -19,7 +19,7 @@ class ExperimentHelper:
     This class contains helper functions for the experiment.
     """
     @staticmethod
-    def set_simulation_mode(client, synchronous_mode=True, fixed_delta_seconds=0.05):
+    def set_simulation_mode(client, synchronous_mode=True, tm_synchronous_mode=True, tm_port=8000, fixed_delta_seconds=0.05):
         # Setting simulation mode
         settings = client.get_world().get_settings()
         if synchronous_mode:
@@ -31,8 +31,8 @@ class ExperimentHelper:
         client.get_world().apply_settings(settings)
 
         # Setting Traffic Manager parameters
-        traffic_manager = client.get_trafficmanager()
-        traffic_manager.set_synchronous_mode(synchronous_mode)
+        traffic_manager = client.get_trafficmanager(tm_port)
+        traffic_manager.set_synchronous_mode(tm_synchronous_mode)
 
     @staticmethod
     def sleep(world, duration):
@@ -78,7 +78,7 @@ class VehicleBehaviourSuite:
     publisher_socket = None
 
     # Store the ordered vehicle status
-    ordered_vehicle_status = ["Unknown", "ManualDrive", "AutoPilot", "PreAlertAutopilot", "TakeOver", "TakeOverManual"]
+    ordered_vehicle_status = ["Unknown", "ManualDrive", "AutoPilot", "PreAlertAutopilot", "TakeOver", "TakeOverManual", "ResumedAutopilot"]
 
     # Store the local vehicle status currently known
     previous_local_vehicle_status = "Unknown"
@@ -203,12 +203,16 @@ class VehicleBehaviourSuite:
         VehicleBehaviourSuite.previous_local_vehicle_status = VehicleBehaviourSuite.local_vehicle_status
         if VehicleBehaviourSuite.ordered_vehicle_status.index(carla_vehicle_status["vehicle_status"]) <= VehicleBehaviourSuite.ordered_vehicle_status.index(scenario_runner_vehicle_status["vehicle_status"]):
             # This means that scenario runner is sending a vehicle status that comes after in a trial procedure. Hence its the most up to date vehicle status
-            VehicleBehaviourSuite.local_vehicle_status = scenario_runner_vehicle_status["vehicle_status"]
-            # If scenario runner has sent an updated vehicle status, let carla server know about it
-            VehicleBehaviourSuite.send_vehicle_status(scenario_runner_vehicle_status["vehicle_status"])
+            # NOTE: There may be a chance that carla is sending unknown, and scenario runner is sending an old address. So, check for that
+            if VehicleBehaviourSuite.ordered_vehicle_status.index(VehicleBehaviourSuite.local_vehicle_status) <= VehicleBehaviourSuite.ordered_vehicle_status.index(scenario_runner_vehicle_status["vehicle_status"]):
+                VehicleBehaviourSuite.local_vehicle_status = scenario_runner_vehicle_status["vehicle_status"]
+                # If scenario runner has sent an updated vehicle status, let carla server know about it
+                VehicleBehaviourSuite.send_vehicle_status(scenario_runner_vehicle_status["vehicle_status"])
         else:
             # This means that carla server is sending a vehicle status that comes after in a trial procedure. Hence its the most up to date vehicle status
-            VehicleBehaviourSuite.local_vehicle_status = carla_vehicle_status["vehicle_status"]
+            # NOTE: There may be a chance that scenario runner is sending unknown, and carla is sending an old address. So, check for that
+            if VehicleBehaviourSuite.ordered_vehicle_status.index(VehicleBehaviourSuite.local_vehicle_status) <= VehicleBehaviourSuite.ordered_vehicle_status.index(carla_vehicle_status["vehicle_status"]):
+                VehicleBehaviourSuite.local_vehicle_status = carla_vehicle_status["vehicle_status"]
 
         # Get the ego vehicle as it is required to change the behaviour
         ego_vehicle = find_ego_vehicle(world, verbose=False)
@@ -222,8 +226,7 @@ class VehicleBehaviourSuite:
                 DrivingPerformance.start_logging_reaction_time(True)
             elif VehicleBehaviourSuite.local_vehicle_status == "TakeOverManual":
                 # Turn ego_vehicle's autopilot off. This needs to be through client side as there is a bug in carla server
-                ego_vehicle.set_autopilot(False)
-                print(f"Ego vehicle's autopilot turned off.")
+                # NOTE/Update: This is now taken care by scenario runner; however, data logging is done here
                 # Stop logging the eye-interleaving data
                 VehicleBehaviourSuite.log_interleaving_performance = False
                 # TODO: Save the eye-interleaving data
@@ -231,6 +234,15 @@ class VehicleBehaviourSuite:
                 VehicleBehaviourSuite.log_takeover_performance_data = True
                 DrivingPerformance.set_configuration(config_file, index)
                 DrivingPerformance.start_logging_reaction_time(False)
+            elif VehicleBehaviourSuite.local_vehicle_status == "ResumedAutopilot":
+                # Stop logging the performance data
+                VehicleBehaviourSuite.log_takeover_performance_data = False
+                DrivingPerformance.save_performance_data()
+                # Turn on autopilot for the DReyeVR vehicle using Traffic Manager
+                ego_vehicle.set_autopilot(True, 8005)
+            elif VehicleBehaviourSuite.local_vehicle_status == "TrialOver":
+                return False
+
 
         # Log the performance data if required
         if VehicleBehaviourSuite.log_takeover_performance_data:
@@ -238,6 +250,8 @@ class VehicleBehaviourSuite:
 
         if VehicleBehaviourSuite.log_interleaving_performance:
             EyeTracking.interleaving_performance_tick()
+        
+        return True
     
     @staticmethod
     def vehicle_status_terminate():
@@ -352,8 +366,6 @@ class DrivingPerformance:
         # Get all the raw measurements
         timestamp = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3]
         braking_input = vehicle_control.brake # NOTE: This is normalized between 0 and 1
-        if braking_input > 1:
-            print(f"Braking input is greater than 1: {braking_input}")
         throttle_input = vehicle_control.throttle # NOTE: This is normalized between 0 and 1
         steering_angle = vehicle_control.steer * 450 # NOTE: The logitech wheel can rotate 450 degrees on one side.
 
@@ -391,12 +403,17 @@ class DrivingPerformance:
         if not os.path.exists("PerformanceData"):
             os.makedirs("PerformanceData")
 
-        # Save the dataframes to the files
-        DrivingPerformance.braking_input_df.to_csv("PerformanceData/braking_input.csv")
-        DrivingPerformance.throttle_input_df.to_csv("PerformanceData/throttle_input.csv")
-        DrivingPerformance.steering_angles_df.to_csv("PerformanceData/steering_angles.csv")
-        DrivingPerformance.lane_offset_df.to_csv("PerformanceData/lane_offset.csv")
-        DrivingPerformance.speed_df.to_csv("PerformanceData/speed.csv")
+        # Save the dataframes to the files only if they are initialized
+        if DrivingPerformance.braking_input_df is not None:
+            DrivingPerformance.braking_input_df.to_csv("PerformanceData/braking_input.csv", index=False)
+        if DrivingPerformance.throttle_input_df is not None:
+            DrivingPerformance.throttle_input_df.to_csv("PerformanceData/throttle_input.csv", index=False)
+        if DrivingPerformance.steering_angles_df is not None:
+            DrivingPerformance.steering_angles_df.to_csv("PerformanceData/steering_angles.csv", index=False)
+        if DrivingPerformance.lane_offset_df is not None:
+            DrivingPerformance.lane_offset_df.to_csv("PerformanceData/lane_offset.csv", index=False)
+        if DrivingPerformance.speed_df is not None:
+            DrivingPerformance.speed_df.to_csv("PerformanceData/speed.csv", index=False)
 
 
 class EyeTracking:
