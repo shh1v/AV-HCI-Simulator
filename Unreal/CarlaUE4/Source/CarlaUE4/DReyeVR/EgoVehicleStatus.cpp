@@ -153,6 +153,9 @@ FDcResult AEgoVehicle::RetrieveVehicleStatus() {
 	else if (VehicleStatusData.vehicle_status == "TakeOverManual") {
 		CurrVehicleStatus = VehicleStatus::TakeOverManual;
 	}
+	else if (VehicleStatusData.vehicle_status == "ResumedAutopilot") {
+		CurrVehicleStatus = VehicleStatus::ResumedAutopilot;
+	}
 	else {
 		CurrVehicleStatus = VehicleStatus::Unknown;
 	}
@@ -178,6 +181,9 @@ void AEgoVehicle::UpdateVehicleStatus(VehicleStatus NewStatus)
 		break;
 	case VehicleStatus::TakeOverManual:
 		VehicleStatusString = FString("TakeOverManual");
+		break;
+	case VehicleStatus::ResumedAutopilot:
+		VehicleStatusString = FString("ResumedAutopilot");
 		break;
 	default:
 		VehicleStatusString = FString("Unknown");
@@ -241,6 +247,9 @@ void AEgoVehicle::SendCurrVehicleStatus()
 		break;
 	case VehicleStatus::TakeOverManual:
 		VehicleStatusString = FString("TakeOverManual");
+		break;
+	case VehicleStatus::ResumedAutopilot:
+		VehicleStatusString = FString("ResumedAutopilot");
 		break;
 	default:
 		VehicleStatusString = FString("Unknown");

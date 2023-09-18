@@ -29,6 +29,9 @@ Unreal/CarlaUE4/Config/OptionalModules.ini
 !Unreal/CarlaUE4/Plugins
 cmake-build-debug
 
+# added by AutoHive to ignore script to test trial implementation
+PythonAPI/experiment/run_tests.py
+
 /ExportedMaps
 /Import/*
 !/Import/README.md
