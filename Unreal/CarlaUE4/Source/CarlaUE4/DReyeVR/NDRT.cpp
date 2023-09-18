@@ -1,22 +1,12 @@
 #include "EgoVehicle.h"
-#include "Carla/Actor/ActorAttribute.h"             // FActorAttribute
-#include "Carla/Actor/ActorRegistry.h"              // Register
 #include "Carla/Game/CarlaStatics.h"                // GetCurrentEpisode
-#include "Carla/Vehicle/CarlaWheeledVehicleState.h" // ECarlaWheeledVehicleState
-#include "DReyeVRPawn.h"                            // ADReyeVRPawn
 #include "Engine/EngineTypes.h"                     // EBlendMode
-#include "Engine/World.h"                           // GetWorld
 #include "GameFramework/Actor.h"                    // Destroy
-#include "Kismet/KismetSystemLibrary.h"             // PrintString, QuitGame
-#include "Math/Rotator.h"                           // RotateVector, Clamp
-#include "Math/UnrealMathUtility.h"                 // Clamp
 #include "UObject/ConstructorHelpers.h"				// ConstructorHelpers
 #include "MediaPlayer.h"
 #include "FileMediaSource.h"
 #include "MediaTexture.h"
 #include "MediaSoundComponent.h"
-#include "Materials/MaterialInstanceDynamic.h"
-
 
 
 void AEgoVehicle::SetupNDRT() {
@@ -84,10 +74,35 @@ void AEgoVehicle::TickNDRT() {
 	else {
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("OnHUD: FALSE"));
 	}
+
+	// Retrieve the Vehicle Status
+	RetrieveVehicleStatus();
+
+	FString VehicleStatusString;
+	switch (GetCurrVehicleStatus()) {
+	case VehicleStatus::ManualDrive:
+		VehicleStatusString = FString("ManualDrive");
+		break;
+	case VehicleStatus::AutoPilot:
+		VehicleStatusString = FString("AutoPilot");
+		break;
+	case VehicleStatus::PreAlertAutopilot:
+		VehicleStatusString = FString("PreAlertAutopilot");
+		break;
+	case VehicleStatus::TakeOver:
+		VehicleStatusString = FString("TakeOver");
+		break;
+	case VehicleStatus::TakeOverManual:
+		VehicleStatusString = FString("TakeOverManual");
+		break;
+	default:
+		VehicleStatusString = FString("Unknown");
+	}
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Black, FString::Printf(TEXT("Vehicle Status: %s"), *VehicleStatusString));
 }
 
 void AEgoVehicle::ConstructHUD() {
-	// Creating the primary head-up dispay to display the non-driving related task
+	// Creating the primary head-up display to display the non-driving related task
 	PrimaryHUD = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Primary HUD"));
 	PrimaryHUD->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
 	PrimaryHUD->SetCollisionEnabled(ECollisionEnabled::NoCollision);

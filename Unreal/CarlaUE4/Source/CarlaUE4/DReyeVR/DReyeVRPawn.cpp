@@ -3,7 +3,6 @@
 #include "EgoVehicle.h"                        // AEgoVehicle, and some singals for data logging
 #include "HeadMountedDisplayFunctionLibrary.h" // SetTrackingOrigin, GetWorldToMetersScale
 #include "HeadMountedDisplayTypes.h"           // ESpectatorScreenMode
-#include "Materials/MaterialInstanceDynamic.h" // UMaterialInstanceDynamic
 #include "UObject/UObjectGlobals.h"            // LoadObject, NewObject
 
 ADReyeVRPawn::ADReyeVRPawn(const FObjectInitializer &ObjectInitializer) : Super(ObjectInitializer)
@@ -516,7 +515,6 @@ void ADReyeVRPawn::LogitechWheelUpdate()
 
     // weird behaviour: "Pedals will output a value of 0.5 until the wheel/pedals receive any kind of input"
     // as per https://github.com/HARPLab/LogitechWheelPlugin
-    /*This does not impact my current research trial as the driver will first start with driving the vehicle manually */
     if (bPedalsDefaulting)
     {
         // this bPedalsDefaulting flag is initially set to not send inputs when the pedals are "defaulting", once the
@@ -527,69 +525,32 @@ void ADReyeVRPawn::LogitechWheelUpdate()
         {
             bPedalsDefaulting = false;
         }
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("WARNING: Pedals defaulting"));
+
     }
     else
     {
-        /// NOTE: directly calling the EgoVehicle functions
-        /*
-        * Vehicle behaviour: When TOR is issued, let the vehicle drive by itself for X seconds
-        * CASE 1: The driver takes control in those X seconds, so automation is turned off
-        * CASE 2: The driver does not take control and so the vehicle has to forcefully give control
-        */
-        bool bTORTimeOut = false;
-        bool bAutoPilotStatus = EgoVehicle->GetAutopilotStatus();
-        bool bThreshChange = (FMath::IsNearlyEqual(WheelRotation, WheelRotationLast, LogiThresh) &&
-            FMath::IsNearlyEqual(AccelerationPedal, AccelerationPedalLast, LogiThresh) &&
-            FMath::IsNearlyEqual(BrakePedal, BrakePedalLast, LogiThresh));
+        // Calculate the threshold change once
+        bool bThreshChange = !FMath::IsNearlyEqual(WheelRotation, WheelRotationLast, LogiThresh) ||
+            !FMath::IsNearlyEqual(AccelerationPedal, AccelerationPedalLast, LogiThresh) ||
+            !FMath::IsNearlyEqual(BrakePedal, BrakePedalLast, LogiThresh);
 
-        if (bAutoPilotStatus && bThreshChange)
-        {
-            // let the autopilot drive if the user is not putting significant inputs
-            // ie. if their inputs are close enough to what was previously input
-            /// TODO: this system might break down if the autopilot is putting in sufficiently
-            ///       strong inputs, since the autopilot controls might might inadvertently
-            ///       be considered as human-input controls which amplifies the input and
-            ///       causes a positive cycle loop (which would be better avoided)
+        AEgoVehicle::VehicleStatus currStatus = EgoVehicle->GetCurrVehicleStatus();
 
-
-            /* If the vehicle had reached it's automation limits, force to manual mode */
-            if (EgoVehicle->GetCurrVehicleStatus() == AEgoVehicle::VehicleStatus::TakeOverMode &&
-                (FDateTime::Now() - EgoVehicle->TORIssuanceTime).GetTotalSeconds() >= ExperimentParams.Get<float>("General", "PostTORAutomationSeconds")) {
-                // TOR timeout occurred
-                bTORTimeOut = true;
-                // Forcefully deactivate the autopilot status
-                EgoVehicle->SetAutopilot(false);
-            }
-
-            /* If the ADS is re-engaged, write the driving performance data locally */
-            // Note: checking for VehicleStatus::AutopilotRunning for saftey
-            if (EgoVehicle->GetOldVehicleStatus() == AEgoVehicle::VehicleStatus::TakeOverMode &&
-                (EgoVehicle->GetCurrVehicleStatus() == AEgoVehicle::VehicleStatus::AutopilotStarting ||
-                    EgoVehicle->GetCurrVehicleStatus() == AEgoVehicle::VehicleStatus::AutopilotRunning))
-            {
-                Logger->WriteData();
-            }
+        // Check and update the vehicle status when necessary
+        if (currStatus == AEgoVehicle::VehicleStatus::TakeOver && bThreshChange) {
+            EgoVehicle->UpdateVehicleStatus(AEgoVehicle::VehicleStatus::TakeOverManual);
         }
-        else
-        {
-            // Log the reaction time is the thresh was achieved and autopilot status was on
-            if (EgoVehicle->GetCurrVehicleStatus() == AEgoVehicle::VehicleStatus::TakeOverMode && (bAutoPilotStatus || bTORTimeOut) && !bThreshChange)
-            {
-                Logger->LogReactionTime(EgoVehicle->TORIssuanceTime);
-            }
 
-            // driver has issued sufficient input to warrant manual takeover (disables autopilot)
-            EgoVehicle->SetAutopilot(false);
+        // The control modifications are performed in several conditions so we group them together
+        if (currStatus == AEgoVehicle::VehicleStatus::ManualDrive ||
+            currStatus == AEgoVehicle::VehicleStatus::TakeOverManual ||
+            (currStatus == AEgoVehicle::VehicleStatus::TakeOver && bThreshChange)) {
             EgoVehicle->AddSteering(WheelRotation);
             EgoVehicle->AddThrottle(AccelerationPedal);
             EgoVehicle->AddBrake(BrakePedal);
-
-            // Log the driving performance data if the TakeoverMode is active
-            if (EgoVehicle->GetCurrVehicleStatus() == AEgoVehicle::VehicleStatus::TakeOverMode)
-            {
-                Logger->LogLogitechData(WheelState);
-            }
         }
+
     }
     // save the last values for the wheel & pedals
     WheelRotationLast = WheelRotation;

@@ -2,13 +2,11 @@
 #include "Carla/Actor/ActorAttribute.h"             // FActorAttribute
 #include "Carla/Actor/ActorRegistry.h"              // Register
 #include "Carla/Game/CarlaStatics.h"                // GetCurrentEpisode
-#include "Carla/Vehicle/CarlaWheeledVehicleState.h" // ECarlaWheeledVehicleState
 #include "DReyeVRPawn.h"                            // ADReyeVRPawn
 #include "DrawDebugHelpers.h"                       // Debug Line/Sphere
 #include "Engine/EngineTypes.h"                     // EBlendMode
 #include "Engine/World.h"                           // GetWorld
 #include "GameFramework/Actor.h"                    // Destroy
-#include "Kismet/KismetSystemLibrary.h"             // PrintString, QuitGame
 #include "Math/Rotator.h"                           // RotateVector, Clamp
 #include "Math/UnrealMathUtility.h"                 // Clamp
 
@@ -119,6 +117,12 @@ void AEgoVehicle::BeginPlay()
 
     LOG("Initialized DReyeVR EgoVehicle");
 
+    // Establish vehicle status connection
+    EstablishVehicleStatusConnection();
+
+    // Update the vehicle status to manual mode
+    UpdateVehicleStatus(VehicleStatus::ManualDrive);
+
     // Start the NDRT on head-up display
     StartNDRT();
 
@@ -127,6 +131,11 @@ void AEgoVehicle::BeginPlay()
 
 void AEgoVehicle::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+    // Whenever reload_world() from the client side is called, the established connections needs to be
+    // gracefully closed since a re-attempt will be made by BeginPlay(). In my case, ScenarioRunner is calling reload_world().
+    TerminateEyeTrackerConnection();
+    TerminateVehicleStatusConnection();
+
     // https://docs.unrealengine.com/4.27/en-US/API/Runtime/Engine/Engine/EEndPlayReason__Type/
     if (EndPlayReason == EEndPlayReason::Destroyed)
     {
@@ -187,6 +196,9 @@ void AEgoVehicle::Tick(float DeltaSeconds)
     
     // Tick NDRT
     TickNDRT();
+
+    // Send the current locally stored vehicle status
+    SendCurrVehicleStatus();
 }
 
 /// ========================================== ///
@@ -1088,37 +1100,4 @@ void AEgoVehicle::DebugLines() const
                       FColor::Yellow, false, -1, 0, 1);
     }
 #endif
-}
-
-/// ========================================== ///
-/// -------------:GAME SIGNALING:------------- ///
-/// ========================================== ///
-
-void AEgoVehicle::UpdateVehicleStatus(VehicleStatus NewStatus)
-{
-    OldVehicleStatus = CurrVehicleStatus;
-    CurrVehicleStatus = NewStatus;
-
-    // Some parameters setting, which are used in different components of the game
-    if (OldVehicleStatus == VehicleStatus::InterleavingMode && CurrVehicleStatus == VehicleStatus::TakeOverMode) {
-        // A take-over request has just been issued
-        TORIssuanceTime = FDateTime::Now();
-    }
-}
-
-AEgoVehicle::VehicleStatus AEgoVehicle::GetCurrVehicleStatus()
-{
-    return CurrVehicleStatus;
-}
-
-AEgoVehicle::VehicleStatus AEgoVehicle::GetOldVehicleStatus()
-{
-    return OldVehicleStatus;
-}
-
-void AEgoVehicle::RetrieveVehicleStatus()
-{
-    // Retrive the vehicle status
-    // Update the status
-    UpdateVehicleStatus(VehicleStatus::ManualMode);
 }
