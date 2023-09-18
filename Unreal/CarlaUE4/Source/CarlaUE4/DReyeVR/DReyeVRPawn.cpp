@@ -510,8 +510,7 @@ void ADReyeVRPawn::LogitechWheelUpdate()
     // -1 = not pressed. 0 = Top. 0.25 = Right. 0.5 = Bottom. 0.75 = Left.
     const float Dpad = fabs(((WheelState->rgdwPOV[0] - 32767.0f) / (65535.0f)));
 
-    // First of all, the vehicle status needs to be retrived
-    EgoVehicle->RetrieveVehicleStatus();
+    // NOTE: The vehicle status is already retrieved in NDRTTick(). No need to do it here again.
 
     // weird behaviour: "Pedals will output a value of 0.5 until the wheel/pedals receive any kind of input"
     // as per https://github.com/HARPLab/LogitechWheelPlugin
