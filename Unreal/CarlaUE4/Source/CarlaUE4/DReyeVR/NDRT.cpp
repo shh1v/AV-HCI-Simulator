@@ -67,13 +67,13 @@ void AEgoVehicle::TickNDRT() {
 	// Load the data into FGazeData
 	ParseGazeData(SurfaceData.gaze_on_surfaces);
 
-	//// Just for debugging
-	//if (IsUserGazingOnHUD()) {
-	//	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("OnHUD: TRUE"));
-	//}
-	//else {
-	//	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("OnHUD: FALSE"));
-	//}
+	// Just for debugging
+	if (IsUserGazingOnHUD()) {
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("OnHUD: TRUE"));
+	}
+	else {
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("OnHUD: FALSE"));
+	}
 
 	// Retrieve the Vehicle Status
 	RetrieveVehicleStatus();

@@ -58,7 +58,7 @@ bool AEgoVehicle::EstablishEyeTrackerConnection() {
 		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Connecting to the eye-tracker SUB PORT"));
 		EyeSubscriber->connect("tcp://" + Address + ":" + SubscribePort);
 		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Eye-tracker connection successful"));
-		EyeSubscriber->setsockopt(ZMQ_SUBSCRIBE, "surface", 7);
+		EyeSubscriber->setsockopt(ZMQ_SUBSCRIBE, "surfaces.HUD", 12);
 		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Subscribed to eye-tracker surface topic"));
 	}
 	catch (...) {
