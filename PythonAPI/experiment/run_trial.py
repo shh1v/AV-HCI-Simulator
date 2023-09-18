@@ -89,7 +89,7 @@ def vehicle_status_check(host, port, threads, config_file, index):
             world.wait_for_tick()
 
             # Check the vehicle status and execute any required behaviour. Also return a bool that tells you if the trial is over.
-            trial_status = VehicleBehaviourSuite.vehicle_status_tick(world, config_file, index)
+            trial_status = VehicleBehaviourSuite.vehicle_status_tick(client, world, config_file, index)
 
             # If the trial is over, terminate the process
             if not trial_status:

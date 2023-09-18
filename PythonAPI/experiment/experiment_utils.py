@@ -188,7 +188,7 @@ class VehicleBehaviourSuite:
         return message_dict
     
     @staticmethod
-    def vehicle_status_tick(world, config_file, index):
+    def vehicle_status_tick(client, world, config_file, index):
         """
         This method should be called every tick to update the vehicle status
         This will automatically also change the behaviour of the ego vehicle required, and call logging functions if required.
@@ -238,7 +238,17 @@ class VehicleBehaviourSuite:
                 # Stop logging the performance data
                 VehicleBehaviourSuite.log_takeover_performance_data = False
                 DrivingPerformance.save_performance_data()
-                # Turn on autopilot for the DReyeVR vehicle using Traffic Manager
+                # Turn on autopilot for the DReyeVR vehicle using Traffic Manager with some parameters
+                tm = client.get_trafficmanager(8005)
+                # Disable auto lane change
+                tm.auto_lane_change(ego_vehicle, False)
+                # Change the vehicle percentage speed difference
+                max_road_speed = ego_vehicle.get_speed_limit()
+                percentage = (max_road_speed - 100) / max_road_speed * 100.0
+                tm.vehicle_percentage_speed_difference(ego_vehicle, percentage)
+                # Do not ignore any vehicles to avoid collision
+                tm.ignore_vehicles_percentage(ego_vehicle, 0)
+                # Finally, turn on the autopilot
                 ego_vehicle.set_autopilot(True, 8005)
             elif VehicleBehaviourSuite.local_vehicle_status == "TrialOver":
                 return False
