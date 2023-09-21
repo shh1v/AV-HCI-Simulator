@@ -140,8 +140,8 @@ FDcResult AEgoVehicle::RetrieveVehicleStatus() {
 	if (VehicleStatusData.vehicle_status == "ManualDrive") {
 		CurrVehicleStatus = VehicleStatus::ManualDrive;
 	}
-	else if (VehicleStatusData.vehicle_status == "AutoPilot") {
-		CurrVehicleStatus = VehicleStatus::AutoPilot;
+	else if (VehicleStatusData.vehicle_status == "Autopilot") {
+		CurrVehicleStatus = VehicleStatus::Autopilot;
 	}
 	else if (VehicleStatusData.vehicle_status == "PreAlertAutopilot") {
 		CurrVehicleStatus = VehicleStatus::PreAlertAutopilot;
@@ -170,8 +170,8 @@ void AEgoVehicle::UpdateVehicleStatus(VehicleStatus NewStatus)
 	case VehicleStatus::ManualDrive:
 		VehicleStatusString = FString("ManualDrive");
 		break;
-	case VehicleStatus::AutoPilot:
-		VehicleStatusString = FString("AutoPilot");
+	case VehicleStatus::Autopilot:
+		VehicleStatusString = FString("Autopilot");
 		break;
 	case VehicleStatus::PreAlertAutopilot:
 		VehicleStatusString = FString("PreAlertAutopilot");
@@ -236,8 +236,8 @@ void AEgoVehicle::SendCurrVehicleStatus()
 	case VehicleStatus::ManualDrive:
 		VehicleStatusString = FString("ManualDrive");
 		break;
-	case VehicleStatus::AutoPilot:
-		VehicleStatusString = FString("AutoPilot");
+	case VehicleStatus::Autopilot:
+		VehicleStatusString = FString("Autopilot");
 		break;
 	case VehicleStatus::PreAlertAutopilot:
 		VehicleStatusString = FString("PreAlertAutopilot");

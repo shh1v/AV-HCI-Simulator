@@ -268,7 +268,7 @@ class CARLAUE4_API AEgoVehicle : public ACarlaWheeledVehicle
 //    FDateTime TORIssuanceTime;
 
 public: // Game signaling
-    enum class VehicleStatus { ManualDrive, AutoPilot, PreAlertAutopilot, TakeOver, TakeOverManual, ResumedAutopilot, Unknown };
+    enum class VehicleStatus { ManualDrive, Autopilot, PreAlertAutopilot, TakeOver, TakeOverManual, ResumedAutopilot, Unknown };
     /*
      * Vehicle status descriptions:
      * ManualDrive: The vehicle is driving manually.
