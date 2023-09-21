@@ -9,6 +9,7 @@ import traceback
 
 import zmq
 import msgpack as serializer
+from msgpack import loads
 import pandas as pd
 
 # DReyeVR import
@@ -78,18 +79,26 @@ class VehicleBehaviourSuite:
     publisher_socket = None
 
     # Store the ordered vehicle status
-    ordered_vehicle_status = ["Unknown", "ManualDrive", "AutoPilot", "PreAlertAutopilot", "TakeOver", "TakeOverManual", "ResumedAutopilot"]
+    ordered_vehicle_status = ["Unknown", "ManualDrive", "Autopilot", "PreAlertAutopilot", "TakeOver", "TakeOverManual", "ResumedAutopilot"]
 
     # Store the local vehicle status currently known
     previous_local_vehicle_status = "Unknown"
     local_vehicle_status = "Unknown"
 
+    # Store all the timestamps of vehicle status phases
+    autopilot_start_timestamp = None
+    pre_alert_autopilot_start_timestamp = None
+    take_over_start_timestamp = None
+    take_over_manual_start_timestamp = None
+    resumed_autopilot_start_timestamp = None
+    trial_over_timestamp = None
+
     # log performance data variable
-    log_takeover_performance_data = False
-    log_interleaving_performance = False
+    log_driving_performance_data = False
+    log_eye_data = False
 
     @staticmethod
-    def _establish_CARLA_connection():
+    def _establish_vehicle_status_connection():
         # Create ZMQ socket for receiving vehicle status from carla server
         if (VehicleBehaviourSuite.carla_subscriber_context == None or VehicleBehaviourSuite.carla_subscriber_socket == None):
             VehicleBehaviourSuite.carla_subscriber_context = zmq.Context()
@@ -97,7 +106,6 @@ class VehicleBehaviourSuite:
             VehicleBehaviourSuite.carla_subscriber_socket.setsockopt_string(zmq.SUBSCRIBE, "")
             VehicleBehaviourSuite.carla_subscriber_socket.setsockopt(zmq.RCVTIMEO, 1)  # 1 ms timeout
             VehicleBehaviourSuite.carla_subscriber_socket.connect("tcp://localhost:5556")
-            print("ZMQ: Connected to carla server")
 
         # Create ZMQ socket for receiving vehicle status from scenario runner
         if (VehicleBehaviourSuite.scenario_runner_context == None or VehicleBehaviourSuite.scenario_runner_socket == None):
@@ -106,14 +114,12 @@ class VehicleBehaviourSuite:
             VehicleBehaviourSuite.scenario_runner_socket.setsockopt_string(zmq.SUBSCRIBE, "")
             VehicleBehaviourSuite.scenario_runner_socket.setsockopt(zmq.RCVTIMEO, 1)  # 1 ms timeout
             VehicleBehaviourSuite.scenario_runner_socket.connect("tcp://localhost:5557")
-            print("ZMQ: Connected to scenario runner")
 
         # Create ZMQ socket for sending vehicle control to carla server/scenario_runner
         if (VehicleBehaviourSuite.publisher_context == None or VehicleBehaviourSuite.publisher_socket == None):
             VehicleBehaviourSuite.publisher_context = zmq.Context()
             VehicleBehaviourSuite.publisher_socket = VehicleBehaviourSuite.publisher_context.socket(zmq.PUB)
             VehicleBehaviourSuite.publisher_socket.bind("tcp://*:5555")
-            print("ZMQ: Bound to port 5555 for sending vehicle status")
 
     @staticmethod
     def send_vehicle_status(vehicle_status):
@@ -122,7 +128,7 @@ class VehicleBehaviourSuite:
         """
         # Create ZMQ socket if not created
         if (VehicleBehaviourSuite.publisher_context == None or VehicleBehaviourSuite.publisher_context == None):
-            VehicleBehaviourSuite._establish_CARLA_connection()
+            VehicleBehaviourSuite._establish_vehicle_status_connection()
 
         if vehicle_status not in VehicleBehaviourSuite.ordered_vehicle_status:
             raise Exception(f"Invalid vehicle status: {vehicle_status}")
@@ -143,7 +149,7 @@ class VehicleBehaviourSuite:
     def receive_carla_vehicle_status():
         # Create ZMQ socket if not created
         if (VehicleBehaviourSuite.carla_subscriber_context == None or VehicleBehaviourSuite.carla_subscriber_socket == None):
-            VehicleBehaviourSuite._establish_CARLA_connection()
+            VehicleBehaviourSuite._establish_vehicle_status_connection()
         try:
             message = VehicleBehaviourSuite.carla_subscriber_socket.recv()
             message_dict = json.loads(message)
@@ -167,7 +173,7 @@ class VehicleBehaviourSuite:
     def receive_scenario_runner_vehicle_status():
         # Create ZMQ socket if not created
         if (VehicleBehaviourSuite.scenario_runner_context == None or VehicleBehaviourSuite.scenario_runner_socket == None):
-            VehicleBehaviourSuite._establish_CARLA_connection()
+            VehicleBehaviourSuite._establish_vehicle_status_connection()
         try:
             message = VehicleBehaviourSuite.scenario_runner_socket.recv()
             message_dict = json.loads(message)
@@ -220,46 +226,76 @@ class VehicleBehaviourSuite:
         # Now, execute any required behaviour based on the potential updated vehicle status
         if VehicleBehaviourSuite.previous_local_vehicle_status != VehicleBehaviourSuite.local_vehicle_status:
             # This means that the vehicle status has changed. Hence, execute the required behaviour
+            if VehicleBehaviourSuite.local_vehicle_status == "Autopilot":
+                # Record the timestamp of the autopilot start
+                VehicleBehaviourSuite.autopilot_start_timestamp = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3]
             if VehicleBehaviourSuite.local_vehicle_status == "PreAlertAutopilot":
-                VehicleBehaviourSuite.log_interleaving_performance = True
+                # Record the timestamp of the pre-alert autopilot start
+                VehicleBehaviourSuite.pre_alert_autopilot_start_timestamp = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3]
+
+                # Start Interleaving performance logging
+                VehicleBehaviourSuite.log_eye_data = True
             elif VehicleBehaviourSuite.local_vehicle_status == "TakeOver":
+                # Record the timestamp of the take over start
+                VehicleBehaviourSuite.take_over_start_timestamp = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3]
+
+                # Start measuring driving performance
                 DrivingPerformance.start_logging_reaction_time(True)
             elif VehicleBehaviourSuite.local_vehicle_status == "TakeOverManual":
-                # Turn ego_vehicle's autopilot off. This needs to be through client side as there is a bug in carla server
-                # NOTE/Update: This is now taken care by scenario runner; however, data logging is done here
+                # Record the timestamp of the take over manual start
+                VehicleBehaviourSuite.take_over_manual_start_timestamp = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3]
+
                 # Stop logging the eye-interleaving data
-                VehicleBehaviourSuite.log_interleaving_performance = False
+                VehicleBehaviourSuite.log_eye_data = False
+
                 # TODO: Save the eye-interleaving data
-                # Start logging the performance data
-                VehicleBehaviourSuite.log_takeover_performance_data = True
+
+                # Set metadata for the driving performance data
                 DrivingPerformance.set_configuration(config_file, index)
+
+                # Start logging the performance data
+                VehicleBehaviourSuite.log_driving_performance_data = True
                 DrivingPerformance.start_logging_reaction_time(False)
             elif VehicleBehaviourSuite.local_vehicle_status == "ResumedAutopilot":
-                # Stop logging the performance data
-                VehicleBehaviourSuite.log_takeover_performance_data = False
+                # Record the timestamp of the resumed autopilot start
+                VehicleBehaviourSuite.resumed_autopilot_start_timestamp = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3]
+
+                # Stop logging the performance data and save it
+                VehicleBehaviourSuite.log_driving_performance_data = False
                 DrivingPerformance.save_performance_data()
+
                 # Turn on autopilot for the DReyeVR vehicle using Traffic Manager with some parameters
                 tm = client.get_trafficmanager(8005)
+
                 # Disable auto lane change
                 tm.auto_lane_change(ego_vehicle, False)
+
                 # Change the vehicle percentage speed difference
                 max_road_speed = ego_vehicle.get_speed_limit()
                 percentage = (max_road_speed - 100) / max_road_speed * 100.0
                 tm.vehicle_percentage_speed_difference(ego_vehicle, percentage)
+
                 # Do not ignore any vehicles to avoid collision
                 tm.ignore_vehicles_percentage(ego_vehicle, 0)
+
                 # Finally, turn on the autopilot
                 ego_vehicle.set_autopilot(True, 8005)
             elif VehicleBehaviourSuite.local_vehicle_status == "TrialOver":
+                # Turn off the autopilot now
+                ego_vehicle.set_autopilot(False, 8005)
+
+                # NOTE: The traffic manager does not have to be terminated; it will do so when client terminates
+
+                # Terminate the parallel process
                 return False
 
 
         # Log the performance data if required
-        if VehicleBehaviourSuite.log_takeover_performance_data:
+        if VehicleBehaviourSuite.log_driving_performance_data:
             DrivingPerformance.performance_tick(world, ego_vehicle)
 
-        if VehicleBehaviourSuite.log_interleaving_performance:
-            EyeTracking.interleaving_performance_tick()
+        if VehicleBehaviourSuite.log_eye_data:
+            EyeTracking.eye_data_tick()
         
         return True
     
@@ -268,8 +304,10 @@ class VehicleBehaviourSuite:
         """
         This method is used to terminate the the whole trial
         """
-        # Stop logging the performance data
+        # Save driving performance data
         DrivingPerformance.save_performance_data()
+
+        # TODO: Save eye-tracking performance data
 
         # Peacefully terminating all the ZMQ variables
         VehicleBehaviourSuite.reset_variables()
@@ -291,12 +329,16 @@ class VehicleBehaviourSuite:
         VehicleBehaviourSuite.publisher_context = None
         VehicleBehaviourSuite.publisher_socket = None
 
-        # Resetting the other variables
+        # Resetting vehicle status variables
         VehicleBehaviourSuite.local_vehicle_status = "Unknown"
         VehicleBehaviourSuite.previous_local_vehicle_status = "Unknown"
-        VehicleBehaviourSuite.log_performance_data = False
 
-        # TODO: Reset all the eye-tracking and driving performance variables
+        # Reseting performance logging variables
+        VehicleBehaviourSuite.log_driving_performance_data = False
+        VehicleBehaviourSuite.log_eye_data = False
+
+        # TODO: Reset all the driving performance variables
+        # TODO: Reset all the eye-tracking performance variables
 
 
 class DrivingPerformance:
@@ -410,8 +452,8 @@ class DrivingPerformance:
     @staticmethod
     def save_performance_data():
         # Ensure the directory exists
-        if not os.path.exists("PerformanceData"):
-            os.makedirs("PerformanceData")
+        if not os.path.exists("DrivingData"):
+            os.makedirs("DrivingData")
 
         # Save the dataframes to the files only if they are initialized
         if DrivingPerformance.braking_input_df is not None:
@@ -427,14 +469,92 @@ class DrivingPerformance:
 
 
 class EyeTracking:
+    # ZMQ variables
+    pupil_context = None
+    pupil_socket = None
+    pupil_addr = "127.0.0.1"
+    pupil_request_port = "50020"
+
+    # Store all the topics so that they can be looped through
+    subscriber_topics = [
+                        # Surface mapping and fixation data
+                         "surfaces.HUD",
+                         "surfaces.RightMirror",
+                         "surfaces.LeftMirror",
+                         "surfaces.RearMirror",
+                         "surfaces.LeftMonitor",
+                         "surfaces.CenterMonitor",
+                         "surfaces.RightMonitor"
+                         # Pupil diameter data
+                         "pupil.0",
+                         "pupil.1"]
+
+    # Variables that decide what to log
+    log_interleaving_performance = False
+    log_driving_performance = False
+
+    # All the dataframes that will stores all the eye tracking data
+    eye_mapping_df = None
+    eye_movement_df = None
+
+    # Common header for the above dataframes
+    eye_mapping_header = ["ParticipantID", "InterruptionParadigm", "BlockNumber", "TrialNumber", "TaskType", "TaskSetting", "TrafficComplexity", "Timestamp", "Surface", "RightEyeDiameter", "LeftEyeDiameter", "GazePosX", "GazePosY"]
+    eye_movement_header = ["ParticipantID", "InterruptionParadigm", "BlockNumber", "TrialNumber", "TaskType", "TaskSetting", "TrafficComplexity", "Timestamp", "Surface", "FixationDuration", "FixationDispersion"]
+
     @staticmethod
     def establish_eye_tracking_connection():
+        if EyeTracking.pupil_context is None or EyeTracking.pupil_socket is None:
+            req = EyeTracking.pupil_context.socket(zmq.REQ)
+            req.connect(f"tcp://{EyeTracking.pupil_addr}:{EyeTracking.pupil_request_port}")
+            # Ask for sub port
+            req.send_string("SUB_PORT")
+            sub_port = req.recv_string()
+
+            # Open a sub port to listen to pupil core eye tracker
+            EyeTracking.pupil_socket = EyeTracking.pupil_context.socket(zmq.SUB)
+            EyeTracking.pupil_socket.connect(f"tcp://{EyeTracking.pupil_addr}:{sub_port}")
+
+            # Subsribe to all the required topics
+            for topic in EyeTracking.subscriber_topics:
+                EyeTracking.pupil_socket.setsockopt(zmq.SUBSCRIBE, topic)
+
+    @staticmethod
+    def _init_dfs():
         pass
 
     @staticmethod
-    def interleaving_performance_tick():
-        pass
+    def eye_data_tick():
+        if EyeTracking.log_interleaving_performance and EyeTracking.log_driving_performance:
+            raise Exception("Cannot log both driving performance and interleaving performance at the same time!")
+        
+        # Class to store all the data from eye tracker temporarily
+        class EyeTrackerData: pass
+
+        eye_tracker_data = EyeTrackerData()
+        for raw_var_name in EyeTracking.subscriber_topics:
+            var_name = raw_var_name.replace(".", "_") + "_data"
+            setattr(eye_tracker_data, var_name, None)
+            
+
+        if EyeTracking.log_interleaving_performance or EyeTracking.log_driving_performance:
+            # Establish connection if not already
+            if EyeTracking.pupil_context is None or EyeTracking.pupil_socket is None:
+                EyeTracking.establish_eye_tracking_connection()
+
+            # Loop through all the topics and retrieve data
+            for _ in range(0, len(EyeTracking.subscriber_topics)):
+                # Get the data from the pupil network API
+                topic = EyeTracking.pupil_socket.recv_string(flags=zmq.NOBLOCK)
+                byte_message = EyeTracking.pupil_socket.recv(flags=zmq.NOBLOCK)
+                message_dict = loads(byte_message, raw=False)
+                setattr(eye_tracker_data, topic.replace(".", "_") + "_data", message_dict)
+            
+            if EyeTracking.log_interleaving_performance:
+                pass
+            elif EyeTracking.log_driving_performance:
+                pass
+
 
     @staticmethod
-    def TOR_performance_tick():
+    def save_performance_data():
         pass
