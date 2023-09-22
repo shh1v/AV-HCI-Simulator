@@ -475,6 +475,9 @@ class EyeTracking:
     pupil_addr = "127.0.0.1"
     pupil_request_port = "50020"
 
+    # Store the clock offset
+    clock_offset = None
+
     # Store all the topics so that they can be looped through
     subscriber_topics = [
                         # Surface mapping and fixation data
@@ -522,9 +525,20 @@ class EyeTracking:
         if EyeTracking.pupil_context is None or EyeTracking.pupil_socket is None:
             req = EyeTracking.pupil_context.socket(zmq.REQ)
             req.connect(f"tcp://{EyeTracking.pupil_addr}:{EyeTracking.pupil_request_port}")
+            
             # Ask for sub port
             req.send_string("SUB_PORT")
             sub_port = req.recv_string()
+
+            # Also calculate the clock offset to get the system time
+            clock_offsets = []
+            for _ in range(0, 10):
+                req.send_string("t")
+                local_before_time = time.time()
+                pupil_time = float(req.recv())
+                local_after_time = time.time()
+                clock_offsets.append(((local_before_time + local_after_time) / 2.0) - pupil_time)
+            EyeTracking.clock_offset = sum(clock_offsets) / len(clock_offsets)
 
             # Open a sub port to listen to pupil core eye tracker
             EyeTracking.pupil_socket = EyeTracking.pupil_context.socket(zmq.SUB)
@@ -556,7 +570,16 @@ class EyeTracking:
         init_or_load_dataframe("eye_blinks_df", "eye_blinks", EyeTracking.eye_blinks_header)
 
     @staticmethod
+    def convert_to_sys_time(pupil_time):
+        # This method already assumes that a connection has been established to the pupil network API
+        sys_time = EyeTracking.clock_offset + pupil_time
+        return datetime.datetime.fromtimestamp(sys_time).strftime("%d/%m/%Y %H:%M:%S.%f")[:-3]
+
+    @staticmethod
     def eye_data_tick():
+        # Initialize the dataframes if not already
+        EyeTracking._init_dfs()
+
         if EyeTracking.log_interleaving_performance and EyeTracking.log_driving_performance:
             raise Exception("Cannot log both driving performance and interleaving performance at the same time!")
         
@@ -631,14 +654,14 @@ class EyeTracking:
                             if surface in surface_with_eye_gaze[0]:
                                 # This means that this is the surface with the highest priority
                                 # Now, add the data to the dataframe
-                                sys_time = None # Calculate current time stamp
+                                sys_time = EyeTracking.convert_to_sys_time() # Calculate current time stamp
                                 surface_data = surface_with_eye_gaze[1]
                                 EyeTracking.eye_mapping_df.loc[len(EyeTracking.eye_mapping_df)] = common_row_elements + [sys_time, surface[9:], surface_data['norm_pos'][0], surface_data['norm_pos'][1]]
                                 found_first_surface = True
                                 break
                     if not found_first_surface: # Surface is one of the monitors
                         # This means that the highest priority surface was not found. Hence, add the data to the dataframe
-                        sys_time = None # Calculate current time stamp
+                        sys_time = EyeTracking.convert_to_sys_time() # Calculate current time stamp
                         surface_name = surfaces_with_eye_gaze[0][0][9:]
                         surface_data = surfaces_with_eye_gaze[0][1]
                         EyeTracking.eye_mapping_df.loc[len(EyeTracking.eye_mapping_df)] = common_row_elements + [sys_time, surface_name, surface_data['norm_pos'][0], surface_data['norm_pos'][1]]
@@ -654,7 +677,7 @@ class EyeTracking:
                             if surface in surface_with_fixations[0]:
                                 # This means that this is the surface with the highest priority
                                 # Now, add the data to the dataframe
-                                sys_time = None # Calculate current time stamp
+                                sys_time = EyeTracking.convert_to_sys_time() # Calculate current time stamp
                                 surface_data = surface_with_fixations[1]
                                 # NOTE: Only add the fixation data if the id is unique (does not exist in the df)
                                 if surface_data['id'] not in EyeTracking.eye_fixations_df['FixationID'].values:
@@ -667,7 +690,7 @@ class EyeTracking:
                     # If no priority surface was found, that means the driver is looking at the road
                     if not found_first_surface:
                         # This means that the highest priority surface was not found. Hence, add the data to the dataframe
-                        sys_time = None # Calculate current time stamp
+                        sys_time = EyeTracking.convert_to_sys_time() # Calculate current time stamp
                         surface_name = surfaces_with_fixations[0][0][9:]
                         surface_data = surfaces_with_fixations[0][1]
                         # NOTE: Only add the fixation data if the id is unique (does not exist in the df)
@@ -680,7 +703,7 @@ class EyeTracking:
         right_eye_data = getattr(eye_tracker_data, "pupil_0_data")
         left_eye_data = getattr(eye_tracker_data, "pupil_1_data")
         if right_eye_data is not None and left_eye_data is not None:
-            sys_time = None # Calculate current time stamp
+            sys_time = EyeTracking.convert_to_sys_time() # Calculate current time stamp
             if "diameter_3d" in right_eye_data.keys() and "diameter_3d" in left_eye_data.keys():
                 EyeTracking.eye_diameter_df.loc[len(EyeTracking.eye_diameter_df)] = common_row_elements + [sys_time, right_eye_data["diameter_3d"], left_eye_data["diameter_3d"]]
             else:
@@ -691,7 +714,7 @@ class EyeTracking:
             print("WARNING: Right or left pupil data is unavailable!")
         blink_data = getattr(eye_tracker_data, "blink_data")
         if blink_data is not None:
-            sys_time = None # Calculate current time stamp
+            sys_time = EyeTracking.convert_to_sys_time() # Calculate current time stamp
             EyeTracking.eye_blinks_df.loc[len(EyeTracking.eye_blinks_df)] = common_row_elements + [sys_time, blink_data["type"]]
 
     @staticmethod
