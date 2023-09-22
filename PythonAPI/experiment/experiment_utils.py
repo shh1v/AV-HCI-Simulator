@@ -487,19 +487,35 @@ class EyeTracking:
                          "surfaces.RightMonitor"
                          # Pupil diameter data
                          "pupil.0",
-                         "pupil.1"]
+                         "pupil.1",
+                         # Pupil blink data
+                         "blink"]
 
     # Variables that decide what to log
     log_interleaving_performance = False
     log_driving_performance = False
+    
+    # Config file
+    config_file = None
+    index = -1
 
     # All the dataframes that will stores all the eye tracking data
     eye_mapping_df = None
-    eye_movement_df = None
-
+    eye_fixations_df = None
+    eye_diameter_df = None
+    eye_blinks_df = None
+    
     # Common header for the above dataframes
     eye_mapping_header = ["ParticipantID", "InterruptionParadigm", "BlockNumber", "TrialNumber", "TaskType", "TaskSetting", "TrafficComplexity", "Timestamp", "Surface", "RightEyeDiameter", "LeftEyeDiameter", "GazePosX", "GazePosY"]
-    eye_movement_header = ["ParticipantID", "InterruptionParadigm", "BlockNumber", "TrialNumber", "TaskType", "TaskSetting", "TrafficComplexity", "Timestamp", "Surface", "FixationDuration", "FixationDispersion"]
+    eye_fixations_header = ["ParticipantID", "InterruptionParadigm", "BlockNumber", "TrialNumber", "TaskType", "TaskSetting", "TrafficComplexity", "Timestamp", "Surface", "FixationID", "FixationDuration", "FixationDispersion"]
+    eye_diameter_header = ["ParticipantID", "InterruptionParadigm", "BlockNumber", "TrialNumber", "TaskType", "TaskSetting", "TrafficComplexity", "Timestamp", "RightEyeDiameter", "LeftEyeDiameter"]
+    eye_blinks_header = ["ParticipantID", "InterruptionParadigm", "BlockNumber", "TrialNumber", "TaskType", "TaskSetting", "TrafficComplexity", "Timestamp", "BlinkType"]
+
+    @staticmethod
+    def set_configuration(config_file, index):
+        # config is a dictionary with the required IV values set for the trial
+        EyeTracking.config_file = config_file
+        EyeTracking.index = index
 
     @staticmethod
     def establish_eye_tracking_connection():
@@ -520,7 +536,24 @@ class EyeTracking:
 
     @staticmethod
     def _init_dfs():
-        pass
+        def init_or_load_dataframe(attribute_name, csv_name, header):
+            file_path = f"EyeData/{csv_name}.csv"
+            
+            # Check if attribute already has a value
+            df = getattr(EyeTracking, attribute_name, None)
+            
+            # If the df attribute is None and CSV file exists, read the CSV file
+            if df is None:
+                if os.path.exists(file_path):
+                    setattr(EyeTracking, attribute_name, pd.read_csv(file_path))
+                else:
+                    setattr(EyeTracking, attribute_name, pd.DataFrame(columns=header))
+
+        # Call the function for each attribute
+        init_or_load_dataframe("eye_mapping_df", "eye_mapping", EyeTracking.eye_mapping_header)
+        init_or_load_dataframe("eye_fixations_df", "eye_fixations", EyeTracking.eye_fixations_header)
+        init_or_load_dataframe("eye_diameter_df", "eye_diameter", EyeTracking.eye_diameter_header)
+        init_or_load_dataframe("eye_blinks_df", "eye_blinks", EyeTracking.eye_blinks_header)
 
     @staticmethod
     def eye_data_tick():
@@ -549,11 +582,117 @@ class EyeTracking:
                 message_dict = loads(byte_message, raw=False)
                 setattr(eye_tracker_data, topic.replace(".", "_") + "_data", message_dict)
             
-            if EyeTracking.log_interleaving_performance:
-                pass
-            elif EyeTracking.log_driving_performance:
-                pass
+            # Get the common row elements for ease of use
+            gen_section = EyeTracking.config_file[EyeTracking.config_file.sections()[0]]
+            curr_section_name = EyeTracking.config_file.sections()[EyeTracking.index]
+            curr_section = EyeTracking.config_file[curr_section_name]
+            match = re.match(r"(Block\d+)(Trial\d+)", curr_section_name)
+            common_row_elements = [gen_section["ParticipantID"],
+                                gen_section["InterruptionParadigm"],
+                                match.group(1) if match else "UnknownBlock",
+                                match.group(2) if match else "UnknownTrial",
+                                curr_section["NDRTTaskType"],
+                                curr_section["TaskSetting"],
+                                curr_section["Traffic"]]
 
+            if EyeTracking.log_interleaving_performance or EyeTracking.log_driving_performance:
+                # Find out what surface is the driver looking at and get the required data
+                surfaces_with_eye_gaze = []
+                surfaces_with_fixations = []
+                for surface in EyeTracking.subscriber_topics:
+                    if "surfaces" in surface:
+                        surface_data = getattr(eye_tracker_data, surface.replace(".", "_") + "_data")
+                        if surface_data is None:
+                            print(f"WARNING: Surface data for {surface} is None!")
+                            continue # Check for the next surface as data was not received for this surface
+                        # Now, get the gaze_on_surfaces object, select the one with the highest timestamp, and check if it is True
+                        gaze_on_surfaces = surface_data["gaze_on_surfaces"]
+                        fixations_on_surfaces = surface_data["fixations_on_surfaces"]
+                        if len(gaze_on_surfaces) > 0:
+                            gaze_on_surfaces.sort(key=lambda x: x["timestamp"], reverse=True)
+                            if gaze_on_surfaces[0]["on_surf"]:
+                                if "HUD" not in surface and not EyeTracking.log_driving_performance:
+                                    surfaces_with_eye_gaze.append([surface, gaze_on_surfaces])
+                        if len(fixations_on_surfaces) > 0:
+                            # Here, we dont have on_surf as fixation are noticed after some time, so the fixation data may not be current
+                            fixations_on_surfaces.sort(key=lambda x: x["timestamp"], reverse=True)
+                            if "HUD" not in surface and not EyeTracking.log_driving_performance:
+                                surfaces_with_fixations.append([surface, fixations_on_surfaces])
+                        else:
+                            continue # Check for the next surface as gaze_on_surfaces is empty
+                
+                # Add surface data to the dataframe
+                first_priority_surfaces = ["surfaces.HUD", "surfaces.LeftMirror", "surfaces.RightMirror", "surfaces.RearMirror"]
+                if len(surfaces_with_eye_gaze) > 0:
+                    # Now, add the data to the dataframes
+                    found_first_surface = False
+                    for surface in first_priority_surfaces:
+                        for surface_with_eye_gaze in surfaces_with_eye_gaze:
+                            if surface in surface_with_eye_gaze[0]:
+                                # This means that this is the surface with the highest priority
+                                # Now, add the data to the dataframe
+                                sys_time = None # Calculate current time stamp
+                                surface_data = surface_with_eye_gaze[1]
+                                EyeTracking.eye_mapping_df.loc[len(EyeTracking.eye_mapping_df)] = common_row_elements + [sys_time, surface[9:], surface_data['norm_pos'][0], surface_data['norm_pos'][1]]
+                                found_first_surface = True
+                                break
+                    if not found_first_surface: # Surface is one of the monitors
+                        # This means that the highest priority surface was not found. Hence, add the data to the dataframe
+                        sys_time = None # Calculate current time stamp
+                        surface_name = surfaces_with_eye_gaze[0][0][9:]
+                        surface_data = surfaces_with_eye_gaze[0][1]
+                        EyeTracking.eye_mapping_df.loc[len(EyeTracking.eye_mapping_df)] = common_row_elements + [sys_time, surface_name, surface_data['norm_pos'][0], surface_data['norm_pos'][1]]
+                else:
+                    print("WARNING: Driver not looking at the screen")
+
+                # Add fixation data to the dataframe
+                if len(surfaces_with_fixations) > 0:
+                    # Now, add the data to the dataframes
+                    found_first_surface = False
+                    for surface in first_priority_surfaces:
+                        for surface_with_fixations in surfaces_with_fixations:
+                            if surface in surface_with_fixations[0]:
+                                # This means that this is the surface with the highest priority
+                                # Now, add the data to the dataframe
+                                sys_time = None # Calculate current time stamp
+                                surface_data = surface_with_fixations[1]
+                                # NOTE: Only add the fixation data if the id is unique (does not exist in the df)
+                                if surface_data['id'] not in EyeTracking.eye_fixations_df['FixationID'].values:
+                                    EyeTracking.eye_fixations_df.loc[len(EyeTracking.eye_fixations_df)] = common_row_elements + [sys_time, surface[9:], surface_data['id'], surface_data['duration'], surface_data['dispersion']]
+                                else:
+                                    print("INFO: Duplicate fixation ID found!")
+                                found_first_surface = True
+                                break
+                    
+                    # If no priority surface was found, that means the driver is looking at the road
+                    if not found_first_surface:
+                        # This means that the highest priority surface was not found. Hence, add the data to the dataframe
+                        sys_time = None # Calculate current time stamp
+                        surface_name = surfaces_with_fixations[0][0][9:]
+                        surface_data = surfaces_with_fixations[0][1]
+                        # NOTE: Only add the fixation data if the id is unique (does not exist in the df)
+                        if surface_data['id'] not in EyeTracking.eye_fixations_df['FixationID'].values:
+                            EyeTracking.eye_fixations_df.loc[len(EyeTracking.eye_fixations_df)] = common_row_elements + [sys_time, surface_name, surface_data['id'], surface_data['duration'], surface_data['dispersion']]
+                        else:
+                            print("INFO: Duplicate fixation ID found!")
+
+        # Mandatorily, log the pupil diameter data and blink data
+        right_eye_data = getattr(eye_tracker_data, "pupil_0_data")
+        left_eye_data = getattr(eye_tracker_data, "pupil_1_data")
+        if right_eye_data is not None and left_eye_data is not None:
+            sys_time = None # Calculate current time stamp
+            if "diameter_3d" in right_eye_data.keys() and "diameter_3d" in left_eye_data.keys():
+                EyeTracking.eye_diameter_df.loc[len(EyeTracking.eye_diameter_df)] = common_row_elements + [sys_time, right_eye_data["diameter_3d"], left_eye_data["diameter_3d"]]
+            else:
+                print("WARNING: 3D model data is unavailable! Using 2D model data instead.")
+                # NOTE: The diameters are in pixels here.
+                EyeTracking.eye_diameter_df.loc[len(EyeTracking.eye_diameter_df)] = common_row_elements + [sys_time, right_eye_data["diameter"]*0.2645833333, left_eye_data["diameter"]*0.2645833333]
+        else:
+            print("WARNING: Right or left pupil data is unavailable!")
+        blink_data = getattr(eye_tracker_data, "blink_data")
+        if blink_data is not None:
+            sys_time = None # Calculate current time stamp
+            EyeTracking.eye_blinks_df.loc[len(EyeTracking.eye_blinks_df)] = common_row_elements + [sys_time, blink_data["type"]]
 
     @staticmethod
     def save_performance_data():
