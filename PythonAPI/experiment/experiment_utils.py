@@ -479,18 +479,11 @@ class EyeTracking:
     clock_offset = None
 
     # Store all the topics so that they can be looped through
-    subscriber_topics = [
-                        # Surface mapping and fixation data
-                         "surfaces.HUD",
-                         "surfaces.RightMirror",
-                         "surfaces.LeftMirror",
-                         "surfaces.RearMirror",
-                         "surfaces.LeftMonitor",
-                         "surfaces.CenterMonitor",
-                         "surfaces.RightMonitor"
+    subscriber_topics = [# Surface mapping and fixation data
+                         "surfaces.HUD", "surfaces.RightMirror", "surfaces.LeftMirror", "surfaces.RearMirror",
+                         "surfaces.LeftMonitor", "surfaces.CenterMonitor", "surfaces.RightMonitor"
                          # Pupil diameter data
-                         "pupil.0",
-                         "pupil.1",
+                         "pupil.0", "pupil.1",
                          # Pupil blink data
                          "blink"]
 
@@ -719,4 +712,16 @@ class EyeTracking:
 
     @staticmethod
     def save_performance_data():
-        pass
+        # Ensure the directory exists
+        if not os.path.exists("EyeData"):
+            os.makedirs("EyeData")
+
+        # Save the dataframes to the files only if they are initialized
+        if EyeTracking.eye_mapping_df is not None:
+            EyeTracking.eye_mapping_df.to_csv("EyeData/eye_mapping.csv", index=False)
+        if EyeTracking.eye_fixations_df is not None:
+            EyeTracking.eye_fixations_df.to_csv("EyeData/eye_fixations.csv", index=False)
+        if EyeTracking.eye_diameter_df is not None:
+            EyeTracking.eye_diameter_df.to_csv("EyeData/eye_diameter.csv", index=False)
+        if EyeTracking.eye_blinks_df is not None:
+            EyeTracking.eye_blinks_df.to_csv("EyeData/eye_blinks.csv", index=False)
