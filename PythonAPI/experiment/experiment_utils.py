@@ -229,32 +229,40 @@ class VehicleBehaviourSuite:
             if VehicleBehaviourSuite.local_vehicle_status == "Autopilot":
                 # Record the timestamp of the autopilot start
                 VehicleBehaviourSuite.autopilot_start_timestamp = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3]
-            if VehicleBehaviourSuite.local_vehicle_status == "PreAlertAutopilot":
+
+                # Setting the metadata for the eye-tracker data
+                EyeTracking.set_configuration(config_file, index)
+
+                # Once the autopilot is turned, start logging the eye-tracking data
+                VehicleBehaviourSuite.log_eye_data = True
+
+                # Setup logging behaviour for the eye-tracking data
+                EyeTracking.log_interleaving_performance = True
+                EyeTracking.log_driving_performance = False
+            elif VehicleBehaviourSuite.local_vehicle_status == "PreAlertAutopilot":
                 # Record the timestamp of the pre-alert autopilot start
                 VehicleBehaviourSuite.pre_alert_autopilot_start_timestamp = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3]
-
-                # Start Interleaving performance logging
-                VehicleBehaviourSuite.log_eye_data = True
             elif VehicleBehaviourSuite.local_vehicle_status == "TakeOver":
                 # Record the timestamp of the take over start
                 VehicleBehaviourSuite.take_over_start_timestamp = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3]
 
-                # Start measuring driving performance
+                # Start measuring the driver's reaction time
                 DrivingPerformance.start_logging_reaction_time(True)
+
+                # Change the eye-tracking logging behaviour
+                EyeTracking.log_interleaving_performance = False
+                EyeTracking.log_driving_performance = True
             elif VehicleBehaviourSuite.local_vehicle_status == "TakeOverManual":
                 # Record the timestamp of the take over manual start
                 VehicleBehaviourSuite.take_over_manual_start_timestamp = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3]
-
-                # Stop logging the eye-interleaving data
-                VehicleBehaviourSuite.log_eye_data = False
-
-                # TODO: Save the eye-interleaving data
 
                 # Set metadata for the driving performance data
                 DrivingPerformance.set_configuration(config_file, index)
 
                 # Start logging the performance data
                 VehicleBehaviourSuite.log_driving_performance_data = True
+
+                # Log the reaction time (by stopping the timer)
                 DrivingPerformance.start_logging_reaction_time(False)
             elif VehicleBehaviourSuite.local_vehicle_status == "ResumedAutopilot":
                 # Record the timestamp of the resumed autopilot start
@@ -263,6 +271,11 @@ class VehicleBehaviourSuite:
                 # Stop logging the performance data and save it
                 VehicleBehaviourSuite.log_driving_performance_data = False
                 DrivingPerformance.save_performance_data()
+
+                # NOTE: Continue to record eye-tracking data to observe the aftereffects of take-over requests or task-switching.
+                # However, change the data logging behaviour
+                EyeTracking.log_interleaving_performance = True
+                EyeTracking.log_driving_performance = False
 
                 # Turn on autopilot for the DReyeVR vehicle using Traffic Manager with some parameters
                 tm = client.get_trafficmanager(8005)
@@ -286,14 +299,21 @@ class VehicleBehaviourSuite:
 
                 # NOTE: The traffic manager does not have to be terminated; it will do so when client terminates
 
+                # Stop logging the eye-tracking data
+                VehicleBehaviourSuite.log_eye_data = False
+                
+                # Save the eye-tracking data
+                EyeTracking.save_performance_data()
+
                 # Terminate the parallel process
                 return False
 
 
-        # Log the performance data if required
+        # Log the driving performance data
         if VehicleBehaviourSuite.log_driving_performance_data:
             DrivingPerformance.performance_tick(world, ego_vehicle)
-
+        
+        # Log the eye-tracking data
         if VehicleBehaviourSuite.log_eye_data:
             EyeTracking.eye_data_tick()
         
