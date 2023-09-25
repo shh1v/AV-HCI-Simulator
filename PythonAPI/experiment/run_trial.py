@@ -45,6 +45,8 @@ def main(args):
             index += 1
             continue
         else: # current
+            # TODO: First start off by starting pupil recorder
+            # TODO: Wait for caliberation to be successful. Give a prompt to continue. If not successful, continue without incrementing index.
             command = [
                 'python', 'scenario_runner.py',
                 '--route', 'srunner/data/take_over_routes_debug.xml', 'srunner/data/take_over_scenarios.json',
@@ -52,25 +54,27 @@ def main(args):
                 '--timeout', '5',
                 '--sync', '--output'
             ]
-        try:
-            # Start vehicle status check process
-            vehicle_status_process = multiprocessing.Process(target=vehicle_status_check, args=(args.host, args.port, args.worker_threads, config_file, index))
-            vehicle_status_process.start()
+            try:
+                # Start vehicle status check process
+                vehicle_status_process = multiprocessing.Process(target=vehicle_status_check, args=(args.host, args.port, args.worker_threads, config_file, index))
+                vehicle_status_process.start()
 
-            # Directly run the scenario in the main flow
-            subprocess.run(command, stderr=subprocess.STDOUT)
+                # Directly run the scenario in the main flow
+                subprocess.run(command, stderr=subprocess.STDOUT)
 
-            # Wait for the vehicle status process to terminate. This will be done when CARLA sends a signal that the trial is over.
-            vehicle_status_process.join()
-            
-            index += 1
-        except (TypeError, ValueError, AttributeError) as e:      
-            print(f"{type(e).__name__} occurred: {e}")
-            print(traceback.format_exc())
+                # Wait for the vehicle status process to terminate. This will be done when CARLA sends a signal that the trial is over.
+                vehicle_status_process.join()
+                
+                index += 1
+            except (TypeError, ValueError, AttributeError) as e:      
+                print(f"{type(e).__name__} occurred: {e}")
+                print(traceback.format_exc())
 
-        except Exception as e:
-            print(f"An unexpected error of type {type(e).__name__} occurred: {e}")
-            print(traceback.format_exc())
+            except Exception as e:
+                print(f"An unexpected error of type {type(e).__name__} occurred: {e}")
+                print(traceback.format_exc())
+                
+            # TODO: End the pupil recorder
 
 def vehicle_status_check(host, port, threads, config_file, index):
     try:
