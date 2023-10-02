@@ -52,13 +52,15 @@ void AEgoVehicle::ToggleAlertOnNDRT(bool active) {
 
 }
 
-void AEgoVehicle::SetVisibilityOfNDRT(bool visibility) {
+void AEgoVehicle::SetInteractivityOfNDRT(bool interactivity) {
 
 }
 
 void AEgoVehicle::TerminateNDRT() {
 
 }
+
+
 
 void AEgoVehicle::TickNDRT() {
 	// Get the updated message from using Zero-MW PUB-SUB
@@ -83,8 +85,8 @@ void AEgoVehicle::TickNDRT() {
 	case VehicleStatus::ManualDrive:
 		VehicleStatusString = FString("ManualDrive");
 		break;
-	case VehicleStatus::AutoPilot:
-		VehicleStatusString = FString("AutoPilot");
+	case VehicleStatus::Autopilot:
+		VehicleStatusString = FString("Autopilot");
 		break;
 	case VehicleStatus::PreAlertAutopilot:
 		VehicleStatusString = FString("PreAlertAutopilot");
@@ -187,10 +189,32 @@ void AEgoVehicle::ConstructTVShowElements() {
 	MediaPlayerMesh->GetOwner()->AddOwnedComponent(MediaSoundComponent);
 }
 
+// N-back task exclusive methods
 
 void AEgoVehicle::SetLetter(const FString& Letter) {
 	if (NBackLetter == nullptr) return; // NBackLetter is not initialized yet
 	FString MaterialPath = FString::Printf(TEXT("Material'/Game/NDRT/NBackTask/Letters/M_%s.M_%s'"), *Letter, *Letter);
 	static ConstructorHelpers::FObjectFinder<UMaterial> NewMaterial(*MaterialPath);
 	NBackLetter->SetMaterial(0, NewMaterial.Object);
+}
+
+void AEgoVehicle::RecordNBackInputs(bool BtnUp, bool BtnDown)
+{
+	if (BtnUp)
+	{
+		const FString LogiError = "CLICKED MATCH BUTTON";
+		const bool PrintToScreen = true;
+		const float ScreenDurationSec = 20.f;
+		const FLinearColor MsgColour = FLinearColor(1, 0, 0, 1); // RED
+		UKismetSystemLibrary::PrintString(World, LogiError, PrintToScreen, false, MsgColour, ScreenDurationSec);
+		LOG_ERROR("%s", *LogiError); // Error is RED
+	} else if (BtnDown)
+	{
+		const FString LogiError = "CLICKED MISMATCH BUTTON";
+		const bool PrintToScreen = true;
+		const float ScreenDurationSec = 20.f;
+		const FLinearColor MsgColour = FLinearColor(1, 0, 0, 1); // RED
+		UKismetSystemLibrary::PrintString(World, LogiError, PrintToScreen, false, MsgColour, ScreenDurationSec);
+		LOG_ERROR("%s", *LogiError); // Error is RED
+	}
 }

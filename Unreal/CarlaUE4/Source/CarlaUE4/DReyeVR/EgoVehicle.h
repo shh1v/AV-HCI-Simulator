@@ -321,6 +321,7 @@ private: // Game signaling
     class UStaticMeshComponent* NBackControlsInfo;
     UPROPERTY(Category = NBackNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* NBackTitle;
+    void RecordNBackInputs(bool BtnUp, bool BtnRight); // Record the button events for the n-back task
 
     void ConstructNBackElements(); // Construct the static meshes to present the N-back task components
     void SetLetter(const FString& letter); // Set a new letter in the n-back task.
@@ -345,11 +346,12 @@ private: // Game signaling
   public: // Non-Driving-Related Task
     void SetupNDRT();    // Setup the NDRT (head-up display)
     void StartNDRT();    // Start the NDRT when automation is activated
-    void ToggleNDRT(bool active);   // Pause/resume the NDRT by a dim screen and a pause symbol
-    void ToggleAlertOnNDRT(bool active); // Present a visual alert to
-    void SetVisibilityOfNDRT(bool visibility);    // Completely hide/appear the head-up display (and subsequently pase the NDRT if not done already)
-    void TerminateNDRT();   // Destroy the NDRT head-up display and terminate the NDRT
+    void ToggleNDRT(bool active);   // Pause/Resume HUD
+    void ToggleAlertOnNDRT(bool active); // Present a visual and audio alert on HUD
+    void SetInteractivityOfNDRT(bool interactivity);    // Completely hide/appear the head-up display (and subsequently pase the NDRT if not done already)
+    void TerminateNDRT();   // Destroy the NDRT head-up display, terminate NDRT and save data
     void TickNDRT(); // Update the NDRT on every tick based on its individual implementation
+    void RecordInput(); // Record the input from the Logitech steering wheel
 
 private: // Eye-tracking
     bool bZMQEyeConnection = false; // True if connection is established

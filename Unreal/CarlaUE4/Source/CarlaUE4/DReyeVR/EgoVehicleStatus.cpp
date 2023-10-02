@@ -281,9 +281,6 @@ void AEgoVehicle::SendCurrVehicleStatus()
 		memcpy(Message.data(), DictStdString.c_str(), DictStdString.size());
 
 		VehicleStatusPublisher->send(Message);
-
-		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Sent message: %s"), *DictFString);
-
 	}
 	catch (...) {
 		UE_LOG(LogTemp, Error, TEXT("ZeroMQ: Failed to send message."));
