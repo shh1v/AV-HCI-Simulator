@@ -113,6 +113,26 @@ void AEgoVehicle::TickNDRT() {
 	RetrieveVehicleStatus();
 	GazeOnHUDTime();
 
+	// CASE: When NDRT engagement is disabled (during TORs or manual control)
+	if (CurrVehicleStatus == VehicleStatus::ManualDrive)
+	{
+		// This is the case when scenario runner has not kicked in. Just do nothing
+		return;
+	}
+	if (CurrVehicleStatus == VehicleStatus::TakeOver || CurrVehicleStatus == VehicleStatus::TakeOverManual)
+	{
+		// Disable the NDRT interface by toggling it
+		ToggleNDRT(false);
+
+		// TODO: Show a message asking the driver to take control of the vehicle
+		return;
+	}
+
+	// CASE: When the user is allowed to engage in NDRT
+	if (CurrVehicleStatus == VehicleStatus::PreAlertAutopilot)
+	{
+		// TODO: Show a pre-alert message suggesting that a take-over request may be issued in the future
+	}
 	auto HandleTaskTick = [&]() {
 		switch (CurrTaskType)
 		{
