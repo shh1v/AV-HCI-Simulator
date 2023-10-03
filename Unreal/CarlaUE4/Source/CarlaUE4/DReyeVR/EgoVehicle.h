@@ -374,7 +374,9 @@ private: // Eye-tracking
         FBaseData BaseData;
         float TimeStamp;
     };
-    FTypedGazeData HighestTimestampGazeData; // This will store the latest surface gaze data
+    FTypedGazeData HighestTimestampGazeData;    // This will store the latest surface gaze data
+    class UAudioComponent* TORAlertSound;   // For TOR alert sound
+    class UAudioComponent* HUDAlertSound;           // For interruption alert sound
     bool bisAlertOnNDRTOn = false;
 
 public: // Eye-tracking

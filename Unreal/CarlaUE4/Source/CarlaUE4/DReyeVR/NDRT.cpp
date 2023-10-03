@@ -58,19 +58,19 @@ void AEgoVehicle::ToggleAlertOnNDRT(bool active) {
 	if (active)
 	{
 		// Make a red rim appear around the HUD
-
+		SecondaryHUD->SetVisibility(true, false);
 		// Play a subtle alert sound if not already played
 		if (!bisAlertOnNDRTOn)
 		{
-			// Play an alert sound
-
+			// Play an alert sound once (looping is disabled)
+			HUDAlertSound->Play();
 			bisAlertOnNDRTOn = true;
 		}
 	}
 	else
 	{
 		// Make the red rim around the HUD disappear
-
+		SecondaryHUD->SetVisibility(false, false);
 		bisAlertOnNDRTOn = false;
 	}
 }
@@ -186,6 +186,22 @@ void AEgoVehicle::ConstructHUD() {
 	SecondaryHUD->SetStaticMesh(SHUDMeshObj.Object);
 	SecondaryHUD->SetCastShadow(false);
 	SecondaryHUD->SetVisibility(false, false); // Set it hidden by default, and only make it appear when alerting.
+
+	// Also construct all the sounds here
+	static ConstructorHelpers::FObjectFinder<USoundWave> HUDAlertSoundWave(
+		TEXT("SoundWave'/Game/DReyeVR/EgoVehicle/Extra/HUDAlertSound.HUDAlertSound'"));
+	HUDAlertSound = CreateDefaultSubobject<UAudioComponent>(TEXT("HUDAlert"));
+	HUDAlertSound->SetupAttachment(GetRootComponent());
+	HUDAlertSound->bAutoActivate = false;
+	HUDAlertSound->SetSound(HUDAlertSoundWave.Object);
+
+	static ConstructorHelpers::FObjectFinder<USoundWave> TORAlertSoundWave(
+		TEXT("SoundWave'/Game/DReyeVR/EgoVehicle/Extra/TORAlertSound.TORAlertSound'"));
+	TORAlertSound = CreateDefaultSubobject<UAudioComponent>(TEXT("TORAlert"));
+	TORAlertSound->SetupAttachment(GetRootComponent());
+	TORAlertSound->bAutoActivate = false;
+	TORAlertSound->SetSound(TORAlertSoundWave.Object);
+
 }
 
 void AEgoVehicle::ConstructNBackElements() {
