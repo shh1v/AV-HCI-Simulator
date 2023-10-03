@@ -79,10 +79,12 @@ void AEgoVehicle::SetInteractivityOfNDRT(bool interactivity) {
 	if (interactivity)
 	{
 		// Make a black screen appear at the front
+		DisableHUD->SetVisibility(true, false);
 	}
 	else
 	{
 		// Make the black screen at front of HUD disappear
+		DisableHUD->SetVisibility(false, false);
 	}
 }
 
@@ -176,7 +178,7 @@ void AEgoVehicle::ConstructHUD() {
 	PrimaryHUD->SetStaticMesh(PHUDMeshObj.Object);
 	PrimaryHUD->SetCastShadow(false);
 
-	// Creating the secondary head-up dispay which will give the notification to switch task.
+	// Creating the secondary head-up display which will give the notification to switch task.
 	SecondaryHUD = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Secondary HUD"));
 	SecondaryHUD->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
 	SecondaryHUD->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -186,6 +188,17 @@ void AEgoVehicle::ConstructHUD() {
 	SecondaryHUD->SetStaticMesh(SHUDMeshObj.Object);
 	SecondaryHUD->SetCastShadow(false);
 	SecondaryHUD->SetVisibility(false, false); // Set it hidden by default, and only make it appear when alerting.
+
+	// Creating the disabling head-up display for the system-initiated task switching
+	DisableHUD = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Disable HUD"));
+	DisableHUD->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+	DisableHUD->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	DisableHUD->SetRelativeTransform(VehicleParams.Get<FTransform>("HUD", "DisableHUDLocation"));
+	FString PathToMeshDHUD = TEXT("StaticMesh'/Game/NDRT/StaticMeshes/SM_DisableHUD.SM_DisableHUD'");
+	const ConstructorHelpers::FObjectFinder<UStaticMesh> DHUDMeshObj(*PathToMeshDHUD);
+	DisableHUD->SetStaticMesh(DHUDMeshObj.Object);
+	DisableHUD->SetCastShadow(false);
+	DisableHUD->SetVisibility(false, false); // Set it hidden by default, and only make it appear when alerting.
 
 	// Also construct all the sounds here
 	static ConstructorHelpers::FObjectFinder<USoundWave> HUDAlertSoundWave(

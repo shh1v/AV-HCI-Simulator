@@ -300,7 +300,7 @@ private: // Game signaling
   private: // Non-Driving-Related Task
     enum class TaskType {NBackTask, TVShowTask}; // Change the behaviour of the NDRT based on the task type provided
     // The following value will determine the 
-    TaskType CurrTaskType = TaskType::TVShowTask; // Should be dynamically retrieved from a config file
+    TaskType CurrTaskType = TaskType::NBackTask; // Should be dynamically retrieved from a config file
     enum class InterruptionParadigm { SelfRegulated, SystemRecommended, SystemInitiated}; // Change the behaviour of the NDRT based on the task type provided
     // The following value will determine the 
     InterruptionParadigm CurrInterruptionParadigm = InterruptionParadigm::SelfRegulated; // Should be dynamically retrived from a config file
@@ -309,6 +309,8 @@ private: // Game signaling
     class UStaticMeshComponent* PrimaryHUD;
     UPROPERTY(Category = NDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* SecondaryHUD;
+    UPROPERTY(Category = NDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UStaticMeshComponent* DisableHUD;
 
     // Alert assets
     
