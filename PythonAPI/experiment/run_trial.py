@@ -27,7 +27,7 @@ def main(args):
     logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
 
     # Get config file and read the contents of the file
-    config_file_path = "../../Unreal/CarlaUE4/Config/ExperimentConfig.ini"
+    config_file_path = "D:/CarlaDReyeVR/carla/Unreal/CarlaUE4/Config/ExperimentConfig.ini"
     config_file = ExperimentHelper.get_experiment_config(config_file=config_file_path)
 
     # Change directory to scenario runner
