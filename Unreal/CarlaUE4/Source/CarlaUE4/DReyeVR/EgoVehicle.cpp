@@ -94,7 +94,62 @@ void AEgoVehicle::ReadConfigVariables()
     // replay
     GeneralParams.Get("Replayer", "CameraFollowHMD", bCameraFollowHMD);
 
-    // Get all the experiment variables
+    // Retrieve the interruption paradigm that will be used
+    FString InterruptionParadigm;
+    ExperimentParams.Get("General", "InterruptionParadigm", InterruptionParadigm);
+    if (InterruptionParadigm.Equals(TEXT("SelfRegulated")))
+    {
+        CurrInterruptionParadigm = InterruptionParadigm::SelfRegulated;
+    }
+    else if (InterruptionParadigm.Equals(TEXT("SystemRecommended")))
+    {
+        CurrInterruptionParadigm = InterruptionParadigm::SystemRecommended;
+    }
+    else if (InterruptionParadigm.Equals(TEXT("SystemInitiated")))
+    {
+        CurrInterruptionParadigm = InterruptionParadigm::SystemInitiated;
+    }
+
+
+    // Get the current block name so that trial specific variables can be retrieved
+    FString CurrentBlock;
+    ExperimentParams.Get<FString>("General", "CurrentBlock", CurrentBlock);
+
+    // Get the type of NDRT
+    FString NDRTTaskType;
+    ExperimentParams.Get<FString>(CurrentBlock, "NDRTTaskType", NDRTTaskType);
+    if (NDRTTaskType.Equals(TEXT("NBackTask")))
+    {
+        CurrTaskType = TaskType::NBackTask;
+    }
+    else if (NDRTTaskType.Equals(TEXT("TVShowTask")))
+    {
+        CurrTaskType = TaskType::TVShowTask;
+    }
+
+    // Get the specific configuration of the NDRT
+    FString TaskSetting;
+    ExperimentParams.Get<FString>(CurrentBlock, "TaskSetting", TaskSetting);
+
+    if (CurrTaskType == TaskType::NBackTask)
+    {
+        if (TaskSetting.Equals(TEXT("One")))
+        {
+            CurrentNValue = NValue::One;
+        }
+        else if (TaskSetting.Equals(TEXT("Two")))
+        {
+            CurrentNValue = NValue::Two;
+        }
+        else if (TaskSetting.Equals(TEXT("Three")))
+        {
+            CurrentNValue = NValue::Three;
+        }
+    }
+    else if (CurrTaskType == TaskType::TVShowTask)
+    {
+	    // TODO: Implement all the necessary functionality here for the TV show task
+    }
 }
 
 void AEgoVehicle::BeginPlay()

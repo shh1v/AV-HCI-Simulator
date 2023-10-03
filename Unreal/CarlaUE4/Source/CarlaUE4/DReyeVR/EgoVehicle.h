@@ -317,7 +317,7 @@ private: // Game signaling
     // N-back task
     enum class NValue{One=1, Two, Three}; // Change n-back task functionality based on the n-value provided
     NValue CurrentNValue = NValue::One;
-    int32 TotalNBackTasks = 40; // Total trials of n-back task. Retreive this value from the the configuration file.
+    int32 TotalNBackTasks = 40; // Total trials of n-back task. Possibly Retrieve this value from the the configuration file.
     TArray<FString> NBackPrompts;   // Store the n-back task prompts in this array
     TArray<FString> NBackRecordedResponses; // Store the "considered" responses in this array
     TArray<FString> NBackResponseBuffer; // Store the n-back responses temporarily in this array. Then do post-analysis

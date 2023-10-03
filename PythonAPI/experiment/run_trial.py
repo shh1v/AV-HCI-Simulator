@@ -26,9 +26,11 @@ import logging
 def main(args):
     logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
 
+    # Get config file and read the contents of the file
     config_file_path = "../../Unreal/CarlaUE4/Config/ExperimentConfig.ini"
     config_file = ExperimentHelper.get_experiment_config(config_file=config_file_path)
 
+    # Change directory to scenario runner
     os.chdir("../../../scenario_runner")
 
     index = 1
@@ -45,8 +47,10 @@ def main(args):
             index += 1
             continue
         else: # current
-            # TODO: First start off by starting pupil recorder
-            # TODO: Wait for caliberation to be successful. Give a prompt to continue. If not successful, continue without incrementing index.
+            # First set the current block name in the configuration file
+            ExperimentHelper.update_current_block(config_file_path, section)
+
+            # Now, run the scenario runner
             command = [
                 'python', 'scenario_runner.py',
                 '--route', 'srunner/data/take_over_routes_debug.xml', 'srunner/data/take_over_scenarios.json',
