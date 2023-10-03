@@ -22,7 +22,6 @@ void AEgoVehicle::SetupNDRT() {
 		ConstructTVShowElements();
 		break;
 	}
-	SetMessagePaneText(TEXT("Autopilot enabled"), FColor::Green);
 }
 
 void AEgoVehicle::StartNDRT() {
@@ -146,9 +145,14 @@ void AEgoVehicle::TickNDRT() {
 	}
 
 	// CASE: When the user is allowed to engage in NDRT
+	if (CurrVehicleStatus == VehicleStatus::Autopilot || CurrVehicleStatus == VehicleStatus::ResumedAutopilot)
+	{
+		// Tell the driver that the ADS is engaged
+		SetMessagePaneText(TEXT("Autopilot Engaged"), FColor::Green);
+	}
 	if (CurrVehicleStatus == VehicleStatus::PreAlertAutopilot)
 	{
-		// TODO: Show a pre-alert message suggesting that a take-over request may be issued in the future
+		// Show a pre-alert message suggesting that a take-over request may be issued in the future
 		SetMessagePaneText(TEXT("Prepare to Take Over"), FColor::Orange);
 	}
 	auto HandleTaskTick = [&]() {
@@ -258,7 +262,7 @@ void AEgoVehicle::ConstructHUD() {
 	MessagePane->SetText(FText::FromString(""));
 	MessagePane->SetXScale(1.f);
 	MessagePane->SetYScale(1.f);
-	MessagePane->SetWorldSize(10); // scale the font with this
+	MessagePane->SetWorldSize(7); // scale the font with this
 	MessagePane->SetVerticalAlignment(EVerticalTextAligment::EVRTA_TextCenter);
 	MessagePane->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
 
@@ -325,7 +329,7 @@ void AEgoVehicle::ConstructNBackElements() {
 
 	static ConstructorHelpers::FObjectFinder<USoundWave> IncorrectSoundWave(
 		TEXT("SoundWave'/Game/NDRT/NBackTask/Sounds/IncorrectNBackSound.IncorrectNBackSound'"));
-	NBackIncorrectSound = CreateDefaultSubobject<UAudioComponent>(TEXT("TORAlert"));
+	NBackIncorrectSound = CreateDefaultSubobject<UAudioComponent>(TEXT("IncorrectNBackSound"));
 	NBackIncorrectSound->SetupAttachment(GetRootComponent());
 	NBackIncorrectSound->bAutoActivate = false;
 	NBackIncorrectSound->SetSound(IncorrectSoundWave.Object);
@@ -361,10 +365,18 @@ void AEgoVehicle::ConstructTVShowElements() {
 
 void AEgoVehicle::SetLetter(const FString& Letter) {
 	if (NBackLetter == nullptr) return; // NBackLetter is not initialized yet
+
 	FString MaterialPath = FString::Printf(TEXT("Material'/Game/NDRT/NBackTask/Letters/M_%s.M_%s'"), *Letter, *Letter);
-	static ConstructorHelpers::FObjectFinder<UMaterial> NewMaterial(*MaterialPath);
-	NBackLetter->SetMaterial(0, NewMaterial.Object);
+	UMaterial* NewMaterial = Cast<UMaterial>(StaticLoadObject(UMaterial::StaticClass(), nullptr, *MaterialPath));
+
+	if (NewMaterial) {
+		NBackLetter->SetMaterial(0, NewMaterial);
+	}
+	else {
+		UE_LOG(LogTemp, Warning, TEXT("Failed to load material: %s"), *MaterialPath);
+	}
 }
+
 
 void AEgoVehicle::RecordNBackInputs(bool BtnUp, bool BtnDown)
 {

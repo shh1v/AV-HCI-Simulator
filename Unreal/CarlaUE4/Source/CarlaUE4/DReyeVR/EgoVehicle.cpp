@@ -93,6 +93,8 @@ void AEgoVehicle::ReadConfigVariables()
     GeneralParams.Get("VehicleInputs", "ScaleBrakeInput", ScaleBrakeInput);
     // replay
     GeneralParams.Get("Replayer", "CameraFollowHMD", bCameraFollowHMD);
+
+    // Get all the experiment variables
 }
 
 void AEgoVehicle::BeginPlay()
