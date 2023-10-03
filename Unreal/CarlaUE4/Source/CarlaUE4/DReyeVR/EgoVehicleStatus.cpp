@@ -156,6 +156,9 @@ FDcResult AEgoVehicle::RetrieveVehicleStatus() {
 	else if (VehicleStatusData.vehicle_status == "ResumedAutopilot") {
 		CurrVehicleStatus = VehicleStatus::ResumedAutopilot;
 	}
+	else if (VehicleStatusData.vehicle_status == "TrialOver") {
+		CurrVehicleStatus = VehicleStatus::TrialOver;
+	}
 	else {
 		CurrVehicleStatus = VehicleStatus::Unknown;
 	}
@@ -184,6 +187,9 @@ void AEgoVehicle::UpdateVehicleStatus(VehicleStatus NewStatus)
 		break;
 	case VehicleStatus::ResumedAutopilot:
 		VehicleStatusString = FString("ResumedAutopilot");
+		break;
+	case VehicleStatus::TrialOver:
+		VehicleStatusString = FString("TrialOver");
 		break;
 	default:
 		VehicleStatusString = FString("Unknown");
@@ -251,6 +257,9 @@ void AEgoVehicle::SendCurrVehicleStatus()
 	case VehicleStatus::ResumedAutopilot:
 		VehicleStatusString = FString("ResumedAutopilot");
 		break;
+	case VehicleStatus::TrialOver:
+		VehicleStatusString = FString("TrialOver");
+		break;
 	default:
 		VehicleStatusString = FString("Unknown");
 	}
@@ -281,9 +290,6 @@ void AEgoVehicle::SendCurrVehicleStatus()
 		memcpy(Message.data(), DictStdString.c_str(), DictStdString.size());
 
 		VehicleStatusPublisher->send(Message);
-
-		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Sent message: %s"), *DictFString);
-
 	}
 	catch (...) {
 		UE_LOG(LogTemp, Error, TEXT("ZeroMQ: Failed to send message."));

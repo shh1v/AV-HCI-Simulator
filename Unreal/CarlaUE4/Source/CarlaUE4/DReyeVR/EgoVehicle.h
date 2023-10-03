@@ -268,7 +268,7 @@ class CARLAUE4_API AEgoVehicle : public ACarlaWheeledVehicle
 //    FDateTime TORIssuanceTime;
 
 public: // Game signaling
-    enum class VehicleStatus { ManualDrive, Autopilot, PreAlertAutopilot, TakeOver, TakeOverManual, ResumedAutopilot, Unknown };
+    enum class VehicleStatus { ManualDrive, Autopilot, PreAlertAutopilot, TakeOver, TakeOverManual, ResumedAutopilot, TrialOver, Unknown };
     /*
      * Vehicle status descriptions:
      * ManualDrive: The vehicle is driving manually.
@@ -300,27 +300,39 @@ private: // Game signaling
   private: // Non-Driving-Related Task
     enum class TaskType {NBackTask, TVShowTask}; // Change the behaviour of the NDRT based on the task type provided
     // The following value will determine the 
-    TaskType CurrentTaskType = TaskType::TVShowTask; // Should be dynamically retrieved from a config file
+    TaskType CurrTaskType = TaskType::NBackTask; // Should be dynamically retrieved from a config file
     enum class InterruptionParadigm { SelfRegulated, SystemRecommended, SystemInitiated}; // Change the behaviour of the NDRT based on the task type provided
-    // The following value will determine the 
-    InterruptionParadigm CurrentInterruptionParadigm = InterruptionParadigm::SelfRegulated; // Should be dynamically retrived from a config file
+    // The following value will determine the NDRT interaction during pre-alert time
+    InterruptionParadigm CurrInterruptionParadigm = InterruptionParadigm::SelfRegulated; // Should be dynamically retrieved from a config file
     // Primary Display: Present the NDRT; Secondary Display: Present the alerts
     UPROPERTY(Category = NDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* PrimaryHUD;
     UPROPERTY(Category = NDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* SecondaryHUD;
+    UPROPERTY(Category = NDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UStaticMeshComponent* DisableHUD;
 
     // Alert assets
     
     // N-back task
-    enum class NValue{Zero=0, One, Two, Three}; // Change n-back task functionality based on the n-value provided
-    NValue CurrentNValue = NValue::Zero;
+    enum class NValue{One=1, Two, Three}; // Change n-back task functionality based on the n-value provided
+    NValue CurrentNValue = NValue::One;
+    int32 TotalNBackTasks = 40; // Total trials of n-back task. Possibly Retrieve this value from the the configuration file.
+    TArray<FString> NBackPrompts;   // Store the n-back task prompts in this array
+    TArray<FString> NBackRecordedResponses; // Store the "considered" responses in this array
+    TArray<FString> NBackResponseBuffer; // Store the n-back responses temporarily in this array. Then do post-analysis
     UPROPERTY(Category = NBackNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* NBackLetter;
     UPROPERTY(Category = NBackNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* NBackControlsInfo;
     UPROPERTY(Category = NBackNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* NBackTitle;
+    UPROPERTY(Category = "Audio", EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UAudioComponent* NBackCorrectSound;   // Correct answer sound
+    UPROPERTY(Category = "Audio", EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UAudioComponent* NBackIncorrectSound;   // Incorrect answer sound
+    void RecordNBackInputs(bool BtnUp, bool BtnRight); // Record the button events for the n-back task
+    void NBackTaskTick(); // Update the n-back task in every tick
 
     void ConstructNBackElements(); // Construct the static meshes to present the N-back task components
     void SetLetter(const FString& letter); // Set a new letter in the n-back task.
@@ -337,6 +349,8 @@ private: // Game signaling
     UPROPERTY(Category = TVShowNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UMaterial* MediaPlayerMaterial;
     FString MediaSourcePath = TEXT("FileMediaSource'/Game/NDRT/TVShow/MediaAssets/SampleVideo.SampleVideo'"); // Stores the path to the video file
+    void TVShowTaskTick(); // Update the tv show task in every tick
+
     void ConstructTVShowElements(); // Construct the static meshes to present the N-back task components
 
     // Misc
@@ -345,11 +359,12 @@ private: // Game signaling
   public: // Non-Driving-Related Task
     void SetupNDRT();    // Setup the NDRT (head-up display)
     void StartNDRT();    // Start the NDRT when automation is activated
-    void ToggleNDRT(bool active);   // Pause/resume the NDRT by a dim screen and a pause symbol
-    void ToggleAlertOnNDRT(bool active); // Present a visual alert to
-    void SetVisibilityOfNDRT(bool visibility);    // Completely hide/appear the head-up display (and subsequently pase the NDRT if not done already)
-    void TerminateNDRT();   // Destroy the NDRT head-up display and terminate the NDRT
+    void ToggleNDRT(bool active);   // Pause/Resume HUD
+    void ToggleAlertOnNDRT(bool active); // Present a visual and audio alert on HUD
+    void SetInteractivityOfNDRT(bool interactivity);    // Completely hide/appear the head-up display (and subsequently pase the NDRT if not done already)
+    void TerminateNDRT();   // Destroy the NDRT head-up display, terminate NDRT and save data
     void TickNDRT(); // Update the NDRT on every tick based on its individual implementation
+    void RecordInput(); // Record the input from the Logitech steering wheel
 
 private: // Eye-tracking
     bool bZMQEyeConnection = false; // True if connection is established
@@ -369,17 +384,31 @@ private: // Eye-tracking
         FBaseData BaseData;
         float TimeStamp;
     };
-    FTypedGazeData HighestTimestampGazeData; // This will store the latest surface gaze data
+    FTypedGazeData HighestTimestampGazeData;    // This will store the latest surface gaze data
+    UPROPERTY(Category = "Audio", EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UAudioComponent *TORAlertSound;   // For TOR alert sound
+    UPROPERTY(Category = "Audio", EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UAudioComponent *HUDAlertSound;           // For interruption alert sound
+    bool bisAlertOnNDRTOn = false;
 
 public: // Eye-tracking
     bool IsUserGazingOnHUD(); // Returns true if the gaze is on the HUD
+    float GazeOnHUDTime(); // Returns the time the user has been looking at the HUD
     bool EstablishEyeTrackerConnection(); // Establish connection to a TCP port for PUBLISH-SUBSCRIBE protocol communication
     bool TerminateEyeTrackerConnection(); // Terminate connection to a TCP port for PUBLISH-SUBSCRIBE protocol communication
     FDcResult GetSurfaceData(); // Get all the surface data from the eye tracker
     void ParseGazeData(FString GazeDataString); // This method will load data into FGazeData object
     FVector2D GetGazeHUDLocation(); // Returns the screen gaze location from the eye tracker
 
+private:
+    float GazeOnHUDTimestamp; // Store the timestamp at which the driver starts looking at the HUD
+    float bGazeTimerRunning = false; // Store whether the driver has been looking at the HUD
+    float GazeOnHUDTimeConstraint = 5;
+
   private: // other
+    UPROPERTY(Category = "Dash", EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UTextRenderComponent* MessagePane;
+    void SetMessagePaneText(FString DisplayText, FColor TextColor);
     void DebugLines() const;
     bool bDrawDebugEditor = false;
 };

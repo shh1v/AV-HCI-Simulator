@@ -598,7 +598,9 @@ void ADReyeVRPawn::ManageButtonPresses(const DIJOYSTATE2 &WheelState)
     const bool bPositive = static_cast<bool>(WheelState.rgbButtons[19]);
     const bool bNegative = static_cast<bool>(WheelState.rgbButtons[20]);
 
-    EgoVehicle->CameraPositionAdjust(bDPad_Up, bDPad_Right, bDPad_Down, bDPad_Left, bPositive, bNegative);
+    // Record the up and down joystick click events for the n-back task type
+    EgoVehicle->RecordNBackInputs(bDPad_Up, bDPad_Down);
+
     EgoVehicle->UpdateWheelButton(EgoVehicle->Button_DPad_Up, bDPad_Up);
     EgoVehicle->UpdateWheelButton(EgoVehicle->Button_DPad_Right, bDPad_Right);
     EgoVehicle->UpdateWheelButton(EgoVehicle->Button_DPad_Left, bDPad_Left);

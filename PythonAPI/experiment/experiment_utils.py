@@ -11,6 +11,7 @@ import zmq
 import msgpack as serializer
 from msgpack import loads
 import pandas as pd
+import configparser
 
 # DReyeVR import
 from examples.DReyeVR_utils import find_ego_vehicle
@@ -53,6 +54,25 @@ class ExperimentHelper:
         except:
             print(f"Unexpected error: {sys.exc_info()[0]}")
         return None
+
+    @staticmethod
+    def update_current_block(filename, new_block_value):
+        # Create a ConfigParser object
+        config = configparser.ConfigParser()
+        
+        # Read the INI file
+        with open(filename, 'r') as file:
+            config.read_file(file)
+        
+        # Update the CurrentBlock value in the General section
+        config['General']['CurrentBlock'] = new_block_value
+        
+        # Write the changes back to the INI file
+        with open(filename, 'w') as file:
+            config.write(file)
+
+# Example usage:
+# update_current_block('path_to_ini_file.ini', 'Block2Trial2')
 
 
 
