@@ -300,10 +300,10 @@ private: // Game signaling
   private: // Non-Driving-Related Task
     enum class TaskType {NBackTask, TVShowTask}; // Change the behaviour of the NDRT based on the task type provided
     // The following value will determine the 
-    TaskType CurrentTaskType = TaskType::TVShowTask; // Should be dynamically retrieved from a config file
+    TaskType CurrTaskType = TaskType::TVShowTask; // Should be dynamically retrieved from a config file
     enum class InterruptionParadigm { SelfRegulated, SystemRecommended, SystemInitiated}; // Change the behaviour of the NDRT based on the task type provided
     // The following value will determine the 
-    InterruptionParadigm CurrentInterruptionParadigm = InterruptionParadigm::SelfRegulated; // Should be dynamically retrived from a config file
+    InterruptionParadigm CurrInterruptionParadigm = InterruptionParadigm::SelfRegulated; // Should be dynamically retrived from a config file
     // Primary Display: Present the NDRT; Secondary Display: Present the alerts
     UPROPERTY(Category = NDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* PrimaryHUD;
@@ -322,6 +322,7 @@ private: // Game signaling
     UPROPERTY(Category = NBackNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* NBackTitle;
     void RecordNBackInputs(bool BtnUp, bool BtnRight); // Record the button events for the n-back task
+    void NBackTaskTick(); // Update the n-back task in every tick
 
     void ConstructNBackElements(); // Construct the static meshes to present the N-back task components
     void SetLetter(const FString& letter); // Set a new letter in the n-back task.
@@ -338,6 +339,8 @@ private: // Game signaling
     UPROPERTY(Category = TVShowNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UMaterial* MediaPlayerMaterial;
     FString MediaSourcePath = TEXT("FileMediaSource'/Game/NDRT/TVShow/MediaAssets/SampleVideo.SampleVideo'"); // Stores the path to the video file
+    void TVShowTaskTick(); // Update the tv show task in every tick
+
     void ConstructTVShowElements(); // Construct the static meshes to present the N-back task components
 
     // Misc
@@ -375,12 +378,17 @@ private: // Eye-tracking
 
 public: // Eye-tracking
     bool IsUserGazingOnHUD(); // Returns true if the gaze is on the HUD
+    float GazeOnHUDTime(); // Returns the time the user has been looking at the HUD
     bool EstablishEyeTrackerConnection(); // Establish connection to a TCP port for PUBLISH-SUBSCRIBE protocol communication
     bool TerminateEyeTrackerConnection(); // Terminate connection to a TCP port for PUBLISH-SUBSCRIBE protocol communication
     FDcResult GetSurfaceData(); // Get all the surface data from the eye tracker
     void ParseGazeData(FString GazeDataString); // This method will load data into FGazeData object
     FVector2D GetGazeHUDLocation(); // Returns the screen gaze location from the eye tracker
 
+private:
+    float GazeOnHUDTimestamp; // Store the timestamp at which the driver starts looking at the HUD
+    float bGazeTimerRunning = false; // Store whether the driver has been looking at the HUD
+    float GazeOnHUDTimeConstraint = 5;
   private: // other
     void DebugLines() const;
     bool bDrawDebugEditor = false;

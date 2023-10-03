@@ -14,7 +14,7 @@ void AEgoVehicle::SetupNDRT() {
 	ConstructHUD();
 
 	// Present the visual elements based on the task type {n-back, TV show, etc..}
-	switch (CurrentTaskType) {
+	switch (CurrTaskType) {
 	case TaskType::NBackTask:
 		ConstructNBackElements();
 		break;
@@ -26,7 +26,7 @@ void AEgoVehicle::SetupNDRT() {
 
 void AEgoVehicle::StartNDRT() {
 	// Start the NDRT based on the task type
-	switch (CurrentTaskType) {
+	switch (CurrTaskType) {
 	case TaskType::NBackTask:
 		break;
 	case TaskType::TVShowTask:
@@ -63,45 +63,77 @@ void AEgoVehicle::TerminateNDRT() {
 
 
 void AEgoVehicle::TickNDRT() {
-	// Get the updated message from using Zero-MW PUB-SUB
+	// Retrieve all the necessary data from all the other components
 	GetSurfaceData();
-
-	// Load the data into FGazeData
 	ParseGazeData(SurfaceData.gaze_on_surfaces);
-
-	// Just for debugging
-	if (IsUserGazingOnHUD()) {
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("OnHUD: TRUE"));
-	}
-	else {
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("OnHUD: FALSE"));
-	}
-
-	// Retrieve the Vehicle Status
 	RetrieveVehicleStatus();
+	GazeOnHUDTime();
 
-	FString VehicleStatusString;
-	switch (GetCurrVehicleStatus()) {
-	case VehicleStatus::ManualDrive:
-		VehicleStatusString = FString("ManualDrive");
-		break;
-	case VehicleStatus::Autopilot:
-		VehicleStatusString = FString("Autopilot");
-		break;
-	case VehicleStatus::PreAlertAutopilot:
-		VehicleStatusString = FString("PreAlertAutopilot");
-		break;
-	case VehicleStatus::TakeOver:
-		VehicleStatusString = FString("TakeOver");
-		break;
-	case VehicleStatus::TakeOverManual:
-		VehicleStatusString = FString("TakeOverManual");
-		break;
-	default:
-		VehicleStatusString = FString("Unknown");
+	auto HandleTaskTick = [&]() {
+		switch (CurrTaskType)
+		{
+		case TaskType::NBackTask:
+			NBackTaskTick();
+			break;
+		case TaskType::TVShowTask:
+			TVShowTaskTick();
+			break;
+		default:
+			break;
+		}
+	};
+
+	if (IsUserGazingOnHUD())
+	{
+		switch (CurrInterruptionParadigm)
+		{
+		case InterruptionParadigm::SelfRegulated:
+			HandleTaskTick();
+			break;
+
+		case InterruptionParadigm::SystemRecommended:
+			if (GazeOnHUDTime() >= GazeOnHUDTimeConstraint)
+			{
+				ToggleAlertOnNDRT(true);
+			}
+			HandleTaskTick();
+			break;
+
+		case InterruptionParadigm::SystemInitiated:
+			if (GazeOnHUDTime() >= GazeOnHUDTimeConstraint)
+			{
+				ToggleAlertOnNDRT(true);
+				SetInteractivityOfNDRT(false);
+			}
+			else
+			{
+				HandleTaskTick();
+			}
+			break;
+
+		default:
+			break;
+		}
 	}
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Black, FString::Printf(TEXT("Vehicle Status: %s"), *VehicleStatusString));
+	else
+	{
+		switch (CurrInterruptionParadigm)
+		{
+		case InterruptionParadigm::SystemRecommended:
+			ToggleAlertOnNDRT(false);
+			break;
+
+		case InterruptionParadigm::SystemInitiated:
+			ToggleAlertOnNDRT(false);
+			SetInteractivityOfNDRT(true);
+			break;
+
+		default:
+			break;
+		}
+	}
 }
+
 
 void AEgoVehicle::ConstructHUD() {
 	// Creating the primary head-up display to display the non-driving related task
@@ -189,6 +221,22 @@ void AEgoVehicle::ConstructTVShowElements() {
 	MediaPlayerMesh->GetOwner()->AddOwnedComponent(MediaSoundComponent);
 }
 
+float AEgoVehicle::GazeOnHUDTime()
+{
+	if (IsUserGazingOnHUD())
+	{
+		if (!bGazeTimerRunning)
+		{
+			GazeOnHUDTimestamp = World->GetTimeSeconds();
+			bGazeTimerRunning = true;
+		}
+		return World->GetTimeSeconds() - GazeOnHUDTimestamp;
+	}
+	bGazeTimerRunning = false;
+	return 0;
+}
+
+
 // N-back task exclusive methods
 
 void AEgoVehicle::SetLetter(const FString& Letter) {
@@ -200,21 +248,17 @@ void AEgoVehicle::SetLetter(const FString& Letter) {
 
 void AEgoVehicle::RecordNBackInputs(bool BtnUp, bool BtnDown)
 {
-	if (BtnUp)
-	{
-		const FString LogiError = "CLICKED MATCH BUTTON";
-		const bool PrintToScreen = true;
-		const float ScreenDurationSec = 20.f;
-		const FLinearColor MsgColour = FLinearColor(1, 0, 0, 1); // RED
-		UKismetSystemLibrary::PrintString(World, LogiError, PrintToScreen, false, MsgColour, ScreenDurationSec);
-		LOG_ERROR("%s", *LogiError); // Error is RED
-	} else if (BtnDown)
-	{
-		const FString LogiError = "CLICKED MISMATCH BUTTON";
-		const bool PrintToScreen = true;
-		const float ScreenDurationSec = 20.f;
-		const FLinearColor MsgColour = FLinearColor(1, 0, 0, 1); // RED
-		UKismetSystemLibrary::PrintString(World, LogiError, PrintToScreen, false, MsgColour, ScreenDurationSec);
-		LOG_ERROR("%s", *LogiError); // Error is RED
-	}
+
+}
+
+void AEgoVehicle::NBackTaskTick()
+{
+
+}
+
+// TV show task exclusive methods
+
+void AEgoVehicle::TVShowTaskTick()
+{
+	
 }
