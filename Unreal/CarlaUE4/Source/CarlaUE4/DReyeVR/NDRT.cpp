@@ -45,12 +45,24 @@ void AEgoVehicle::StartNDRT() {
 }
 
 void AEgoVehicle::ToggleNDRT(bool active) {
-	if (active) {
-		// Make all the HUD elements appear again
-	}
-	else
+	// Make all the HUD meshes appear/disappear
+	PrimaryHUD->SetVisibility(active, false);
+	SecondaryHUD->SetVisibility(active, false);
+	DisableHUD->SetVisibility(active, false);
+
+	// Make all the NDRT-relevant elements appear/disappear
+	switch(CurrTaskType)
 	{
-		// Make all the HUD elements disappear
+	case TaskType::NBackTask:
+		NBackLetter->SetVisibility(active, false);
+		NBackControlsInfo->SetVisibility(active, false);
+		NBackTitle->SetVisibility(active, false);
+		break;
+	case TaskType::TVShowTask:
+		MediaPlayerMesh->SetVisibility(active, false);
+		break;
+	default:
+		break;
 	}
 }
 
