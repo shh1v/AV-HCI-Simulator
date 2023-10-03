@@ -22,12 +22,22 @@ void AEgoVehicle::SetupNDRT() {
 		ConstructTVShowElements();
 		break;
 	}
+	SetMessagePaneText(TEXT("Autopilot enabled"), FColor::Green);
 }
 
 void AEgoVehicle::StartNDRT() {
 	// Start the NDRT based on the task type
 	switch (CurrTaskType) {
 	case TaskType::NBackTask:
+		// Add randomly generated elements to NBackPrompts
+		for (int32 i = 0; i < TotalNBackTasks; i++)
+		{
+			TCHAR RandomChar = FMath::RandRange('A', 'Z');
+			FString SingleLetter = FString(1, &RandomChar);
+			NBackPrompts.Add(SingleLetter);
+		}
+		// Set the first index letter on the HUD
+		SetLetter(NBackPrompts[0]);
 		break;
 	case TaskType::TVShowTask:
 		// Retrive the media player material and the video source which will be used later to play the video
@@ -101,6 +111,9 @@ void AEgoVehicle::SetInteractivityOfNDRT(bool interactivity) {
 }
 
 void AEgoVehicle::TerminateNDRT() {
+	// Set the vehicle status to TrialOver
+	UpdateVehicleStatus(VehicleStatus::TrialOver);
+
 	// TODO: Save all the NDRT performance data here if needed
 }
 
@@ -113,8 +126,11 @@ void AEgoVehicle::TickNDRT() {
 	RetrieveVehicleStatus();
 	GazeOnHUDTime();
 
-	// CASE: When NDRT engagement is disabled (during TORs or manual control)
-	if (CurrVehicleStatus == VehicleStatus::ManualDrive)
+	// WARNING/NOTE: It is the responsibility of the respoective NDRT tick methods to change the vehicle status
+	// to TrialOver when the NDRT task is over.
+
+	// CASE: When NDRT engagement is disabled/not expected (during TORs or manual control)
+	if (CurrVehicleStatus == VehicleStatus::ManualDrive || CurrVehicleStatus == VehicleStatus::TrialOver)
 	{
 		// This is the case when scenario runner has not kicked in. Just do nothing
 		return;
@@ -124,7 +140,8 @@ void AEgoVehicle::TickNDRT() {
 		// Disable the NDRT interface by toggling it
 		ToggleNDRT(false);
 
-		// TODO: Show a message asking the driver to take control of the vehicle
+		// Show a message asking the driver to take control of the vehicle
+		SetMessagePaneText(TEXT("Take Over!"), FColor::Red);
 		return;
 	}
 
@@ -132,6 +149,7 @@ void AEgoVehicle::TickNDRT() {
 	if (CurrVehicleStatus == VehicleStatus::PreAlertAutopilot)
 	{
 		// TODO: Show a pre-alert message suggesting that a take-over request may be issued in the future
+		SetMessagePaneText(TEXT("Prepare to Take Over"), FColor::Orange);
 	}
 	auto HandleTaskTick = [&]() {
 		switch (CurrTaskType)
@@ -232,6 +250,18 @@ void AEgoVehicle::ConstructHUD() {
 	DisableHUD->SetCastShadow(false);
 	DisableHUD->SetVisibility(false, false); // Set it hidden by default, and only make it appear when alerting.
 
+	// Construct the message pane here
+	MessagePane = CreateEgoObject<UTextRenderComponent>("MessagePane");
+	MessagePane->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+	MessagePane->SetRelativeTransform(VehicleParams.Get<FTransform>("HUD", "MessagePaneLocation"));
+	MessagePane->SetTextRenderColor(FColor::Black);
+	MessagePane->SetText(FText::FromString(""));
+	MessagePane->SetXScale(1.f);
+	MessagePane->SetYScale(1.f);
+	MessagePane->SetWorldSize(10); // scale the font with this
+	MessagePane->SetVerticalAlignment(EVerticalTextAligment::EVRTA_TextCenter);
+	MessagePane->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
+
 	// Also construct all the sounds here
 	static ConstructorHelpers::FObjectFinder<USoundWave> HUDAlertSoundWave(
 		TEXT("SoundWave'/Game/DReyeVR/EgoVehicle/Extra/HUDAlertSound.HUDAlertSound'"));
@@ -284,6 +314,21 @@ void AEgoVehicle::ConstructNBackElements() {
 	FString MaterialPath = FString::Printf(TEXT("Material'/Game/NDRT/NBackTask/Titles/M_%dBackTaskTitle.M_%dBackTaskTitle'"), (int32)CurrentNValue, (int32)CurrentNValue);
 	static ConstructorHelpers::FObjectFinder<UMaterial> NewMaterial(*MaterialPath);
 	NBackTitle->SetMaterial(0, NewMaterial.Object);
+
+	// Construct all the sounds for Logitech inputs
+	static ConstructorHelpers::FObjectFinder<USoundWave> CorrectSoundWave(
+		TEXT("SoundWave'/Game/NDRT/NBackTask/Sounds/CorrectNBackSound.CorrectNBackSound'"));
+	NBackCorrectSound = CreateDefaultSubobject<UAudioComponent>(TEXT("CorrectNBackSound"));
+	NBackCorrectSound->SetupAttachment(GetRootComponent());
+	NBackCorrectSound->bAutoActivate = false;
+	NBackCorrectSound->SetSound(CorrectSoundWave.Object);
+
+	static ConstructorHelpers::FObjectFinder<USoundWave> IncorrectSoundWave(
+		TEXT("SoundWave'/Game/NDRT/NBackTask/Sounds/IncorrectNBackSound.IncorrectNBackSound'"));
+	NBackIncorrectSound = CreateDefaultSubobject<UAudioComponent>(TEXT("TORAlert"));
+	NBackIncorrectSound->SetupAttachment(GetRootComponent());
+	NBackIncorrectSound->bAutoActivate = false;
+	NBackIncorrectSound->SetSound(IncorrectSoundWave.Object);
 }
 
 void AEgoVehicle::ConstructTVShowElements() {
@@ -312,6 +357,115 @@ void AEgoVehicle::ConstructTVShowElements() {
 	MediaPlayerMesh->GetOwner()->AddOwnedComponent(MediaSoundComponent);
 }
 
+// N-back task exclusive methods
+
+void AEgoVehicle::SetLetter(const FString& Letter) {
+	if (NBackLetter == nullptr) return; // NBackLetter is not initialized yet
+	FString MaterialPath = FString::Printf(TEXT("Material'/Game/NDRT/NBackTask/Letters/M_%s.M_%s'"), *Letter, *Letter);
+	static ConstructorHelpers::FObjectFinder<UMaterial> NewMaterial(*MaterialPath);
+	NBackLetter->SetMaterial(0, NewMaterial.Object);
+}
+
+void AEgoVehicle::RecordNBackInputs(bool BtnUp, bool BtnDown)
+{
+	// Only one of the responses can be true. Otherwise, there is a logical error
+	ensure(!BtnUp || !BtnDown);
+
+	if (BtnUp)
+	{
+		NBackResponseBuffer.Add(TEXT("M"));
+	}
+	else if (BtnDown)
+	{
+		NBackResponseBuffer.Add(TEXT("MM"));
+	}
+}
+
+void AEgoVehicle::NBackTaskTick()
+{
+	// Note: This method, we assume that NBackPrompts is already initialized with randomized letters
+	// Computation is only required when an input is given
+	if (NBackResponseBuffer.Num() > 0)
+	{
+		// If multiple responses are given, just take account of the latest response
+		FString LatestResponse = NBackResponseBuffer.Last();
+
+		// Get the current game index
+		int32 CurrentGameIndex = NBackRecordedResponses.Num();
+
+		// Figure out if there is a match or not
+		FString CorrectResponse;
+		if (CurrentGameIndex < static_cast<int>(CurrentNValue))
+		{
+			CorrectResponse = TEXT("MM");
+		} else
+		{
+			if (NBackPrompts[CurrentGameIndex].Equals(NBackPrompts[CurrentGameIndex - static_cast<int>(CurrentNValue)]))
+			{
+				CorrectResponse = TEXT("M");
+			}
+			else
+			{
+				CorrectResponse = TEXT("MM");
+			}
+		}
+
+		// Check if the expected response matches the given response
+		if (CorrectResponse.Equals(LatestResponse))
+		{
+			// Play a "correct answer" sound
+			NBackCorrectSound->Play();
+		}
+		else
+		{
+			// Play an "incorrect answer" sound
+			NBackIncorrectSound->Play();
+		}
+
+		// Now, add the latest response to the array just for record
+		NBackRecordedResponses.Add(LatestResponse);
+
+		// We can now clear the response buffer
+		NBackResponseBuffer.Empty();
+
+		// Check all the n-back task trials are over. If TOR is not finished, add more tasks.
+		if (NBackPrompts.Num() == NBackRecordedResponses.Num())
+		{
+			if (CurrVehicleStatus == VehicleStatus::ResumedAutopilot)
+			{
+				// We can safely end the trial here
+				TerminateNDRT();
+			}
+			else
+			{
+				// The driver still needs to finish/attend TOR, so add more tasks
+				for (int32 i = 0; i < 10; i++)
+				{
+					TCHAR RandomChar = FMath::RandRange('A', 'Z');
+					FString SingleLetter = FString(1, &RandomChar);
+					NBackPrompts.Add(SingleLetter);
+				}
+			}
+		}
+
+		// Set the next letter
+		SetLetter(NBackPrompts[CurrentGameIndex + 1]);
+	}
+}
+
+// TV show task exclusive methods
+
+void AEgoVehicle::TVShowTaskTick()
+{
+	
+}
+
+// Misc methods
+void AEgoVehicle::SetMessagePaneText(FString DisplayText, FColor TextColor) {
+	MessagePane->SetTextRenderColor(TextColor);
+	MessagePane->SetText(DisplayText);
+}
+
 float AEgoVehicle::GazeOnHUDTime()
 {
 	if (IsUserGazingOnHUD())
@@ -325,31 +479,4 @@ float AEgoVehicle::GazeOnHUDTime()
 	}
 	bGazeTimerRunning = false;
 	return 0;
-}
-
-
-// N-back task exclusive methods
-
-void AEgoVehicle::SetLetter(const FString& Letter) {
-	if (NBackLetter == nullptr) return; // NBackLetter is not initialized yet
-	FString MaterialPath = FString::Printf(TEXT("Material'/Game/NDRT/NBackTask/Letters/M_%s.M_%s'"), *Letter, *Letter);
-	static ConstructorHelpers::FObjectFinder<UMaterial> NewMaterial(*MaterialPath);
-	NBackLetter->SetMaterial(0, NewMaterial.Object);
-}
-
-void AEgoVehicle::RecordNBackInputs(bool BtnUp, bool BtnDown)
-{
-
-}
-
-void AEgoVehicle::NBackTaskTick()
-{
-
-}
-
-// TV show task exclusive methods
-
-void AEgoVehicle::TVShowTaskTick()
-{
-	
 }

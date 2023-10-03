@@ -268,7 +268,7 @@ class CARLAUE4_API AEgoVehicle : public ACarlaWheeledVehicle
 //    FDateTime TORIssuanceTime;
 
 public: // Game signaling
-    enum class VehicleStatus { ManualDrive, Autopilot, PreAlertAutopilot, TakeOver, TakeOverManual, ResumedAutopilot, Unknown };
+    enum class VehicleStatus { ManualDrive, Autopilot, PreAlertAutopilot, TakeOver, TakeOverManual, ResumedAutopilot, TrialOver, Unknown };
     /*
      * Vehicle status descriptions:
      * ManualDrive: The vehicle is driving manually.
@@ -302,8 +302,8 @@ private: // Game signaling
     // The following value will determine the 
     TaskType CurrTaskType = TaskType::NBackTask; // Should be dynamically retrieved from a config file
     enum class InterruptionParadigm { SelfRegulated, SystemRecommended, SystemInitiated}; // Change the behaviour of the NDRT based on the task type provided
-    // The following value will determine the 
-    InterruptionParadigm CurrInterruptionParadigm = InterruptionParadigm::SelfRegulated; // Should be dynamically retrived from a config file
+    // The following value will determine the NDRT interaction during pre-alert time
+    InterruptionParadigm CurrInterruptionParadigm = InterruptionParadigm::SelfRegulated; // Should be dynamically retrieved from a config file
     // Primary Display: Present the NDRT; Secondary Display: Present the alerts
     UPROPERTY(Category = NDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* PrimaryHUD;
@@ -315,14 +315,22 @@ private: // Game signaling
     // Alert assets
     
     // N-back task
-    enum class NValue{Zero=0, One, Two, Three}; // Change n-back task functionality based on the n-value provided
-    NValue CurrentNValue = NValue::Zero;
+    enum class NValue{One=1, Two, Three}; // Change n-back task functionality based on the n-value provided
+    NValue CurrentNValue = NValue::One;
+    int32 TotalNBackTasks = 40; // Total trials of n-back task. Retreive this value from the the configuration file.
+    TArray<FString> NBackPrompts;   // Store the n-back task prompts in this array
+    TArray<FString> NBackRecordedResponses; // Store the "considered" responses in this array
+    TArray<FString> NBackResponseBuffer; // Store the n-back responses temporarily in this array. Then do post-analysis
     UPROPERTY(Category = NBackNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* NBackLetter;
     UPROPERTY(Category = NBackNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* NBackControlsInfo;
     UPROPERTY(Category = NBackNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* NBackTitle;
+    UPROPERTY(Category = "Audio", EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UAudioComponent* NBackCorrectSound;   // Correct answer sound
+    UPROPERTY(Category = "Audio", EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UAudioComponent* NBackIncorrectSound;   // Incorrect answer sound
     void RecordNBackInputs(bool BtnUp, bool BtnRight); // Record the button events for the n-back task
     void NBackTaskTick(); // Update the n-back task in every tick
 
@@ -377,8 +385,10 @@ private: // Eye-tracking
         float TimeStamp;
     };
     FTypedGazeData HighestTimestampGazeData;    // This will store the latest surface gaze data
-    class UAudioComponent* TORAlertSound;   // For TOR alert sound
-    class UAudioComponent* HUDAlertSound;           // For interruption alert sound
+    UPROPERTY(Category = "Audio", EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UAudioComponent *TORAlertSound;   // For TOR alert sound
+    UPROPERTY(Category = "Audio", EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UAudioComponent *HUDAlertSound;           // For interruption alert sound
     bool bisAlertOnNDRTOn = false;
 
 public: // Eye-tracking
@@ -394,7 +404,11 @@ private:
     float GazeOnHUDTimestamp; // Store the timestamp at which the driver starts looking at the HUD
     float bGazeTimerRunning = false; // Store whether the driver has been looking at the HUD
     float GazeOnHUDTimeConstraint = 5;
+
   private: // other
+    UPROPERTY(Category = "Dash", EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UTextRenderComponent* MessagePane;
+    void SetMessagePaneText(FString DisplayText, FColor TextColor);
     void DebugLines() const;
     bool bDrawDebugEditor = false;
 };

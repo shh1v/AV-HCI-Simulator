@@ -156,6 +156,9 @@ FDcResult AEgoVehicle::RetrieveVehicleStatus() {
 	else if (VehicleStatusData.vehicle_status == "ResumedAutopilot") {
 		CurrVehicleStatus = VehicleStatus::ResumedAutopilot;
 	}
+	else if (VehicleStatusData.vehicle_status == "TrialOver") {
+		CurrVehicleStatus = VehicleStatus::TrialOver;
+	}
 	else {
 		CurrVehicleStatus = VehicleStatus::Unknown;
 	}
@@ -184,6 +187,9 @@ void AEgoVehicle::UpdateVehicleStatus(VehicleStatus NewStatus)
 		break;
 	case VehicleStatus::ResumedAutopilot:
 		VehicleStatusString = FString("ResumedAutopilot");
+		break;
+	case VehicleStatus::TrialOver:
+		VehicleStatusString = FString("TrialOver");
 		break;
 	default:
 		VehicleStatusString = FString("Unknown");
@@ -250,6 +256,9 @@ void AEgoVehicle::SendCurrVehicleStatus()
 		break;
 	case VehicleStatus::ResumedAutopilot:
 		VehicleStatusString = FString("ResumedAutopilot");
+		break;
+	case VehicleStatus::TrialOver:
+		VehicleStatusString = FString("TrialOver");
 		break;
 	default:
 		VehicleStatusString = FString("Unknown");
