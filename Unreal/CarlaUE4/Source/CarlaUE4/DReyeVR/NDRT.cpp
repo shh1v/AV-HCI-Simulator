@@ -35,7 +35,7 @@ void AEgoVehicle::StartNDRT() {
 		MediaPlayerSource = Cast<UFileMediaSource>(StaticLoadObject(UFileMediaSource::StaticClass(), nullptr, TEXT("FileMediaSource'/Game/NDRT/TVShow/MediaPlayer/FileMediaSource.FileMediaSource'")));
 		// Change the static mesh material to media player material
 		MediaPlayerMesh->SetMaterial(0, MediaPlayerMaterial);
-		// Retrive the source of the video and play it
+		// Retrieve the source of the video and play it
 		MediaPlayer->OpenSource(MediaPlayerSource);
 		break;
 	}
@@ -45,19 +45,49 @@ void AEgoVehicle::StartNDRT() {
 }
 
 void AEgoVehicle::ToggleNDRT(bool active) {
-
+	if (active) {
+		// Make all the HUD elements appear again
+	}
+	else
+	{
+		// Make all the HUD elements disappear
+	}
 }
 
 void AEgoVehicle::ToggleAlertOnNDRT(bool active) {
+	if (active)
+	{
+		// Make a red rim appear around the HUD
 
+		// Play a subtle alert sound if not already played
+		if (!bisAlertOnNDRTOn)
+		{
+			// Play an alert sound
+
+			bisAlertOnNDRTOn = true;
+		}
+	}
+	else
+	{
+		// Make the red rim around the HUD disappear
+
+		bisAlertOnNDRTOn = false;
+	}
 }
 
 void AEgoVehicle::SetInteractivityOfNDRT(bool interactivity) {
-
+	if (interactivity)
+	{
+		// Make a black screen appear at the front
+	}
+	else
+	{
+		// Make the black screen at front of HUD disappear
+	}
 }
 
 void AEgoVehicle::TerminateNDRT() {
-
+	// TODO: Save all the NDRT performance data here if needed
 }
 
 

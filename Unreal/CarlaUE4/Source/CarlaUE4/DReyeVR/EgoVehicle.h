@@ -375,6 +375,7 @@ private: // Eye-tracking
         float TimeStamp;
     };
     FTypedGazeData HighestTimestampGazeData; // This will store the latest surface gaze data
+    bool bisAlertOnNDRTOn = false;
 
 public: // Eye-tracking
     bool IsUserGazingOnHUD(); // Returns true if the gaze is on the HUD
