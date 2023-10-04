@@ -57,22 +57,43 @@ class ExperimentHelper:
 
     @staticmethod
     def update_current_block(filename, new_block_value):
-        # Create a ConfigParser object
-        config = configparser.ConfigParser()
+        class CaseSensitiveConfigParser(configparser.ConfigParser):
+            def optionxform(self, optionstr):
+                return optionstr
+
+        # Create a CaseSensitiveConfigParser object
+        config = CaseSensitiveConfigParser()
+        
+        # Read the entire file content
+        with open(filename, 'r') as file:
+            content = file.readlines()
+        
+        # Extract comments at the top
+        comments = []
+        for line in content:
+            if line.startswith("#") or line.startswith(""):
+                comments.append(line)
+            else:
+                break
         
         # Read the INI file
         with open(filename, 'r') as file:
             config.read_file(file)
         
         # Update the CurrentBlock value in the General section
-        config['General']['CurrentBlock'] = new_block_value
-        
-        # Write the changes back to the INI file
-        with open(filename, 'w') as file:
-            config.write(file)
+        new_block_value_valid = new_block_value
+        if not new_block_value_valid.startswith("\""):
+            new_block_value_valid = "\"" + new_block_value_valid
+        if not new_block_value_valid.endswith("\""):
+            new_block_value_valid = new_block_value_valid + "\""
 
-# Example usage:
-# update_current_block('path_to_ini_file.ini', 'Block2Trial2')
+        config['General']['CurrentBlock'] = new_block_value_valid
+        
+        # Write the comments and the updated configuration back to the INI file
+        with open(filename, 'w') as file:
+            for comment in comments:
+                file.write(comment)
+            config.write(file)
 
 
 
@@ -485,9 +506,6 @@ class DrivingPerformance:
         DrivingPerformance.throttle_input_df.loc[len(DrivingPerformance.throttle_input_df)] = common_row_elements + [throttle_input]
         DrivingPerformance.steering_angles_df.loc[len(DrivingPerformance.steering_angles_df)] = common_row_elements + [steering_angle]
         DrivingPerformance.lane_offset_df.loc[len(DrivingPerformance.lane_offset_df)] = common_row_elements + [lane_offset]
-
-        # Log the eye-tracking data here
-        EyeTracking.TOR_performance_tick()
     
     @staticmethod
     def save_performance_data():
@@ -624,7 +642,6 @@ class EyeTracking:
         eye_tracker_data = EyeTrackerData()
         for raw_var_name in EyeTracking.subscriber_topics:
             var_name = raw_var_name.replace(".", "_") + "_data"
-            print(var_name)
             setattr(eye_tracker_data, var_name, None)
             
 
