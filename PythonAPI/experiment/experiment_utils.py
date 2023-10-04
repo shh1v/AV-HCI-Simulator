@@ -71,7 +71,7 @@ class ExperimentHelper:
         # Extract comments at the top
         comments = []
         for line in content:
-            if line.startswith("#") or line.startswith(""):
+            if line.startswith("#"):
                 comments.append(line)
             else:
                 break
@@ -741,7 +741,8 @@ class EyeTracking:
                                 if surface_data['id'] not in EyeTracking.eye_fixations_df['FixationID'].values:
                                     EyeTracking.eye_fixations_df.loc[len(EyeTracking.eye_fixations_df)] = common_row_elements + [sys_time, surface[9:], surface_data['id'], surface_data['duration'], surface_data['dispersion']]
                                 else:
-                                    print("INFO: Duplicate fixation ID found!")
+                                    # print("INFO: Duplicate fixation ID found!")
+                                    pass
                                 found_first_surface = True
                                 break
                     
@@ -755,7 +756,8 @@ class EyeTracking:
                         if surface_data['id'] not in EyeTracking.eye_fixations_df['FixationID'].values:
                             EyeTracking.eye_fixations_df.loc[len(EyeTracking.eye_fixations_df)] = common_row_elements + [sys_time, surface_name, surface_data['id'], surface_data['duration'], surface_data['dispersion']]
                         else:
-                            print("INFO: Duplicate fixation ID found!")
+                            # print("INFO: Duplicate fixation ID found!")
+                            pass
 
         # Mandatorily, log the pupil diameter data and blink data
         right_eye_data = getattr(eye_tracker_data, "pupil_0_data")
@@ -765,11 +767,12 @@ class EyeTracking:
             if "diameter_3d" in right_eye_data.keys() and "diameter_3d" in left_eye_data.keys():
                 EyeTracking.eye_diameter_df.loc[len(EyeTracking.eye_diameter_df)] = common_row_elements + [sys_time, right_eye_data["diameter_3d"], left_eye_data["diameter_3d"]]
             else:
-                print("WARNING: 3D model data is unavailable! Using 2D model data instead.")
+                # print("WARNING: 3D model data is unavailable! Using 2D model data instead.")
                 # NOTE: The diameters are in pixels here.
                 EyeTracking.eye_diameter_df.loc[len(EyeTracking.eye_diameter_df)] = common_row_elements + [sys_time, right_eye_data["diameter"]*0.2645833333, left_eye_data["diameter"]*0.2645833333]
         else:
-            print("WARNING: Right or left pupil data is unavailable!")
+            # print("WARNING: Right or left pupil data is unavailable!")
+            pass
         blink_data = getattr(eye_tracker_data, "blink_data")
         if blink_data is not None:
             sys_time = EyeTracking.convert_to_sys_time(blink_data["timestamp"]) # Calculate current time stamp
