@@ -61,6 +61,22 @@ class ExperimentHelper:
             def optionxform(self, optionstr):
                 return optionstr
 
+            def write(self, fp, space_around_delimiters=True):
+                """Write an .ini-format representation of the configuration state."""
+                if space_around_delimiters:
+                    delimiter = " = "
+                else:
+                    delimiter = "="
+                for section in self._sections:
+                    fp.write("[{}]\n".format(section))
+                    for (key, value) in self._sections[section].items():
+                        if key == "__name__":
+                            continue
+                        if (value is not None) or (self._optcre == self.OPTCRE):
+                            key = delimiter.join((key, str(value).replace('\n', '\n\t')))
+                        fp.write("{}\n".format(key))
+                    fp.write("\n")
+
         # Create a CaseSensitiveConfigParser object
         config = CaseSensitiveConfigParser()
         
@@ -93,7 +109,7 @@ class ExperimentHelper:
         with open(filename, 'w') as file:
             for comment in comments:
                 file.write(comment)
-            config.write(file)
+            config.write(file, space_around_delimiters=False)
 
 
 
