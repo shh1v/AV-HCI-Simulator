@@ -56,8 +56,11 @@ void AEgoVehicle::StartNDRT() {
 void AEgoVehicle::ToggleNDRT(bool active) {
 	// Make all the HUD meshes appear/disappear
 	PrimaryHUD->SetVisibility(active, false);
-	SecondaryHUD->SetVisibility(active, false);
-	DisableHUD->SetVisibility(active, false);
+	// We only need to make them disappear. We don't need to make them visible when NDRT interaction is enabled again.
+	if (!active) {
+		SecondaryHUD->SetVisibility(active, false);
+		DisableHUD->SetVisibility(active, false);
+	}
 
 	// Make all the NDRT-relevant elements appear/disappear
 	switch(CurrTaskType)
