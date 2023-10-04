@@ -436,6 +436,13 @@ void AEgoVehicle::NBackTaskTick()
 		// Get the current game index
 		int32 CurrentGameIndex = NBackRecordedResponses.Num();
 
+		// Just a safety check so that the simulator does not crash because of index out of bounds
+		// NOTE: This will only be true when NDRT is terminated, but NBackTaskTick() is still called
+		// due to a small lag in ending the trial
+		if (NBackPrompts.Num() == NBackRecordedResponses.Num())
+		{
+			return;
+		}
 		// Figure out if there is a match or not
 		FString CorrectResponse;
 		if (CurrentGameIndex < static_cast<int>(CurrentNValue))
