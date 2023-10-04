@@ -417,6 +417,8 @@ void AEgoVehicle::RecordNBackInputs(bool BtnUp, bool BtnDown)
 	{
 		NBackResponseBuffer.Add(TEXT("MM"));
 	}
+	// Record the new time at which a input was logged
+	LastRecordedInputTimestamp = World->GetTimeSeconds();
 }
 
 void AEgoVehicle::NBackTaskTick()
