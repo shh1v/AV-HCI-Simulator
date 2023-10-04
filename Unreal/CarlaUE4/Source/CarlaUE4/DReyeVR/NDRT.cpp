@@ -132,6 +132,7 @@ void AEgoVehicle::TickNDRT() {
 	if (CurrVehicleStatus == VehicleStatus::ManualDrive || CurrVehicleStatus == VehicleStatus::TrialOver)
 	{
 		// This is the case when scenario runner has not kicked in. Just do nothing
+		// This means not allowing driver to interact with NDRT
 		return;
 	}
 	if (CurrVehicleStatus == VehicleStatus::TakeOver || CurrVehicleStatus == VehicleStatus::TakeOverManual)
@@ -145,16 +146,7 @@ void AEgoVehicle::TickNDRT() {
 	}
 
 	// CASE: When the user is allowed to engage in NDRT
-	if (CurrVehicleStatus == VehicleStatus::Autopilot || CurrVehicleStatus == VehicleStatus::ResumedAutopilot)
-	{
-		// Tell the driver that the ADS is engaged
-		SetMessagePaneText(TEXT("Autopilot Engaged"), FColor::Green);
-	}
-	if (CurrVehicleStatus == VehicleStatus::PreAlertAutopilot)
-	{
-		// Show a pre-alert message suggesting that a take-over request may be issued in the future
-		SetMessagePaneText(TEXT("Prepare to Take Over"), FColor::Orange);
-	}
+	// Create a lambda function to call the tick method based on the NDRT set from configuration file
 	auto HandleTaskTick = [&]() {
 		switch (CurrTaskType)
 		{
@@ -168,6 +160,27 @@ void AEgoVehicle::TickNDRT() {
 			break;
 		}
 	};
+	// Simply compute the NDRT task when the vehicle is on autopilot
+	if (CurrVehicleStatus == VehicleStatus::Autopilot || CurrVehicleStatus == VehicleStatus::ResumedAutopilot)
+	{
+		// Tell the driver that the ADS is engaged
+		SetMessagePaneText(TEXT("Autopilot Engaged"), FColor::Green);
+
+		// Run/computer the NDRT
+		HandleTaskTick();
+
+		// The rest of the code is only relevant for the pre-alert interval. So, exit
+		return;
+
+	}
+	// During the pre-alert period, allow NDRT engagement, but with potential restriction based
+	// on the interruption paradigm
+	if (CurrVehicleStatus == VehicleStatus::PreAlertAutopilot)
+	{
+		// Show a pre-alert message suggesting that a take-over request may be issued in the future
+		SetMessagePaneText(TEXT("Prepare to Take Over"), FColor::Orange);
+	}
+
 
 	if (IsUserGazingOnHUD())
 	{
