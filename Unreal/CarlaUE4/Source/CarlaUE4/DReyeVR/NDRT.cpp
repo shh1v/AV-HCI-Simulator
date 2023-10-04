@@ -166,6 +166,9 @@ void AEgoVehicle::TickNDRT() {
 		// Tell the driver that the ADS is engaged
 		SetMessagePaneText(TEXT("Autopilot Engaged"), FColor::Green);
 
+		// Make sure NDRT is toggled up again
+		ToggleNDRT(true);
+
 		// Run/computer the NDRT
 		HandleTaskTick();
 
