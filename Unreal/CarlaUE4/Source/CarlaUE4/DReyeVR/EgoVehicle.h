@@ -332,6 +332,7 @@ private: // Game signaling
     UPROPERTY(Category = "Audio", EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UAudioComponent* NBackIncorrectSound;   // Incorrect answer sound
     void RecordNBackInputs(bool BtnUp, bool BtnRight); // Record the button events for the n-back task
+    float LastRecordedInputTimestamp; // Record the last time when n-back input was recorded
     void NBackTaskTick(); // Update the n-back task in every tick
 
     void ConstructNBackElements(); // Construct the static meshes to present the N-back task components

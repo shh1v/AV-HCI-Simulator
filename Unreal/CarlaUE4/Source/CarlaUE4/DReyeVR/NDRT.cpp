@@ -396,6 +396,19 @@ void AEgoVehicle::RecordNBackInputs(bool BtnUp, bool BtnDown)
 	// Only one of the responses can be true. Otherwise, there is a logical error
 	ensure(!BtnUp || !BtnDown);
 
+	// Ignore input if they are not intended for NDRT (for e.g the driver presses a button by mistake when taking over)
+	if (CurrVehicleStatus == VehicleStatus::TakeOver || CurrVehicleStatus == VehicleStatus::TakeOverManual)
+	{
+		return;
+	}
+
+	// Also make sure that the mandatory time lag is satisfied
+	if (World->GetTimeSeconds() - LastRecordedInputTimestamp < 0.5)
+	{
+		return;
+	}
+
+	// Now, record the input if all the above conditions are satisfied
 	if (BtnUp)
 	{
 		NBackResponseBuffer.Add(TEXT("M"));

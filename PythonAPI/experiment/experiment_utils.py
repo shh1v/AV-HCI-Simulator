@@ -683,7 +683,7 @@ class EyeTracking:
                     if "surfaces" in surface:
                         surface_data = getattr(eye_tracker_data, surface.replace(".", "_") + "_data")
                         if surface_data is None:
-                            print(f"WARNING: Surface data for {surface} is None!")
+                            # print(f"WARNING: Surface data for {surface} is None!")
                             continue # Check for the next surface as data was not received for this surface
                         # Now, get the gaze_on_surfaces object, select the one with the highest timestamp, and check if it is True
                         gaze_on_surfaces = surface_data["gaze_on_surfaces"]
@@ -723,7 +723,8 @@ class EyeTracking:
                         sys_time = EyeTracking.convert_to_sys_time(surface_data['timestamp']) # Calculate current time stamp
                         EyeTracking.eye_mapping_df.loc[len(EyeTracking.eye_mapping_df)] = common_row_elements + [sys_time, surface_name, surface_data['norm_pos'][0], surface_data['norm_pos'][1]]
                 else:
-                    print("WARNING: Driver not looking at the screen")
+                    # print("WARNING: Driver not looking at the screen")
+                    pass
 
                 # Add fixation data to the dataframe
                 if len(surfaces_with_fixations) > 0:
