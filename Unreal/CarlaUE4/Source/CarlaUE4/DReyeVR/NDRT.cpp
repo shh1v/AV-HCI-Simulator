@@ -399,8 +399,11 @@ void AEgoVehicle::SetLetter(const FString& Letter) {
 
 void AEgoVehicle::RecordNBackInputs(bool BtnUp, bool BtnDown)
 {
-	// Only one of the responses can be true. Otherwise, there is a logical error
-	ensure(!BtnUp || !BtnDown);
+	// Check if there is any conflict of inputs. If yes, then ignore and wait for another input
+	if (BtnUp && BtnDown)
+	{
+		return;
+	}
 
 	// Ignore input if they are not intended for NDRT (for e.g the driver presses a button by mistake when taking over)
 	if (CurrVehicleStatus == VehicleStatus::TakeOver || CurrVehicleStatus == VehicleStatus::TakeOverManual)
@@ -408,24 +411,21 @@ void AEgoVehicle::RecordNBackInputs(bool BtnUp, bool BtnDown)
 		return;
 	}
 
-	// Also make sure that the mandatory time lag is satisfied
-	if (World->GetTimeSeconds() - LastRecordedInputTimestamp < 0.5)
-	{
-		return;
-	}
-
 	// Now, record the input if all the above conditions are satisfied
-	if (BtnUp)
+	if (BtnUp && !bWasBtnUpPressedLastFrame)
 	{
 		NBackResponseBuffer.Add(TEXT("M"));
 	}
-	else if (BtnDown)
+	else if (BtnDown && !bWasBtnDownPressedLastFrame)
 	{
 		NBackResponseBuffer.Add(TEXT("MM"));
 	}
-	// Record the new time at which a input was logged
-	LastRecordedInputTimestamp = World->GetTimeSeconds();
+
+	// Update the previous state for the next frame
+	bWasBtnUpPressedLastFrame = BtnUp;
+	bWasBtnDownPressedLastFrame = BtnDown;
 }
+
 
 void AEgoVehicle::NBackTaskTick()
 {
@@ -525,10 +525,10 @@ float AEgoVehicle::GazeOnHUDTime()
 	{
 		if (!bGazeTimerRunning)
 		{
-			GazeOnHUDTimestamp = World->GetTimeSeconds();
+			GazeOnHUDTimestamp = FPlatformTime::Seconds();
 			bGazeTimerRunning = true;
 		}
-		return World->GetTimeSeconds() - GazeOnHUDTimestamp;
+		return FPlatformTime::Seconds() - GazeOnHUDTimestamp;
 	}
 	bGazeTimerRunning = false;
 	return 0;

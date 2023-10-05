@@ -332,7 +332,8 @@ private: // Game signaling
     UPROPERTY(Category = "Audio", EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UAudioComponent* NBackIncorrectSound;   // Incorrect answer sound
     void RecordNBackInputs(bool BtnUp, bool BtnRight); // Record the button events for the n-back task
-    float LastRecordedInputTimestamp; // Record the last time when n-back input was recorded
+    bool bWasBtnUpPressedLastFrame = false; // Store the last input from the Logitech joystick
+    bool bWasBtnDownPressedLastFrame = false; // Store the last input from the Logitech joystick
     void NBackTaskTick(); // Update the n-back task in every tick
 
     void ConstructNBackElements(); // Construct the static meshes to present the N-back task components
