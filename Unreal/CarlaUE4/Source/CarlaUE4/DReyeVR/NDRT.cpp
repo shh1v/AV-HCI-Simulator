@@ -499,10 +499,11 @@ void AEgoVehicle::NBackTaskTick()
 					NBackPrompts.Add(SingleLetter);
 				}
 			}
+		} else
+		{
+			// Set the next letter if there are more prompts left
+			SetLetter(NBackPrompts[CurrentGameIndex + 1]);
 		}
-
-		// Set the next letter
-		SetLetter(NBackPrompts[CurrentGameIndex + 1]);
 	}
 }
 
