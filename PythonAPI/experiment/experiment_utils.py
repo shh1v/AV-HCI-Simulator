@@ -136,7 +136,7 @@ class VehicleBehaviourSuite:
     publisher_socket = None
 
     # Store the ordered vehicle status
-    ordered_vehicle_status = ["Unknown", "ManualDrive", "Autopilot", "PreAlertAutopilot", "TakeOver", "TakeOverManual", "ResumedAutopilot"]
+    ordered_vehicle_status = ["Unknown", "ManualDrive", "Autopilot", "PreAlertAutopilot", "TakeOver", "TakeOverManual", "ResumedAutopilot", "TrialOver"]
 
     # Store the local vehicle status currently known
     previous_local_vehicle_status = "Unknown"
@@ -258,6 +258,13 @@ class VehicleBehaviourSuite:
         NOTE: that the status will be continously sent by the two components (carla and scenario runner) until the trial is over.
         Carla must at all times receieve the most up to date vehicle status. Scenario runner does not require the most up to date vehicle status.
         """
+        # First off, check if the trial is still running, If not, immediately exit
+        if VehicleBehaviourSuite.local_vehicle_status == "TrialOver":
+            return False
+        else:
+            # Wait for the simulation to tick
+            world.wait_for_tick()
+        
         # Receive vehicle status from carla server and scenario runner
         carla_vehicle_status = VehicleBehaviourSuite.receive_carla_vehicle_status()
         scenario_runner_vehicle_status = VehicleBehaviourSuite.receive_scenario_runner_vehicle_status()
@@ -361,8 +368,9 @@ class VehicleBehaviourSuite:
                 
                 # Save the eye-tracking data
                 EyeTracking.save_performance_data()
-
+                
                 # Terminate the parallel process
+                print("Trial is successfully completed! Terminating the parallel process...")
                 return False
 
 

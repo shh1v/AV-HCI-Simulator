@@ -93,15 +93,13 @@ def vehicle_status_check(host, port, threads, config_file, index):
 
         # Start checking vehicle status and behaviour
         while True:
-            # Wait for the simulation to tick
-            world.wait_for_tick()
-
             # Check the vehicle status and execute any required behaviour. Also return a bool that tells you if the trial is over.
             trial_status = VehicleBehaviourSuite.vehicle_status_tick(client, world, config_file, index)
 
             # If the trial is over, terminate the process
             if not trial_status:
                 break
+            
     except Exception as e:
         print("Exception occurred in vehicle status check thread:", e)
         print(traceback.format_exc())
