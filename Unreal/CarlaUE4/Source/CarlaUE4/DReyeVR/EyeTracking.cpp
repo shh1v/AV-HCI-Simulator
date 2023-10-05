@@ -30,7 +30,7 @@ bool AEgoVehicle::EstablishEyeTrackerConnection() {
 		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Connected to the eye-tracker TCP port"));
 
 		// Set send and recv timeout to 0 millisecond to have non-blocking behaviour
-		int timeout = 0;
+		int timeout = 100;
 		Requester.setsockopt(ZMQ_SNDTIMEO, &timeout, sizeof(timeout));
 		Requester.setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
 
