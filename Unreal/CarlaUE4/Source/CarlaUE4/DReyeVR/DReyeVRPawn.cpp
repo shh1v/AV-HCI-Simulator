@@ -530,7 +530,8 @@ void ADReyeVRPawn::LogitechWheelUpdate()
     else
     {
         // Calculate the threshold change once
-        bool bThreshChange = !FMath::IsNearlyEqual(WheelRotation, WheelRotationLast, LogiThresh) ||
+        // NOTE: Specifically increased the sensitivity of steering wheel due to force feedback feature
+        bool bThreshChange = !FMath::IsNearlyEqual(WheelRotation, WheelRotationLast, LogiThresh * 0.5f) ||
             !FMath::IsNearlyEqual(AccelerationPedal, AccelerationPedalLast, LogiThresh) ||
             !FMath::IsNearlyEqual(BrakePedal, BrakePedalLast, LogiThresh);
 
