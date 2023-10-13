@@ -524,7 +524,7 @@ void ADReyeVRPawn::LogitechWheelUpdate()
         {
             bPedalsDefaulting = false;
         }
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("WARNING: Pedals defaulting"));
+        // GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("WARNING: Pedals defaulting"));
 
     }
     else

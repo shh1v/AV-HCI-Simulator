@@ -30,7 +30,7 @@ bool AEgoVehicle::EstablishEyeTrackerConnection() {
 		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Connected to the eye-tracker TCP port"));
 
 		// Set send and recv timeout to 0 millisecond to have non-blocking behaviour
-		int timeout = 100;
+		int timeout = 1;
 		Requester.setsockopt(ZMQ_SNDTIMEO, &timeout, sizeof(timeout));
 		Requester.setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
 
@@ -123,7 +123,7 @@ FVector2D AEgoVehicle::GetGazeHUDLocation() {
 FDcResult AEgoVehicle::GetSurfaceData() {
 	// Note: using raw C++ types in the following code as it does not interact with UE interface
 	// Establish connection if not already
-	if (!bZMQEyeConnection) {
+	if (!bZMQEyeConnection && !EstablishEyeTrackerConnection()) {
 		return FDcResult{ FDcResult::EStatus::Error };
 	}
 
@@ -168,74 +168,44 @@ FDcResult AEgoVehicle::GetSurfaceData() {
 }
 
 void AEgoVehicle::ParseGazeData(FString GazeDataString) {
-	// Return if data was not retrived from the eye-tracker
+	// Return if data was not retrieved from the eye-tracker
 	if (!bZMQEyeDataRetrive) {
 		return;
 	}
 
-	float HighestTimestamp = -1.0f;
-	// Remove the square brackets in the strings
-	GazeDataString = GazeDataString.Mid(1, GazeDataString.Len() - 2);
+	// Extract the last data entry (as the last entry is the relevant one)
+	int32 LastOpenBrace = GazeDataString.Find(TEXT("{"), ESearchCase::IgnoreCase, ESearchDir::FromEnd);
+	FString GazeEntry = GazeDataString.Mid(LastOpenBrace);
 
-	// Split the FString into individual gaze data entries
-	TArray<FString> GazeDataEntries;
-	GazeDataString.ParseIntoArray(GazeDataEntries, TEXT("}, "), true);
+	FTypedGazeData GazeData;
 
-	for (FString Entry : GazeDataEntries) {
-		LOG("Working on the gaze entry: %s", *Entry);
-		Entry = Entry.Replace(TEXT("{"), TEXT(""));
-
-		FTypedGazeData GazeData;
-		TArray<FString> KeyValuePairs;
-		Entry.ParseIntoArray(KeyValuePairs, TEXT(", '"), true);
-
-		for (FString KeyValuePair : KeyValuePairs) {
-			KeyValuePair = KeyValuePair.Replace(TEXT("'"), TEXT(""));
-			LOG("Entry: %s, KeyValuePair: %s", *Entry, *KeyValuePair);
-
-			TArray<FString> KeyAndValue;
-			KeyValuePair.ParseIntoArray(KeyAndValue, TEXT(": "), true);
-			if (KeyAndValue.Num() == 2) {
-				FString Key = KeyAndValue[0].TrimStartAndEnd();
-				FString Value = KeyAndValue[1].TrimStartAndEnd();
-
-				if (Key == TEXT("topic")) {
-					GazeData.Topic = Value.TrimQuotes();
-				}
-				else if (Key == TEXT("norm_pos")) {
-					// Remove the paranthesis in the key
-					Value = Value.Mid(1, Value.Len() - 2);
-					TArray<FString> NormPosValues;
-					Value.ParseIntoArray(NormPosValues, TEXT(", "), true);
-					for (FString NormPosValue : NormPosValues) {
-						LOG("NormPosValue: %s", *NormPosValue);
-						GazeData.NormPos.Add(FCString::Atof(*NormPosValue));
-					}
-				}
-				else if (Key == TEXT("confidence")) {
-					GazeData.Confidence = FCString::Atof(*Value);
-				}
-				else if (Key == TEXT("on_surf")) {
-					GazeData.OnSurf = Value == TEXT("True") ? true : false;
-				}
-				else if (Key == TEXT("base_data")) {
-					// Remove the paranthesis in the key
-					Value = Value.Mid(1, Value.Len() - 2);
-					TArray<FString> BaseDataValues;
-					Value.TrimStartAndEnd().ParseIntoArray(BaseDataValues, TEXT(", "), true);
-					GazeData.BaseData.TopicPrefix = BaseDataValues[0].TrimQuotes();
-					GazeData.BaseData.TimeStamp = FCString::Atof(*BaseDataValues[1]);
-				} 
-				else if (Key == TEXT("timestamp")) {
-					GazeData.TimeStamp = FCString::Atof(*Value);
-				}
-			}
+	// Extract on_surf value
+	FString OnSurfStr;
+	int32 OnSurfStart = GazeEntry.Find(TEXT("'on_surf': "));
+	if (OnSurfStart != INDEX_NONE) {
+		OnSurfStr = GazeEntry.Mid(OnSurfStart + 11).TrimStart();
+		if (OnSurfStr.StartsWith(TEXT("True"))) {
+			GazeData.OnSurf = true;
 		}
-
-		// If this gaze data has a higher timestamp, store it
-		if (GazeData.TimeStamp > HighestTimestamp) {
-			HighestTimestampGazeData = GazeData;
-			HighestTimestamp = GazeData.TimeStamp;
+		else if (OnSurfStr.StartsWith(TEXT("False"))) {
+			GazeData.OnSurf = false;
 		}
 	}
+
+	// Extract timestamp value
+	FString TimestampStr;
+	int32 TimestampStart = GazeEntry.Find(TEXT("'timestamp': "));
+	if (TimestampStart != INDEX_NONE) {
+		TimestampStr = GazeEntry.Mid(TimestampStart + 12).TrimStart();
+		int32 CommaPos = TimestampStr.Find(TEXT(","));
+		int32 BracePos = TimestampStr.Find(TEXT("}"));
+		int32 EndPos = (CommaPos == INDEX_NONE) ? BracePos : (BracePos == INDEX_NONE ? CommaPos : FMath::Min(CommaPos, BracePos));
+
+		if (EndPos != INDEX_NONE) {
+			TimestampStr = TimestampStr.Left(EndPos);
+		}
+		GazeData.TimeStamp = FCString::Atof(*TimestampStr);
+	}
+
+	HighestTimestampGazeData = GazeData;
 }

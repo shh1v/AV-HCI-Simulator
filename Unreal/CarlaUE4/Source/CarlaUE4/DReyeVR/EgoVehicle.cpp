@@ -250,7 +250,7 @@ void AEgoVehicle::Tick(float DeltaSeconds)
 
     // Tick vehicle controls
     TickVehicleInputs();
-    
+
     // Tick NDRT
     TickNDRT();
 

@@ -122,13 +122,13 @@ void AEgoVehicle::TerminateNDRT() {
 
 
 void AEgoVehicle::TickNDRT() {
-	// Retrieve all the necessary data from all the other components
+	// Get update from eye tracker and the vehicle status
 	GetSurfaceData();
 	ParseGazeData(SurfaceData.gaze_on_surfaces);
 	RetrieveVehicleStatus();
 	GazeOnHUDTime();
 
-	// WARNING/NOTE: It is the responsibility of the respoective NDRT tick methods to change the vehicle status
+	// WARNING/NOTE: It is the responsibility of the respective NDRT tick methods to change the vehicle status
 	// to TrialOver when the NDRT task is over.
 
 	// CASE: When NDRT engagement is disabled/not expected (during TORs or manual control)
@@ -136,6 +136,8 @@ void AEgoVehicle::TickNDRT() {
 	{
 		// This is the case when scenario runner has not kicked in. Just do nothing
 		// This means not allowing driver to interact with NDRT
+		// JUST FOR TESTING PURPOSES
+		ToggleAlertOnNDRT(IsUserGazingOnHUD());
 		return;
 	}
 	if (CurrVehicleStatus == VehicleStatus::TakeOver || CurrVehicleStatus == VehicleStatus::TakeOverManual)

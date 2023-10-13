@@ -405,7 +405,7 @@ public: // Eye-tracking
 private:
     float GazeOnHUDTimestamp; // Store the timestamp at which the driver starts looking at the HUD
     float bGazeTimerRunning = false; // Store whether the driver has been looking at the HUD
-    float GazeOnHUDTimeConstraint = 5;
+    float GazeOnHUDTimeConstraint = 2.5;
 
   private: // other
     UPROPERTY(Category = "Dash", EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
