@@ -24,7 +24,7 @@ ADReyeVRPawn::ADReyeVRPawn(const FObjectInitializer &ObjectInitializer) : Super(
     ConstructCamera();
 
     // Inializing logging operator
-    Logger = new DataLogger();
+    //Logger = new DataLogger(); // This is now being handled by client side
 
     // log
     LOG("Spawning DReyeVR pawn for player0");

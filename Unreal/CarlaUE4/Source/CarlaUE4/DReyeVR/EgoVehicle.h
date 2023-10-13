@@ -294,6 +294,8 @@ private: // Game signaling
     zmq::socket_t* VehicleStatusSubscriber; // Pointer to the receive socket to listen to python client
     zmq::socket_t* VehicleStatusPublisher; // Pointer to the send socket to listen to python client
     FVehicleStatusData VehicleStatusData; // Stores the vehicle status dict sent by python client
+
+public:
     bool EstablishVehicleStatusConnection(); // Establish connection to Client ZMQ
     bool TerminateVehicleStatusConnection(); // Terminate connection to Client ZMQ
 
@@ -399,7 +401,7 @@ public: // Eye-tracking
     bool EstablishEyeTrackerConnection(); // Establish connection to a TCP port for PUBLISH-SUBSCRIBE protocol communication
     bool TerminateEyeTrackerConnection(); // Terminate connection to a TCP port for PUBLISH-SUBSCRIBE protocol communication
     FDcResult GetSurfaceData(); // Get all the surface data from the eye tracker
-    void ParseGazeData(FString GazeDataString); // This method will load data into FGazeData object
+    void ParseGazeData(); // This method will load data into FGazeData object
     FVector2D GetGazeHUDLocation(); // Returns the screen gaze location from the eye tracker
 
 private:

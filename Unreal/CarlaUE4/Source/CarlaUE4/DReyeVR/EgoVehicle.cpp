@@ -174,12 +174,6 @@ void AEgoVehicle::BeginPlay()
 
     LOG("Initialized DReyeVR EgoVehicle");
 
-    // Establish vehicle status connection
-    EstablishVehicleStatusConnection();
-
-    // Update the vehicle status to manual mode
-    UpdateVehicleStatus(VehicleStatus::ManualDrive);
-
     // Start the NDRT on head-up display
     StartNDRT();
 

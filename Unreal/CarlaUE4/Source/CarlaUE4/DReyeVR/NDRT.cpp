@@ -48,9 +48,6 @@ void AEgoVehicle::StartNDRT() {
 		MediaPlayer->OpenSource(MediaPlayerSource);
 		break;
 	}
-
-	// Establish connection with the eye-tracker
-	EstablishEyeTrackerConnection();
 }
 
 void AEgoVehicle::ToggleNDRT(bool active) {
@@ -122,14 +119,11 @@ void AEgoVehicle::TerminateNDRT() {
 
 
 void AEgoVehicle::TickNDRT() {
-	// Get update from eye tracker and the vehicle status
-	GetSurfaceData();
-	ParseGazeData(SurfaceData.gaze_on_surfaces);
-	RetrieveVehicleStatus();
-	GazeOnHUDTime();
-
 	// WARNING/NOTE: It is the responsibility of the respective NDRT tick methods to change the vehicle status
 	// to TrialOver when the NDRT task is over.
+
+	// Before doing all the compution, first compute how long has the driver been looking on the HUD
+	GazeOnHUDTime();
 
 	// CASE: When NDRT engagement is disabled/not expected (during TORs or manual control)
 	if (CurrVehicleStatus == VehicleStatus::ManualDrive || CurrVehicleStatus == VehicleStatus::TrialOver)

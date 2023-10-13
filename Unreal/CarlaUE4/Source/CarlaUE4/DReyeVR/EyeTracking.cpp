@@ -167,11 +167,13 @@ FDcResult AEgoVehicle::GetSurfaceData() {
 	return DcOk();
 }
 
-void AEgoVehicle::ParseGazeData(FString GazeDataString) {
+void AEgoVehicle::ParseGazeData() {
 	// Return if data was not retrieved from the eye-tracker
 	if (!bZMQEyeDataRetrive) {
 		return;
 	}
+
+	FString GazeDataString = SurfaceData.gaze_on_surfaces;
 
 	// Extract the last data entry (as the last entry is the relevant one)
 	int32 LastOpenBrace = GazeDataString.Find(TEXT("{"), ESearchCase::IgnoreCase, ESearchDir::FromEnd);

@@ -147,5 +147,5 @@ class ADReyeVRPawn : public APawn
 
 private:
     ////////////////:LOGGING:////////////////
-    DataLogger *Logger; // DataLogger Object to run loggin operations
+    //DataLogger *Logger; // DataLogger Object to run logging operations; now handled by client side
 };
