@@ -38,7 +38,7 @@ uint32 RetrieveDataRunnable::Run()
     EgoVehicle->EstablishEyeTrackerConnection();    // Establish connection with the eye-tracker
     EgoVehicle->EstablishVehicleStatusConnection(); // Establish vehicle status connection
 
-    FPlatformProcess::Sleep(0.5); // Wait for sometime to ensure connection has been established
+    FPlatformProcess::Sleep(0.1); // Wait for sometime to ensure connection has been established
 
     EgoVehicle->UpdateVehicleStatus(AEgoVehicle::VehicleStatus::ManualDrive); // Update the vehicle status to manual mode
 

@@ -17,6 +17,7 @@
 #include "FlatHUD.h"                                  // ADReyeVRHUD
 #include "ImageUtils.h"                               // CreateTexture2D
 #include "WheeledVehicle.h"                           // VehicleMovementComponent
+#include "RetrieveDataRunnable.h"                     // Retreive all the data in parallel
 #include <zmq.hpp>                                    // ZeroMQ Plugin
 #include "DcTypes.h"                                  // FDcResult
 #include "DataConfigDatatypes.h"                      // FSurfaceData, FVehicleStatusData
@@ -264,8 +265,8 @@ class CARLAUE4_API AEgoVehicle : public ACarlaWheeledVehicle
     class ADReyeVRCustomActor *AutopilotIndicator;
     bool bInitializedAutopilotIndicator = false;
 
-//public: // Game signaling: Very risky to make them public, but is required to not declare additional get/set methods
-//    FDateTime TORIssuanceTime;
+public: // Thread to run all the ZMQ networking stuff
+    class RetrieveDataRunnable *GetDataRunnable;
 
 public: // Game signaling
     enum class VehicleStatus { ManualDrive, Autopilot, PreAlertAutopilot, TakeOver, TakeOverManual, ResumedAutopilot, TrialOver, Unknown };

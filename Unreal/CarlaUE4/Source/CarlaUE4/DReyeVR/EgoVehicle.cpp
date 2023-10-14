@@ -174,6 +174,10 @@ void AEgoVehicle::BeginPlay()
 
     LOG("Initialized DReyeVR EgoVehicle");
 
+
+    // Initialize the thread to get data from the eye tracker and the client
+    GetDataRunnable = new RetrieveDataRunnable(this);
+
     // Start the NDRT on head-up display
     StartNDRT();
 
@@ -182,10 +186,12 @@ void AEgoVehicle::BeginPlay()
 
 void AEgoVehicle::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-    // Whenever reload_world() from the client side is called, the established connections needs to be
-    // gracefully closed since a re-attempt will be made by BeginPlay(). In my case, ScenarioRunner is calling reload_world().
-    TerminateEyeTrackerConnection();
-    TerminateVehicleStatusConnection();
+    // Stop the thread, either when the game is exited, or reload_world() is called by the client
+    if (GetDataRunnable != nullptr)
+    {
+        delete GetDataRunnable;
+        GetDataRunnable = nullptr;
+    }
 
     // https://docs.unrealengine.com/4.27/en-US/API/Runtime/Engine/Engine/EEndPlayReason__Type/
     if (EndPlayReason == EEndPlayReason::Destroyed)
@@ -247,9 +253,6 @@ void AEgoVehicle::Tick(float DeltaSeconds)
 
     // Tick NDRT
     TickNDRT();
-
-    // Send the current locally stored vehicle status
-    SendCurrVehicleStatus();
 }
 
 /// ========================================== ///
