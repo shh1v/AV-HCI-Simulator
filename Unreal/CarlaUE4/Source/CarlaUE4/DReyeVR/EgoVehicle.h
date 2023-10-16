@@ -17,6 +17,7 @@
 #include "FlatHUD.h"                                  // ADReyeVRHUD
 #include "ImageUtils.h"                               // CreateTexture2D
 #include "WheeledVehicle.h"                           // VehicleMovementComponent
+#include "RetrieveDataRunnable.h"                     // Retreive all the data in parallel
 #include <zmq.hpp>                                    // ZeroMQ Plugin
 #include "DcTypes.h"                                  // FDcResult
 #include "DataConfigDatatypes.h"                      // FSurfaceData, FVehicleStatusData
@@ -264,8 +265,8 @@ class CARLAUE4_API AEgoVehicle : public ACarlaWheeledVehicle
     class ADReyeVRCustomActor *AutopilotIndicator;
     bool bInitializedAutopilotIndicator = false;
 
-//public: // Game signaling: Very risky to make them public, but is required to not declare additional get/set methods
-//    FDateTime TORIssuanceTime;
+public: // Thread to run all the ZMQ networking stuff
+    class RetrieveDataRunnable *GetDataRunnable;
 
 public: // Game signaling
     enum class VehicleStatus { ManualDrive, Autopilot, PreAlertAutopilot, TakeOver, TakeOverManual, ResumedAutopilot, TrialOver, Unknown };
@@ -294,6 +295,8 @@ private: // Game signaling
     zmq::socket_t* VehicleStatusSubscriber; // Pointer to the receive socket to listen to python client
     zmq::socket_t* VehicleStatusPublisher; // Pointer to the send socket to listen to python client
     FVehicleStatusData VehicleStatusData; // Stores the vehicle status dict sent by python client
+
+public:
     bool EstablishVehicleStatusConnection(); // Establish connection to Client ZMQ
     bool TerminateVehicleStatusConnection(); // Terminate connection to Client ZMQ
 
@@ -332,6 +335,8 @@ private: // Game signaling
     UPROPERTY(Category = "Audio", EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UAudioComponent* NBackIncorrectSound;   // Incorrect answer sound
     void RecordNBackInputs(bool BtnUp, bool BtnRight); // Record the button events for the n-back task
+    bool bWasBtnUpPressedLastFrame = false; // Store the last input from the Logitech joystick
+    bool bWasBtnDownPressedLastFrame = false; // Store the last input from the Logitech joystick
     void NBackTaskTick(); // Update the n-back task in every tick
 
     void ConstructNBackElements(); // Construct the static meshes to present the N-back task components
@@ -368,7 +373,7 @@ private: // Game signaling
 
 private: // Eye-tracking
     bool bZMQEyeConnection = false; // True if connection is established
-    bool bZMQEyeDataRetrive = false; // True if data is retrived from ZMQ
+    bool bZmqEyeDataRetrieve = false; // True if data is retrieved from ZMQ
     zmq::context_t* EyeContext;    // Stores the context of the zmq proccess
     zmq::socket_t* EyeSubscriber; // Pointer to the sub socket to listen to pupil labs software
     FSurfaceData SurfaceData; // Store all the data from the surface topic
@@ -397,13 +402,15 @@ public: // Eye-tracking
     bool EstablishEyeTrackerConnection(); // Establish connection to a TCP port for PUBLISH-SUBSCRIBE protocol communication
     bool TerminateEyeTrackerConnection(); // Terminate connection to a TCP port for PUBLISH-SUBSCRIBE protocol communication
     FDcResult GetSurfaceData(); // Get all the surface data from the eye tracker
-    void ParseGazeData(FString GazeDataString); // This method will load data into FGazeData object
+    void ParseGazeData(); // This method will load data into FGazeData object
     FVector2D GetGazeHUDLocation(); // Returns the screen gaze location from the eye tracker
 
 private:
     float GazeOnHUDTimestamp; // Store the timestamp at which the driver starts looking at the HUD
     float bGazeTimerRunning = false; // Store whether the driver has been looking at the HUD
-    float GazeOnHUDTimeConstraint = 5;
+    bool bLastOnSurfValue = false; // Stores the last updated on surf value retrieved from the eye tracker
+    float GazeShiftCounter = 0; // This counter will be used to record number of times a certain boolean value is received, after which it considers an actual gaze shift
+    float GazeOnHUDTimeConstraint = 3; // Time after which alert is displayed in sys-recommended and sys-initiated modes
 
   private: // other
     UPROPERTY(Category = "Dash", EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))

@@ -136,14 +136,17 @@ void AEgoVehicle::ReadConfigVariables()
         if (TaskSetting.Equals(TEXT("One")))
         {
             CurrentNValue = NValue::One;
+            TotalNBackTasks = 40;
         }
         else if (TaskSetting.Equals(TEXT("Two")))
         {
             CurrentNValue = NValue::Two;
+            TotalNBackTasks = 30;
         }
         else if (TaskSetting.Equals(TEXT("Three")))
         {
             CurrentNValue = NValue::Three;
+            TotalNBackTasks = 20;
         }
     }
     else if (CurrTaskType == TaskType::TVShowTask)
@@ -174,11 +177,9 @@ void AEgoVehicle::BeginPlay()
 
     LOG("Initialized DReyeVR EgoVehicle");
 
-    // Establish vehicle status connection
-    EstablishVehicleStatusConnection();
 
-    // Update the vehicle status to manual mode
-    UpdateVehicleStatus(VehicleStatus::ManualDrive);
+    // Initialize the thread to get data from the eye tracker and the client
+    GetDataRunnable = new RetrieveDataRunnable(this);
 
     // Start the NDRT on head-up display
     StartNDRT();
@@ -188,10 +189,12 @@ void AEgoVehicle::BeginPlay()
 
 void AEgoVehicle::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-    // Whenever reload_world() from the client side is called, the established connections needs to be
-    // gracefully closed since a re-attempt will be made by BeginPlay(). In my case, ScenarioRunner is calling reload_world().
-    TerminateEyeTrackerConnection();
-    TerminateVehicleStatusConnection();
+    // Stop the thread, either when the game is exited, or reload_world() is called by the client
+    if (GetDataRunnable != nullptr)
+    {
+        delete GetDataRunnable;
+        GetDataRunnable = nullptr;
+    }
 
     // https://docs.unrealengine.com/4.27/en-US/API/Runtime/Engine/Engine/EEndPlayReason__Type/
     if (EndPlayReason == EEndPlayReason::Destroyed)
@@ -250,12 +253,9 @@ void AEgoVehicle::Tick(float DeltaSeconds)
 
     // Tick vehicle controls
     TickVehicleInputs();
-    
+
     // Tick NDRT
     TickNDRT();
-
-    // Send the current locally stored vehicle status
-    SendCurrVehicleStatus();
 }
 
 /// ========================================== ///

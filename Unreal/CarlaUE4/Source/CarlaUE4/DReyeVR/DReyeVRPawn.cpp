@@ -24,7 +24,7 @@ ADReyeVRPawn::ADReyeVRPawn(const FObjectInitializer &ObjectInitializer) : Super(
     ConstructCamera();
 
     // Inializing logging operator
-    Logger = new DataLogger();
+    //Logger = new DataLogger(); // This is now being handled by client side
 
     // log
     LOG("Spawning DReyeVR pawn for player0");
@@ -524,13 +524,14 @@ void ADReyeVRPawn::LogitechWheelUpdate()
         {
             bPedalsDefaulting = false;
         }
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("WARNING: Pedals defaulting"));
+        // GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("WARNING: Pedals defaulting"));
 
     }
     else
     {
         // Calculate the threshold change once
-        bool bThreshChange = !FMath::IsNearlyEqual(WheelRotation, WheelRotationLast, LogiThresh) ||
+        // NOTE: Specifically increased the sensitivity of steering wheel due to force feedback feature
+        bool bThreshChange = !FMath::IsNearlyEqual(WheelRotation, WheelRotationLast, LogiThresh * 0.5f) ||
             !FMath::IsNearlyEqual(AccelerationPedal, AccelerationPedalLast, LogiThresh) ||
             !FMath::IsNearlyEqual(BrakePedal, BrakePedalLast, LogiThresh);
 

@@ -31,8 +31,17 @@ void AEgoVehicle::StartNDRT() {
 		// Add randomly generated elements to NBackPrompts
 		for (int32 i = 0; i < TotalNBackTasks; i++)
 		{
-			TCHAR RandomChar = FMath::RandRange('A', 'Z');
-			FString SingleLetter = FString(1, &RandomChar);
+			// NOTE: A "MATCH" is generated 33.3% times and "MISMATCH" other times
+			FString SingleLetter;
+			if (FMath::FRand() < 1.0f/3.0f && i >= static_cast<int>(CurrentNValue))
+			{
+				SingleLetter = NBackPrompts[i - static_cast<int>(CurrentNValue)];
+			}
+			else
+			{
+				TCHAR RandomChar = FMath::RandRange('A', 'Z');
+				SingleLetter = FString(1, &RandomChar);
+			}
 			NBackPrompts.Add(SingleLetter);
 		}
 		// Set the first index letter on the HUD
@@ -48,16 +57,16 @@ void AEgoVehicle::StartNDRT() {
 		MediaPlayer->OpenSource(MediaPlayerSource);
 		break;
 	}
-
-	// Establish connection with the eye-tracker
-	EstablishEyeTrackerConnection();
 }
 
 void AEgoVehicle::ToggleNDRT(bool active) {
 	// Make all the HUD meshes appear/disappear
 	PrimaryHUD->SetVisibility(active, false);
-	SecondaryHUD->SetVisibility(active, false);
-	DisableHUD->SetVisibility(active, false);
+	// We only need to make them disappear. We don't need to make them visible when NDRT interaction is enabled again.
+	if (!active) {
+		SecondaryHUD->SetVisibility(active, false);
+		DisableHUD->SetVisibility(active, false);
+	}
 
 	// Make all the NDRT-relevant elements appear/disappear
 	switch(CurrTaskType)
@@ -119,19 +128,17 @@ void AEgoVehicle::TerminateNDRT() {
 
 
 void AEgoVehicle::TickNDRT() {
-	// Retrieve all the necessary data from all the other components
-	GetSurfaceData();
-	ParseGazeData(SurfaceData.gaze_on_surfaces);
-	RetrieveVehicleStatus();
-	GazeOnHUDTime();
-
-	// WARNING/NOTE: It is the responsibility of the respoective NDRT tick methods to change the vehicle status
+	// WARNING/NOTE: It is the responsibility of the respective NDRT tick methods to change the vehicle status
 	// to TrialOver when the NDRT task is over.
+
+	// Before doing all the computation, first find out for how long has the driver been looking on the HUD
+	GazeOnHUDTime();
 
 	// CASE: When NDRT engagement is disabled/not expected (during TORs or manual control)
 	if (CurrVehicleStatus == VehicleStatus::ManualDrive || CurrVehicleStatus == VehicleStatus::TrialOver)
 	{
 		// This is the case when scenario runner has not kicked in. Just do nothing
+		// This means not allowing driver to interact with NDRT
 		return;
 	}
 	if (CurrVehicleStatus == VehicleStatus::TakeOver || CurrVehicleStatus == VehicleStatus::TakeOverManual)
@@ -145,16 +152,7 @@ void AEgoVehicle::TickNDRT() {
 	}
 
 	// CASE: When the user is allowed to engage in NDRT
-	if (CurrVehicleStatus == VehicleStatus::Autopilot || CurrVehicleStatus == VehicleStatus::ResumedAutopilot)
-	{
-		// Tell the driver that the ADS is engaged
-		SetMessagePaneText(TEXT("Autopilot Engaged"), FColor::Green);
-	}
-	if (CurrVehicleStatus == VehicleStatus::PreAlertAutopilot)
-	{
-		// Show a pre-alert message suggesting that a take-over request may be issued in the future
-		SetMessagePaneText(TEXT("Prepare to Take Over"), FColor::Orange);
-	}
+	// Create a lambda function to call the tick method based on the NDRT set from configuration file
 	auto HandleTaskTick = [&]() {
 		switch (CurrTaskType)
 		{
@@ -168,6 +166,30 @@ void AEgoVehicle::TickNDRT() {
 			break;
 		}
 	};
+	// Simply compute the NDRT task when the vehicle is on autopilot
+	if (CurrVehicleStatus == VehicleStatus::Autopilot || CurrVehicleStatus == VehicleStatus::ResumedAutopilot)
+	{
+		// Tell the driver that the ADS is engaged
+		SetMessagePaneText(TEXT("Autopilot Engaged"), FColor::Green);
+
+		// Make sure NDRT is toggled up again
+		ToggleNDRT(true);
+
+		// Run/computer the NDRT
+		HandleTaskTick();
+
+		// The rest of the code is only relevant for the pre-alert interval. So, exit
+		return;
+
+	}
+	// During the pre-alert period, allow NDRT engagement, but with potential restriction based
+	// on the interruption paradigm
+	if (CurrVehicleStatus == VehicleStatus::PreAlertAutopilot)
+	{
+		// Show a pre-alert message suggesting that a take-over request may be issued in the future
+		SetMessagePaneText(TEXT("Prepare to Take Over"), FColor::Orange);
+	}
+
 
 	if (IsUserGazingOnHUD())
 	{
@@ -380,18 +402,33 @@ void AEgoVehicle::SetLetter(const FString& Letter) {
 
 void AEgoVehicle::RecordNBackInputs(bool BtnUp, bool BtnDown)
 {
-	// Only one of the responses can be true. Otherwise, there is a logical error
-	ensure(!BtnUp || !BtnDown);
+	// Check if there is any conflict of inputs. If yes, then ignore and wait for another input
+	if (BtnUp && BtnDown)
+	{
+		return;
+	}
 
-	if (BtnUp)
+	// Ignore input if they are not intended for NDRT (for e.g the driver presses a button by mistake when taking over)
+	if (CurrVehicleStatus == VehicleStatus::TakeOver || CurrVehicleStatus == VehicleStatus::TakeOverManual)
+	{
+		return;
+	}
+
+	// Now, record the input if all the above conditions are satisfied
+	if (BtnUp && !bWasBtnUpPressedLastFrame)
 	{
 		NBackResponseBuffer.Add(TEXT("M"));
 	}
-	else if (BtnDown)
+	else if (BtnDown && !bWasBtnDownPressedLastFrame)
 	{
 		NBackResponseBuffer.Add(TEXT("MM"));
 	}
+
+	// Update the previous state for the next frame
+	bWasBtnUpPressedLastFrame = BtnUp;
+	bWasBtnDownPressedLastFrame = BtnDown;
 }
+
 
 void AEgoVehicle::NBackTaskTick()
 {
@@ -405,6 +442,13 @@ void AEgoVehicle::NBackTaskTick()
 		// Get the current game index
 		int32 CurrentGameIndex = NBackRecordedResponses.Num();
 
+		// Just a safety check so that the simulator does not crash because of index out of bounds
+		// NOTE: This will only be true when NDRT is terminated, but NBackTaskTick() is still called
+		// due to a small lag in ending the trial
+		if (NBackPrompts.Num() == NBackRecordedResponses.Num())
+		{
+			return;
+		}
 		// Figure out if there is a match or not
 		FString CorrectResponse;
 		if (CurrentGameIndex < static_cast<int>(CurrentNValue))
@@ -450,18 +494,27 @@ void AEgoVehicle::NBackTaskTick()
 			}
 			else
 			{
-				// The driver still needs to finish/attend TOR, so add more tasks
 				for (int32 i = 0; i < 10; i++)
 				{
-					TCHAR RandomChar = FMath::RandRange('A', 'Z');
-					FString SingleLetter = FString(1, &RandomChar);
+					// NOTE: A "MATCH" is generated 33.3% times and "MISMATCH" other times
+					FString SingleLetter;
+					if (FMath::FRand() < 1.0f / 3.0f && i >= static_cast<int>(CurrentNValue))
+					{
+						SingleLetter = NBackPrompts[i - static_cast<int>(CurrentNValue)];
+					}
+					else
+					{
+						TCHAR RandomChar = FMath::RandRange('A', 'Z');
+						SingleLetter = FString(1, &RandomChar);
+					}
 					NBackPrompts.Add(SingleLetter);
 				}
 			}
+		} else
+		{
+			// Set the next letter if there are more prompts left
+			SetLetter(NBackPrompts[CurrentGameIndex + 1]);
 		}
-
-		// Set the next letter
-		SetLetter(NBackPrompts[CurrentGameIndex + 1]);
 	}
 }
 
@@ -476,19 +529,4 @@ void AEgoVehicle::TVShowTaskTick()
 void AEgoVehicle::SetMessagePaneText(FString DisplayText, FColor TextColor) {
 	MessagePane->SetTextRenderColor(TextColor);
 	MessagePane->SetText(DisplayText);
-}
-
-float AEgoVehicle::GazeOnHUDTime()
-{
-	if (IsUserGazingOnHUD())
-	{
-		if (!bGazeTimerRunning)
-		{
-			GazeOnHUDTimestamp = World->GetTimeSeconds();
-			bGazeTimerRunning = true;
-		}
-		return World->GetTimeSeconds() - GazeOnHUDTimestamp;
-	}
-	bGazeTimerRunning = false;
-	return 0;
 }
