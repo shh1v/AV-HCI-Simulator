@@ -58,14 +58,14 @@ uint32 RetrieveDataRunnable::Run()
             // Retrieve vehicle status from the client
             EgoVehicle->RetrieveVehicleStatus();
         }
-
-        // Terminate all the port connections to use it later for next game launch
-        EgoVehicle->TerminateEyeTrackerConnection();
-        EgoVehicle->TerminateVehicleStatusConnection();
-
-        // Sleep for some time
-        FPlatformProcess::Sleep(0.01);
     }
+
+    // Terminate all the port connections to use it later for next game launch
+    EgoVehicle->TerminateEyeTrackerConnection();
+    EgoVehicle->TerminateVehicleStatusConnection();
+
+    // Sleep for some time
+    FPlatformProcess::Sleep(0.01);
 
     return 0;
 }

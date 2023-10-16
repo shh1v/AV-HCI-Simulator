@@ -122,7 +122,7 @@ void AEgoVehicle::TickNDRT() {
 	// WARNING/NOTE: It is the responsibility of the respective NDRT tick methods to change the vehicle status
 	// to TrialOver when the NDRT task is over.
 
-	// Before doing all the compution, first compute how long has the driver been looking on the HUD
+	// Before doing all the computation, first find out for how long has the driver been looking on the HUD
 	GazeOnHUDTime();
 
 	// CASE: When NDRT engagement is disabled/not expected (during TORs or manual control)
@@ -130,8 +130,6 @@ void AEgoVehicle::TickNDRT() {
 	{
 		// This is the case when scenario runner has not kicked in. Just do nothing
 		// This means not allowing driver to interact with NDRT
-		// JUST FOR TESTING PURPOSES
-		ToggleAlertOnNDRT(IsUserGazingOnHUD());
 		return;
 	}
 	if (CurrVehicleStatus == VehicleStatus::TakeOver || CurrVehicleStatus == VehicleStatus::TakeOverManual)
@@ -514,19 +512,4 @@ void AEgoVehicle::TVShowTaskTick()
 void AEgoVehicle::SetMessagePaneText(FString DisplayText, FColor TextColor) {
 	MessagePane->SetTextRenderColor(TextColor);
 	MessagePane->SetText(DisplayText);
-}
-
-float AEgoVehicle::GazeOnHUDTime()
-{
-	if (IsUserGazingOnHUD())
-	{
-		if (!bGazeTimerRunning)
-		{
-			GazeOnHUDTimestamp = FPlatformTime::Seconds();
-			bGazeTimerRunning = true;
-		}
-		return FPlatformTime::Seconds() - GazeOnHUDTimestamp;
-	}
-	bGazeTimerRunning = false;
-	return 0;
 }

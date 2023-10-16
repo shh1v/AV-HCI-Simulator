@@ -9,13 +9,40 @@
 #include "Deserialize/DcDeserializerSetup.h"		// EDcMsgPackDeserializeType
 
 bool AEgoVehicle::IsUserGazingOnHUD() {
-	if (bZMQEyeDataRetrive)
-	{
-		return HighestTimestampGazeData.OnSurf;
+	if (bZmqEyeDataRetrieve) {
+		if (bLastOnSurfValue == HighestTimestampGazeData.OnSurf) {
+			GazeShiftCounter = 0; // Reset the counter when the value is consistent
+		}
+		else {
+			// Increment the gaze shift counter and check if it exceeds the threshold
+			if (++GazeShiftCounter >= 5) {
+				bLastOnSurfValue = HighestTimestampGazeData.OnSurf;
+				GazeShiftCounter = 0;
+			}
+		}
+
+		return bLastOnSurfValue; // Return the current or updated value of OnSurf
 	}
+
+	// Handle the case when eye data retrieval is not enabled
 	return false;
 }
 
+
+float AEgoVehicle::GazeOnHUDTime()
+{
+	if (IsUserGazingOnHUD())
+	{
+		if (!bGazeTimerRunning)
+		{
+			GazeOnHUDTimestamp = FPlatformTime::Seconds();
+			bGazeTimerRunning = true;
+		}
+		return FPlatformTime::Seconds() - GazeOnHUDTimestamp;
+	}
+	bGazeTimerRunning = false;
+	return 0;
+}
 
 bool AEgoVehicle::EstablishEyeTrackerConnection() {
 	try {
@@ -24,13 +51,12 @@ bool AEgoVehicle::EstablishEyeTrackerConnection() {
 		EyeContext = new zmq::context_t(1);
 		std::string Address = "127.0.0.1";
 		std::string RequestPort = "50020";
-		int bCommSuccess = false; // Used for error handling
 		zmq::socket_t Requester(*EyeContext, ZMQ_REQ);
 		Requester.connect("tcp://" + Address + ":" + RequestPort);
 		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Connected to the eye-tracker TCP port"));
 
 		// Set send and recv timeout to 0 millisecond to have non-blocking behaviour
-		int timeout = 1;
+		int timeout = 100;
 		Requester.setsockopt(ZMQ_SNDTIMEO, &timeout, sizeof(timeout));
 		Requester.setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
 
@@ -113,7 +139,7 @@ bool AEgoVehicle::TerminateEyeTrackerConnection() {
 FVector2D AEgoVehicle::GetGazeHUDLocation() {
 	// Multiply the normalized coordinates to the game resolution (i.e., equivalent to the screen resolution)
 	// Note/WARNING: The screen resolution values are hard coded
-	if (bZMQEyeDataRetrive)
+	if (bZmqEyeDataRetrieve)
 	{
 		return FVector2D(HighestTimestampGazeData.NormPos[0], HighestTimestampGazeData.NormPos[1]);
 	}
@@ -130,8 +156,8 @@ FDcResult AEgoVehicle::GetSurfaceData() {
 	// Receive an update and update to a string
 	zmq::message_t Update;
 	if (!EyeSubscriber->recv(&Update)) {
-		bZMQEyeDataRetrive = false;
-		UE_LOG(LogTemp, Error, TEXT("ZeroMQ: Failed to receive update from subscriber"));
+		bZmqEyeDataRetrieve = false;
+		UE_LOG(LogTemp, Error, TEXT("ZeroMQ: Failed to receive update from eye tracker"));
 		return FDcResult{ FDcResult::EStatus::Error };
 	}
 	std::string Topic(static_cast<char*>(Update.data()), Update.size());
@@ -139,8 +165,8 @@ FDcResult AEgoVehicle::GetSurfaceData() {
 	// Receive a message from the server
 	zmq::message_t Message;
 	if (!EyeSubscriber->recv(&Message)) {
-		bZMQEyeDataRetrive = false;
-		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Failed to receive message from subscriber"));
+		bZmqEyeDataRetrieve = false;
+		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Failed to receive message from eye tracker"));
 		return FDcResult{ FDcResult::EStatus::Error };
 	}
 
@@ -163,13 +189,13 @@ FDcResult AEgoVehicle::GetSurfaceData() {
 	Ctx.Deserializer = &Deserializer;
 	DC_TRY(Ctx.Prepare());
 	DC_TRY(Deserializer.Deserialize(Ctx));
-	bZMQEyeDataRetrive = true;
+	bZmqEyeDataRetrieve = true;
 	return DcOk();
 }
 
 void AEgoVehicle::ParseGazeData() {
 	// Return if data was not retrieved from the eye-tracker
-	if (!bZMQEyeDataRetrive) {
+	if (!bZmqEyeDataRetrieve) {
 		return;
 	}
 

@@ -373,7 +373,7 @@ public:
 
 private: // Eye-tracking
     bool bZMQEyeConnection = false; // True if connection is established
-    bool bZMQEyeDataRetrive = false; // True if data is retrived from ZMQ
+    bool bZmqEyeDataRetrieve = false; // True if data is retrieved from ZMQ
     zmq::context_t* EyeContext;    // Stores the context of the zmq proccess
     zmq::socket_t* EyeSubscriber; // Pointer to the sub socket to listen to pupil labs software
     FSurfaceData SurfaceData; // Store all the data from the surface topic
@@ -408,7 +408,9 @@ public: // Eye-tracking
 private:
     float GazeOnHUDTimestamp; // Store the timestamp at which the driver starts looking at the HUD
     float bGazeTimerRunning = false; // Store whether the driver has been looking at the HUD
-    float GazeOnHUDTimeConstraint = 2.5;
+    bool bLastOnSurfValue = false; // Stores the last updated on surf value retrieved from the eye tracker
+    float GazeShiftCounter = 0; // This counter will be used to record number of times a certain boolean value is received, after which it considers an actual gaze shift
+    float GazeOnHUDTimeConstraint = 3; // Time after which alert is displayed in sys-recommended and sys-initiated modes
 
   private: // other
     UPROPERTY(Category = "Dash", EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
