@@ -31,8 +31,17 @@ void AEgoVehicle::StartNDRT() {
 		// Add randomly generated elements to NBackPrompts
 		for (int32 i = 0; i < TotalNBackTasks; i++)
 		{
-			TCHAR RandomChar = FMath::RandRange('A', 'Z');
-			FString SingleLetter = FString(1, &RandomChar);
+			// NOTE: A "MATCH" is generated 33.3% times and "MISMATCH" other times
+			FString SingleLetter;
+			if (FMath::FRand() < 1.0f/3.0f && i >= static_cast<int>(CurrentNValue))
+			{
+				SingleLetter = NBackPrompts[i - static_cast<int>(CurrentNValue)];
+			}
+			else
+			{
+				TCHAR RandomChar = FMath::RandRange('A', 'Z');
+				SingleLetter = FString(1, &RandomChar);
+			}
 			NBackPrompts.Add(SingleLetter);
 		}
 		// Set the first index letter on the HUD
@@ -485,11 +494,19 @@ void AEgoVehicle::NBackTaskTick()
 			}
 			else
 			{
-				// The driver still needs to finish/attend TOR, so add more tasks
 				for (int32 i = 0; i < 10; i++)
 				{
-					TCHAR RandomChar = FMath::RandRange('A', 'Z');
-					FString SingleLetter = FString(1, &RandomChar);
+					// NOTE: A "MATCH" is generated 33.3% times and "MISMATCH" other times
+					FString SingleLetter;
+					if (FMath::FRand() < 1.0f / 3.0f && i >= static_cast<int>(CurrentNValue))
+					{
+						SingleLetter = NBackPrompts[i - static_cast<int>(CurrentNValue)];
+					}
+					else
+					{
+						TCHAR RandomChar = FMath::RandRange('A', 'Z');
+						SingleLetter = FString(1, &RandomChar);
+					}
 					NBackPrompts.Add(SingleLetter);
 				}
 			}

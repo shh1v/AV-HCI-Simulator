@@ -136,14 +136,17 @@ void AEgoVehicle::ReadConfigVariables()
         if (TaskSetting.Equals(TEXT("One")))
         {
             CurrentNValue = NValue::One;
+            TotalNBackTasks = 40;
         }
         else if (TaskSetting.Equals(TEXT("Two")))
         {
             CurrentNValue = NValue::Two;
+            TotalNBackTasks = 30;
         }
         else if (TaskSetting.Equals(TEXT("Three")))
         {
             CurrentNValue = NValue::Three;
+            TotalNBackTasks = 20;
         }
     }
     else if (CurrTaskType == TaskType::TVShowTask)
