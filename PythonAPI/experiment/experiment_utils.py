@@ -561,14 +561,7 @@ class EyeTracking:
     clock_offset = None
 
     # Store all the topics so that they can be looped through
-    subscriber_topics = [# Surface mapping and fixation data
-                         "surfaces._HUD", "surfaces.RightMirror", "surfaces.LeftMirror", "surfaces.RearMirror",
-                         "surfaces.LeftMonitor", "surfaces.CenterMonitor", "surfaces.RightMonitor",
-                         # Pupil diameter data
-                         "pupil.0", "pupil.1",
-                         # Pupil blink data
-                         "blink"]
-
+    ordered_sub_topics = ["pupil.1.3d", "pupil.0.3d", "surfaces.RightMirror", "surfaces.LeftMirror", "surfaces.RearMirror", "surfaces.LeftMonitor", "surfaces.CenterMonitor", "surfaces.RightMonitor", "surfaces._HUD", "blinks"]
     # Variables that decide what to log
     log_interleaving_performance = False
     log_driving_performance = False
@@ -621,7 +614,7 @@ class EyeTracking:
             EyeTracking.pupil_socket.connect(f"tcp://{EyeTracking.pupil_addr}:{sub_port}")
 
             # Subscribe to all the required topics
-            for topic in EyeTracking.subscriber_topics:
+            for topic in EyeTracking.ordered_sub_topics:
                 EyeTracking.pupil_socket.setsockopt(zmq.SUBSCRIBE, topic.encode('utf-8'))
 
 
@@ -664,7 +657,7 @@ class EyeTracking:
         class EyeTrackerData: pass
 
         eye_tracker_data = EyeTrackerData()
-        for raw_var_name in EyeTracking.subscriber_topics:
+        for raw_var_name in EyeTracking.ordered_sub_topics:
             var_name = raw_var_name.replace(".", "_") + "_data"
             setattr(eye_tracker_data, var_name, None)
             
@@ -674,16 +667,43 @@ class EyeTracking:
             if EyeTracking.pupil_context is None or EyeTracking.pupil_socket is None:
                 EyeTracking.establish_eye_tracking_connection()
 
-            # Loop through all the topics and retrieve data
-            for _ in range(0, len(EyeTracking.subscriber_topics)):
+            # Loop until all the required data is received
+            pupil_data_retrieved = False
+            surface_data_receiving = False
+            data_retrival_index = -1
+
+            while True:
                 try:
                     # Get the data from the pupil network API
                     topic = EyeTracking.pupil_socket.recv_string(flags=zmq.NOBLOCK)
                     byte_message = EyeTracking.pupil_socket.recv(flags=zmq.NOBLOCK)
                     message_dict = loads(byte_message, raw=False)
-                    setattr(eye_tracker_data, topic.replace(".", "_") + "_data", message_dict)
+
+                    # Check where does the data stand in the ordered flow of data
+                    if data_retrival_index < EyeTracking.ordered_sub_topics.index(topic):
+                        # This means new data has been received that has not been received before
+                        setattr(eye_tracker_data, topic.replace(".", "_") + "_data", message_dict)
+                        data_retrival_index = EyeTracking.ordered_sub_topics.index(topic)
+
+                        # Update conditions if the index satisifes the conditions
+                        if data_retrival_index == 1: # Can be 0 or 1 when receving data for pupil.0/1
+                            pupil_data_retrieved = True # Pupil data is received
+                        elif data_retrival_index > 1: # Surface data is being received
+                            surface_data_receiving = True
+                    else:
+                        # Data of topic has been received before. Either this can be repeated data or data from the next cycle
+                        if pupil_data_retrieved and surface_data_receiving:
+                            # This means that all the data has been received. and we have reached next cycle
+                            break
+                        elif pupil_data_retrieved and not surface_data_receiving:
+                            # Since pupil data is received multiple times, this means that the data is repeated
+                            continue
+                        else:
+                            # This means that the data of lower index is received while we moved ahead
+                            raise Exception("Data of lower index is received while we moved ahead!")
                 except zmq.error.Again:
                     # This exception is raised on timeout
+                    print("WARNING: Did not receive any data from the eye tracker!")
                     pass
             
             # Get the common row elements for ease of use
@@ -703,7 +723,7 @@ class EyeTracking:
                 # Find out what surface is the driver looking at and get the required data
                 surfaces_with_eye_gaze = []
                 surfaces_with_fixations = []
-                for surface in EyeTracking.subscriber_topics:
+                for surface in EyeTracking.ordered_sub_topics:
                     if "surfaces" in surface:
                         surface_data = getattr(eye_tracker_data, surface.replace(".", "_") + "_data")
                         if surface_data is None:

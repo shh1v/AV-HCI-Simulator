@@ -15,7 +15,7 @@ req.connect("tcp://{}:{}".format(addr, req_port))
 # ask for the sub port
 req.send_string("SUB_PORT")
 sub_port = req.recv_string()
-
+    
 # open a sub port to listen to pupil
 sub = context.socket(zmq.SUB)
 sub.connect("tcp://{}:{}".format(addr, sub_port))
