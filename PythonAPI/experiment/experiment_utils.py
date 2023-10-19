@@ -520,13 +520,13 @@ class DrivingPerformance:
         curr_section_name = DrivingPerformance.config_file.sections()[DrivingPerformance.index]
         curr_section = DrivingPerformance.config_file[curr_section_name]
         match = re.match(r"(Block\d+)(Trial\d+)", curr_section_name)
-        common_row_elements = [gen_section["ParticipantID"],
-                               gen_section["InterruptionParadigm"],
+        common_row_elements = [gen_section["ParticipantID"].replace("\"", ""),
+                               gen_section["InterruptionParadigm"].replace("\"", ""),
                                match.group(1) if match else "UnknownBlock",
                                match.group(2) if match else "UnknownTrial",
-                               curr_section["NDRTTaskType"],
-                               curr_section["TaskSetting"],
-                               curr_section["Traffic"],
+                               curr_section["NDRTTaskType"].replace("\"", ""),
+                               curr_section["TaskSetting"].replace("\"", ""),
+                               curr_section["Traffic"].replace("\"", ""),
                                timestamp]
 
         # Store all the raw measurements in the dataframes
@@ -704,13 +704,13 @@ class EyeTracking:
             curr_section_name = EyeTracking.config_file.sections()[EyeTracking.index]
             curr_section = EyeTracking.config_file[curr_section_name]
             match = re.match(r"(Block\d+)(Trial\d+)", curr_section_name)
-            common_row_elements = [gen_section["ParticipantID"],
-                                gen_section["InterruptionParadigm"],
+            common_row_elements = [gen_section["ParticipantID"].replace("\"", ""),
+                                gen_section["InterruptionParadigm"].replace("\"", ""),
                                 match.group(1) if match else "UnknownBlock",
                                 match.group(2) if match else "UnknownTrial",
-                                curr_section["NDRTTaskType"],
-                                curr_section["TaskSetting"],
-                                curr_section["Traffic"]]
+                                curr_section["NDRTTaskType"].replace("\"", ""),
+                                curr_section["TaskSetting"].replace("\"", ""),
+                                curr_section["Traffic"].replace("\"", "")]
 
             if EyeTracking.log_interleaving_performance or EyeTracking.log_driving_performance:
                 # Find out what surface is the driver looking at and get the required data
