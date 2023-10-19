@@ -668,8 +668,6 @@ class EyeTracking:
                 EyeTracking.establish_eye_tracking_connection()
 
             # Loop until all the required data is received
-            pupil_data_retrieved = False
-            surface_data_receiving = False
             data_retrival_index = -1
 
             while True:
@@ -678,32 +676,24 @@ class EyeTracking:
                     topic = EyeTracking.pupil_socket.recv_string(flags=zmq.NOBLOCK)
                     byte_message = EyeTracking.pupil_socket.recv(flags=zmq.NOBLOCK)
                     message_dict = loads(byte_message, raw=False)
+                    print(f"Received new data for {topic}")
 
                     # Check where does the data stand in the ordered flow of data
-                    if data_retrival_index < EyeTracking.ordered_sub_topics.index(topic):
+                    # NOTE: pupil_0 and pupil_1 data is sent in randomized order
+                    if data_retrival_index <= 1 or data_retrival_index < EyeTracking.ordered_sub_topics.index(topic):
                         # This means new data has been received that has not been received before
                         setattr(eye_tracker_data, topic.replace(".", "_") + "_data", message_dict)
                         data_retrival_index = EyeTracking.ordered_sub_topics.index(topic)
-
-                        # Update conditions if the index satisifes the conditions
-                        if data_retrival_index == 1: # Can be 0 or 1 when receving data for pupil.0/1
-                            pupil_data_retrieved = True # Pupil data is received
-                        elif data_retrival_index > 1: # Surface data is being received
-                            surface_data_receiving = True
                     else:
                         # Data of topic has been received before. Either this can be repeated data or data from the next cycle
-                        if pupil_data_retrieved and surface_data_receiving:
-                            # This means that all the data has been received. and we have reached next cycle
+                        if data_retrival_index > 1:
+                            # This means that all the data has been received (at least of pupils and one or more surfaces). and we have reached next cycle
                             break
-                        elif pupil_data_retrieved and not surface_data_receiving:
-                            # Since pupil data is received multiple times, this means that the data is repeated
-                            continue
                         else:
                             # This means that the data of lower index is received while we moved ahead
-                            raise Exception("Data of lower index is received while we moved ahead!")
+                            raise Exception(f"Data of lower index {data_retrival_index} is received while we moved ahead to {EyeTracking.ordered_sub_topics.index(topic)}")
                 except zmq.error.Again:
                     # This exception is raised on timeout
-                    print("WARNING: Did not receive any data from the eye tracker!")
                     pass
             
             # Get the common row elements for ease of use
@@ -804,8 +794,8 @@ class EyeTracking:
                             pass
 
         # Mandatorily, log the pupil diameter data and blink data
-        right_eye_data = getattr(eye_tracker_data, "pupil_0_data")
-        left_eye_data = getattr(eye_tracker_data, "pupil_1_data")
+        right_eye_data = getattr(eye_tracker_data, "pupil_0_3d_data")
+        left_eye_data = getattr(eye_tracker_data, "pupil_1_3d_data")
         if right_eye_data is not None and left_eye_data is not None:
             sys_time = EyeTracking.convert_to_sys_time((right_eye_data["timestamp"] + left_eye_data["timestamp"])/2.0) # Calculate current time stamp
             if "diameter_3d" in right_eye_data.keys() and "diameter_3d" in left_eye_data.keys():
@@ -817,7 +807,7 @@ class EyeTracking:
         else:
             # print("WARNING: Right or left pupil data is unavailable!")
             pass
-        blink_data = getattr(eye_tracker_data, "blink_data")
+        blink_data = getattr(eye_tracker_data, "blinks_data")
         if blink_data is not None:
             sys_time = EyeTracking.convert_to_sys_time(blink_data["timestamp"]) # Calculate current time stamp
             EyeTracking.eye_blinks_df.loc[len(EyeTracking.eye_blinks_df)] = common_row_elements + [sys_time, blink_data["type"]]
