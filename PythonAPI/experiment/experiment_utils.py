@@ -160,6 +160,7 @@ class VehicleBehaviourSuite:
         if (VehicleBehaviourSuite.carla_subscriber_context == None or VehicleBehaviourSuite.carla_subscriber_socket == None):
             VehicleBehaviourSuite.carla_subscriber_context = zmq.Context()
             VehicleBehaviourSuite.carla_subscriber_socket = VehicleBehaviourSuite.carla_subscriber_context.socket(zmq.SUB)
+            VehicleBehaviourSuite.carla_subscriber_socket.setsockopt(zmq.CONFLATE, 1) # Setting conflate option to reduce overload
             VehicleBehaviourSuite.carla_subscriber_socket.setsockopt_string(zmq.SUBSCRIBE, "")
             VehicleBehaviourSuite.carla_subscriber_socket.setsockopt(zmq.RCVTIMEO, 1)  # 1 ms timeout
             VehicleBehaviourSuite.carla_subscriber_socket.connect("tcp://localhost:5556")
@@ -168,6 +169,7 @@ class VehicleBehaviourSuite:
         if (VehicleBehaviourSuite.scenario_runner_context == None or VehicleBehaviourSuite.scenario_runner_socket == None):
             VehicleBehaviourSuite.scenario_runner_context = zmq.Context()
             VehicleBehaviourSuite.scenario_runner_socket = VehicleBehaviourSuite.scenario_runner_context.socket(zmq.SUB)
+            VehicleBehaviourSuite.scenario_runner_socket.setsockopt(zmq.CONFLATE, 1) # Setting conflate option to reduce overload
             VehicleBehaviourSuite.scenario_runner_socket.setsockopt_string(zmq.SUBSCRIBE, "")
             VehicleBehaviourSuite.scenario_runner_socket.setsockopt(zmq.RCVTIMEO, 1)  # 1 ms timeout
             VehicleBehaviourSuite.scenario_runner_socket.connect("tcp://localhost:5557")
@@ -177,6 +179,7 @@ class VehicleBehaviourSuite:
             VehicleBehaviourSuite.publisher_context = zmq.Context()
             VehicleBehaviourSuite.publisher_socket = VehicleBehaviourSuite.publisher_context.socket(zmq.PUB)
             VehicleBehaviourSuite.publisher_socket.bind("tcp://*:5555")
+
 
     @staticmethod
     def send_vehicle_status(vehicle_status):
@@ -268,6 +271,7 @@ class VehicleBehaviourSuite:
         # Receive vehicle status from carla server and scenario runner
         carla_vehicle_status = VehicleBehaviourSuite.receive_carla_vehicle_status()
         scenario_runner_vehicle_status = VehicleBehaviourSuite.receive_scenario_runner_vehicle_status()
+        print("SR_recv:", scenario_runner_vehicle_status["vehicle_status"])
 
         # Check if there is not vehicle status conflicts. If there is a conflict, determine the correct vehicle status
         VehicleBehaviourSuite.previous_local_vehicle_status = VehicleBehaviourSuite.local_vehicle_status
@@ -676,7 +680,6 @@ class EyeTracking:
                     topic = EyeTracking.pupil_socket.recv_string(flags=zmq.NOBLOCK)
                     byte_message = EyeTracking.pupil_socket.recv(flags=zmq.NOBLOCK)
                     message_dict = loads(byte_message, raw=False)
-                    print(f"Received new data for {topic}")
 
                     # Check where does the data stand in the ordered flow of data
                     # NOTE: pupil_0 and pupil_1 data is sent in randomized order
