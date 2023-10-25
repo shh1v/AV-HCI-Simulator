@@ -271,21 +271,24 @@ class VehicleBehaviourSuite:
         # Receive vehicle status from carla server and scenario runner
         carla_vehicle_status = VehicleBehaviourSuite.receive_carla_vehicle_status()
         scenario_runner_vehicle_status = VehicleBehaviourSuite.receive_scenario_runner_vehicle_status()
-        print("SR_recv:", scenario_runner_vehicle_status["vehicle_status"])
 
-        # Check if there is not vehicle status conflicts. If there is a conflict, determine the correct vehicle status
+        # Check if there are no vehicle status conflicts. If there is a conflict, determine the correct vehicle status
+        # Furthermore, also store the timestamp of when the vehicle status changed (i.e., when the vehicle status is sent by the publisher)
+        sent_timestamp = None
         VehicleBehaviourSuite.previous_local_vehicle_status = VehicleBehaviourSuite.local_vehicle_status
         if VehicleBehaviourSuite.ordered_vehicle_status.index(carla_vehicle_status["vehicle_status"]) <= VehicleBehaviourSuite.ordered_vehicle_status.index(scenario_runner_vehicle_status["vehicle_status"]):
             # This means that scenario runner is sending a vehicle status that comes after in a trial procedure. Hence its the most up to date vehicle status
             # NOTE: There may be a chance that carla is sending unknown, and scenario runner is sending an old address. So, check for that
             if VehicleBehaviourSuite.ordered_vehicle_status.index(VehicleBehaviourSuite.local_vehicle_status) <= VehicleBehaviourSuite.ordered_vehicle_status.index(scenario_runner_vehicle_status["vehicle_status"]):
                 VehicleBehaviourSuite.local_vehicle_status = scenario_runner_vehicle_status["vehicle_status"]
+                sent_timestamp = scenario_runner_vehicle_status["timestamp"] # Store the timestamp of when the vehicle status changed
                 # If scenario runner has sent an updated vehicle status, let carla server know about it
                 VehicleBehaviourSuite.send_vehicle_status(scenario_runner_vehicle_status["vehicle_status"])
         else:
             # This means that carla server is sending a vehicle status that comes after in a trial procedure. Hence its the most up to date vehicle status
             # NOTE: There may be a chance that scenario runner is sending unknown, and carla is sending an old address. So, check for that
             if VehicleBehaviourSuite.ordered_vehicle_status.index(VehicleBehaviourSuite.local_vehicle_status) <= VehicleBehaviourSuite.ordered_vehicle_status.index(carla_vehicle_status["vehicle_status"]):
+                sent_timestamp = scenario_runner_vehicle_status["timestamp"] # Store the timestamp of when the vehicle status changed
                 VehicleBehaviourSuite.local_vehicle_status = carla_vehicle_status["vehicle_status"]
 
         # Get the ego vehicle as it is required to change the behaviour
@@ -296,7 +299,7 @@ class VehicleBehaviourSuite:
             # This means that the vehicle status has changed. Hence, execute the required behaviour
             if VehicleBehaviourSuite.local_vehicle_status == "Autopilot":
                 # Record the timestamp of the autopilot start
-                VehicleBehaviourSuite.autopilot_start_timestamp = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3]
+                VehicleBehaviourSuite.autopilot_start_timestamp = sent_timestamp
 
                 # Setting the metadata for the eye-tracker data
                 EyeTracking.set_configuration(config_file, index)
@@ -309,10 +312,10 @@ class VehicleBehaviourSuite:
                 EyeTracking.log_driving_performance = False
             elif VehicleBehaviourSuite.local_vehicle_status == "PreAlertAutopilot":
                 # Record the timestamp of the pre-alert autopilot start
-                VehicleBehaviourSuite.pre_alert_autopilot_start_timestamp = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3]
+                VehicleBehaviourSuite.pre_alert_autopilot_start_timestamp = sent_timestamp
             elif VehicleBehaviourSuite.local_vehicle_status == "TakeOver":
                 # Record the timestamp of the take over start
-                VehicleBehaviourSuite.take_over_start_timestamp = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3]
+                VehicleBehaviourSuite.take_over_start_timestamp = sent_timestamp
 
                 # Start measuring the driver's reaction time
                 DrivingPerformance.start_logging_reaction_time(True)
@@ -322,7 +325,7 @@ class VehicleBehaviourSuite:
                 EyeTracking.log_driving_performance = True
             elif VehicleBehaviourSuite.local_vehicle_status == "TakeOverManual":
                 # Record the timestamp of the take over manual start
-                VehicleBehaviourSuite.take_over_manual_start_timestamp = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3]
+                VehicleBehaviourSuite.take_over_manual_start_timestamp = sent_timestamp
 
                 # Set metadata for the driving performance data
                 DrivingPerformance.set_configuration(config_file, index)
@@ -334,7 +337,7 @@ class VehicleBehaviourSuite:
                 DrivingPerformance.start_logging_reaction_time(False)
             elif VehicleBehaviourSuite.local_vehicle_status == "ResumedAutopilot":
                 # Record the timestamp of the resumed autopilot start
-                VehicleBehaviourSuite.resumed_autopilot_start_timestamp = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3]
+                VehicleBehaviourSuite.resumed_autopilot_start_timestamp = sent_timestamp
 
                 # Stop logging the performance data and save it
                 VehicleBehaviourSuite.log_driving_performance_data = False
@@ -362,6 +365,9 @@ class VehicleBehaviourSuite:
                 # Finally, turn on the autopilot
                 ego_vehicle.set_autopilot(True, 8005)
             elif VehicleBehaviourSuite.local_vehicle_status == "TrialOver":
+                # Record the timestamp of the trial over
+                VehicleBehaviourSuite.trial_over_timestamp = sent_timestamp
+
                 # Turn off the autopilot now
                 ego_vehicle.set_autopilot(False, 8005)
 
@@ -552,7 +558,6 @@ class DrivingPerformance:
             DrivingPerformance.lane_offset_df.to_csv("DrivingData/lane_offset.csv", index=False)
         if DrivingPerformance.speed_df is not None:
             DrivingPerformance.speed_df.to_csv("DrivingData/speed.csv", index=False)
-
 
 class EyeTracking:
     # ZMQ variables
