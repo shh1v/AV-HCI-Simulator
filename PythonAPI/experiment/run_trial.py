@@ -53,7 +53,7 @@ def main(args):
             # Now, run the scenario runner
             command = [
                 'python', 'scenario_runner.py',
-                '--route', 'srunner/data/take_over_routes.xml', 'srunner/data/take_over_scenarios.json', '0',
+                '--route', 'srunner/data/take_over_routes.xml', 'srunner/data/traffic_complexity_{}.json'.format(config_file[section]["Traffic"].strip("\"")), '0',
                 '--agent', 'srunner/autoagents/npc_agent.py',
                 '--timeout', '5',
                 '--sync', '--output'
