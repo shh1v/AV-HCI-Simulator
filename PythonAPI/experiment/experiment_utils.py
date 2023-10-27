@@ -142,14 +142,6 @@ class VehicleBehaviourSuite:
     previous_local_vehicle_status = "Unknown"
     local_vehicle_status = "Unknown"
 
-    # Store all the timestamps of vehicle status phases
-    autopilot_start_timestamp = None
-    pre_alert_autopilot_start_timestamp = None
-    take_over_start_timestamp = None
-    take_over_manual_start_timestamp = None
-    resumed_autopilot_start_timestamp = None
-    trial_over_timestamp = None
-
     # log performance data variable
     log_driving_performance_data = False
     log_eye_data = False
@@ -160,6 +152,7 @@ class VehicleBehaviourSuite:
         if (VehicleBehaviourSuite.carla_subscriber_context == None or VehicleBehaviourSuite.carla_subscriber_socket == None):
             VehicleBehaviourSuite.carla_subscriber_context = zmq.Context()
             VehicleBehaviourSuite.carla_subscriber_socket = VehicleBehaviourSuite.carla_subscriber_context.socket(zmq.SUB)
+            VehicleBehaviourSuite.carla_subscriber_socket.setsockopt(zmq.CONFLATE, 1) # Setting conflate option to reduce overload
             VehicleBehaviourSuite.carla_subscriber_socket.setsockopt_string(zmq.SUBSCRIBE, "")
             VehicleBehaviourSuite.carla_subscriber_socket.setsockopt(zmq.RCVTIMEO, 1)  # 1 ms timeout
             VehicleBehaviourSuite.carla_subscriber_socket.connect("tcp://localhost:5556")
@@ -168,6 +161,7 @@ class VehicleBehaviourSuite:
         if (VehicleBehaviourSuite.scenario_runner_context == None or VehicleBehaviourSuite.scenario_runner_socket == None):
             VehicleBehaviourSuite.scenario_runner_context = zmq.Context()
             VehicleBehaviourSuite.scenario_runner_socket = VehicleBehaviourSuite.scenario_runner_context.socket(zmq.SUB)
+            VehicleBehaviourSuite.scenario_runner_socket.setsockopt(zmq.CONFLATE, 1) # Setting conflate option to reduce overload
             VehicleBehaviourSuite.scenario_runner_socket.setsockopt_string(zmq.SUBSCRIBE, "")
             VehicleBehaviourSuite.scenario_runner_socket.setsockopt(zmq.RCVTIMEO, 1)  # 1 ms timeout
             VehicleBehaviourSuite.scenario_runner_socket.connect("tcp://localhost:5557")
@@ -177,6 +171,7 @@ class VehicleBehaviourSuite:
             VehicleBehaviourSuite.publisher_context = zmq.Context()
             VehicleBehaviourSuite.publisher_socket = VehicleBehaviourSuite.publisher_context.socket(zmq.PUB)
             VehicleBehaviourSuite.publisher_socket.bind("tcp://*:5555")
+
 
     @staticmethod
     def send_vehicle_status(vehicle_status):
@@ -269,19 +264,23 @@ class VehicleBehaviourSuite:
         carla_vehicle_status = VehicleBehaviourSuite.receive_carla_vehicle_status()
         scenario_runner_vehicle_status = VehicleBehaviourSuite.receive_scenario_runner_vehicle_status()
 
-        # Check if there is not vehicle status conflicts. If there is a conflict, determine the correct vehicle status
+        # Check if there are no vehicle status conflicts. If there is a conflict, determine the correct vehicle status
+        # Furthermore, also store the timestamp of when the vehicle status changed (i.e., when the vehicle status is sent by the publisher)
+        sent_timestamp = None
         VehicleBehaviourSuite.previous_local_vehicle_status = VehicleBehaviourSuite.local_vehicle_status
         if VehicleBehaviourSuite.ordered_vehicle_status.index(carla_vehicle_status["vehicle_status"]) <= VehicleBehaviourSuite.ordered_vehicle_status.index(scenario_runner_vehicle_status["vehicle_status"]):
             # This means that scenario runner is sending a vehicle status that comes after in a trial procedure. Hence its the most up to date vehicle status
             # NOTE: There may be a chance that carla is sending unknown, and scenario runner is sending an old address. So, check for that
             if VehicleBehaviourSuite.ordered_vehicle_status.index(VehicleBehaviourSuite.local_vehicle_status) <= VehicleBehaviourSuite.ordered_vehicle_status.index(scenario_runner_vehicle_status["vehicle_status"]):
                 VehicleBehaviourSuite.local_vehicle_status = scenario_runner_vehicle_status["vehicle_status"]
+                sent_timestamp = scenario_runner_vehicle_status["timestamp"] # Store the timestamp of when the vehicle status changed
                 # If scenario runner has sent an updated vehicle status, let carla server know about it
                 VehicleBehaviourSuite.send_vehicle_status(scenario_runner_vehicle_status["vehicle_status"])
         else:
             # This means that carla server is sending a vehicle status that comes after in a trial procedure. Hence its the most up to date vehicle status
             # NOTE: There may be a chance that scenario runner is sending unknown, and carla is sending an old address. So, check for that
             if VehicleBehaviourSuite.ordered_vehicle_status.index(VehicleBehaviourSuite.local_vehicle_status) <= VehicleBehaviourSuite.ordered_vehicle_status.index(carla_vehicle_status["vehicle_status"]):
+                sent_timestamp = scenario_runner_vehicle_status["timestamp"] # Store the timestamp of when the vehicle status changed
                 VehicleBehaviourSuite.local_vehicle_status = carla_vehicle_status["vehicle_status"]
 
         # Get the ego vehicle as it is required to change the behaviour
@@ -292,7 +291,7 @@ class VehicleBehaviourSuite:
             # This means that the vehicle status has changed. Hence, execute the required behaviour
             if VehicleBehaviourSuite.local_vehicle_status == "Autopilot":
                 # Record the timestamp of the autopilot start
-                VehicleBehaviourSuite.autopilot_start_timestamp = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3]
+                CarlaPerformance.autopilot_start_timestamp = sent_timestamp
 
                 # Setting the metadata for the eye-tracker data
                 EyeTracking.set_configuration(config_file, index)
@@ -305,36 +304,36 @@ class VehicleBehaviourSuite:
                 EyeTracking.log_driving_performance = False
             elif VehicleBehaviourSuite.local_vehicle_status == "PreAlertAutopilot":
                 # Record the timestamp of the pre-alert autopilot start
-                VehicleBehaviourSuite.pre_alert_autopilot_start_timestamp = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3]
+                CarlaPerformance.pre_alert_autopilot_start_timestamp = sent_timestamp
             elif VehicleBehaviourSuite.local_vehicle_status == "TakeOver":
                 # Record the timestamp of the take over start
-                VehicleBehaviourSuite.take_over_start_timestamp = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3]
+                CarlaPerformance.take_over_start_timestamp = sent_timestamp
 
                 # Start measuring the driver's reaction time
-                DrivingPerformance.start_logging_reaction_time(True)
+                CarlaPerformance.start_logging_reaction_time(True)
 
                 # Change the eye-tracking logging behaviour
                 EyeTracking.log_interleaving_performance = False
                 EyeTracking.log_driving_performance = True
             elif VehicleBehaviourSuite.local_vehicle_status == "TakeOverManual":
                 # Record the timestamp of the take over manual start
-                VehicleBehaviourSuite.take_over_manual_start_timestamp = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3]
+                CarlaPerformance.take_over_manual_start_timestamp = sent_timestamp
 
                 # Set metadata for the driving performance data
-                DrivingPerformance.set_configuration(config_file, index)
+                CarlaPerformance.set_configuration(config_file, index)
 
                 # Start logging the performance data
                 VehicleBehaviourSuite.log_driving_performance_data = True
 
                 # Log the reaction time (by stopping the timer)
-                DrivingPerformance.start_logging_reaction_time(False)
+                CarlaPerformance.start_logging_reaction_time(False)
             elif VehicleBehaviourSuite.local_vehicle_status == "ResumedAutopilot":
                 # Record the timestamp of the resumed autopilot start
-                VehicleBehaviourSuite.resumed_autopilot_start_timestamp = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3]
+                CarlaPerformance.resumed_autopilot_start_timestamp = sent_timestamp
 
                 # Stop logging the performance data and save it
                 VehicleBehaviourSuite.log_driving_performance_data = False
-                DrivingPerformance.save_performance_data()
+                CarlaPerformance.save_performance_data()
 
                 # NOTE: Continue to record eye-tracking data to observe the aftereffects of take-over requests or task-switching.
                 # However, change the data logging behaviour
@@ -358,6 +357,12 @@ class VehicleBehaviourSuite:
                 # Finally, turn on the autopilot
                 ego_vehicle.set_autopilot(True, 8005)
             elif VehicleBehaviourSuite.local_vehicle_status == "TrialOver":
+                # Record the timestamp of the trial over
+                CarlaPerformance.trial_over_timestamp = sent_timestamp
+
+                # Save all the timestamps of the vehicle status phases
+                CarlaPerformance.save_timestamp_data()
+
                 # Turn off the autopilot now
                 ego_vehicle.set_autopilot(False, 8005)
 
@@ -376,7 +381,7 @@ class VehicleBehaviourSuite:
 
         # Log the driving performance data
         if VehicleBehaviourSuite.log_driving_performance_data:
-            DrivingPerformance.performance_tick(world, ego_vehicle)
+            CarlaPerformance.performance_tick(world, ego_vehicle)
         
         # Log the eye-tracking data
         if VehicleBehaviourSuite.log_eye_data:
@@ -390,7 +395,7 @@ class VehicleBehaviourSuite:
         This method is used to terminate the the whole trial
         """
         # Save driving performance data
-        DrivingPerformance.save_performance_data()
+        CarlaPerformance.save_performance_data()
 
         # TODO: Save eye-tracking performance data
 
@@ -426,7 +431,7 @@ class VehicleBehaviourSuite:
         # TODO: Reset all the eye-tracking performance variables
 
 
-class DrivingPerformance:
+class CarlaPerformance:
 
     # Class variables to store the reaction timestamps
     reaction_time_start_timestamp = None
@@ -437,7 +442,15 @@ class DrivingPerformance:
     index = -1
 
     # Header for all the metrics
-    common_header = ["ParticipantID", "InterruptionParadigm", "BlockNumber", "TrialNumber", "TaskType", "TaskSetting", "TrafficComplexity", "Timestamp"]
+    common_header = ["ParticipantID", "InterruptionParadigm", "BlockNumber", "TrialNumber", "TaskType", "TaskSetting", "TrafficComplexity"]
+
+    # Store all the timestamps of vehicle status phases
+    autopilot_start_timestamp = None
+    pre_alert_autopilot_start_timestamp = None
+    take_over_start_timestamp = None
+    take_over_manual_start_timestamp = None
+    resumed_autopilot_start_timestamp = None
+    trial_over_timestamp = None
 
     # Pandas dataframe to store the driving performance data
     reaction_time_df = None
@@ -446,41 +459,43 @@ class DrivingPerformance:
     steering_angles_df = None
     lane_offset_df = None
     speed_df = None
+    intervals_df = None
 
     # Storing map as get_map() is a heavy operation
     world_map = None
 
     @staticmethod
     def _init_dfs():
-        def init_or_load_dataframe(attribute_name, csv_name, column_suffix):
-            file_path = f"PerformanceData/{csv_name}.csv"
+        def init_or_load_dataframe(attribute_name, folder_name, csv_name, performance_cols):
+            file_path = f"{folder_name}/{csv_name}.csv"
             
             # Check if attribute already has a value
-            df = getattr(DrivingPerformance, attribute_name)
+            df = getattr(CarlaPerformance, attribute_name)
             
             # If the df attribute is None and CSV file exists, read the CSV file
             if df is None:
                 if os.path.exists(file_path):
-                    setattr(DrivingPerformance, attribute_name, pd.read_csv(file_path))
+                    setattr(CarlaPerformance, attribute_name, pd.read_csv(file_path))
                 else:
-                    columns = DrivingPerformance.common_header + [column_suffix]
-                    setattr(DrivingPerformance, attribute_name, pd.DataFrame(columns=columns))
+                    columns = CarlaPerformance.common_header + performance_cols
+                    setattr(CarlaPerformance, attribute_name, pd.DataFrame(columns=columns))
 
         # Call the function for each attribute
-        init_or_load_dataframe("reaction_time_df", "reaction_time", "ReactionTime")
-        init_or_load_dataframe("braking_input_df", "braking_input", "BrakingInput")
-        init_or_load_dataframe("throttle_input_df", "throttle_input", "AccelerationInput")
-        init_or_load_dataframe("steering_angles_df", "steering_angles", "SteeringAngle")
-        init_or_load_dataframe("lane_offset_df", "lane_offset", "LaneOffset")
-        init_or_load_dataframe("speed_df", "speed", "Speed")
+        init_or_load_dataframe("reaction_time_df", "PerformanceData", "reaction_time", ["Timestamp", "ReactionTime"])
+        init_or_load_dataframe("braking_input_df", "PerformanceData", "braking_input", ["Timestamp", "BrakingInput"])
+        init_or_load_dataframe("throttle_input_df", "PerformanceData", "throttle_input", ["Timestamp", "AccelerationInput"])
+        init_or_load_dataframe("steering_angles_df", "PerformanceData", "steering_angles", ["Timestamp", "SteeringAngle"])
+        init_or_load_dataframe("lane_offset_df", "PerformanceData", "lane_offset", ["Timestamp", "LaneOffset"])
+        init_or_load_dataframe("speed_df", "PerformanceData", "speed", ["Timestamp", "Speed"])
+        init_or_load_dataframe("intervals_df", "IntervalData", "interval_timestamps", ["Autopilot", "PreAlertAutopilot", "TakeOver", "TakeOverManual", "ResumedAutopilot", "TrialOver"])
 
     @staticmethod
     def start_logging_reaction_time(running):
-        if running and DrivingPerformance.reaction_time_start_timestamp is None:
-            DrivingPerformance.reaction_time_start_timestamp = time.time()
-        elif DrivingPerformance.reaction_time is None and DrivingPerformance.reaction_time_start_timestamp is not None:
-            DrivingPerformance.reaction_time = time.time() - DrivingPerformance.reaction_time_start_timestamp
-            if DrivingPerformance.reaction_time <= 0:
+        if running and CarlaPerformance.reaction_time_start_timestamp is None:
+            CarlaPerformance.reaction_time_start_timestamp = time.time()
+        elif CarlaPerformance.reaction_time is None and CarlaPerformance.reaction_time_start_timestamp is not None:
+            CarlaPerformance.reaction_time = time.time() - CarlaPerformance.reaction_time_start_timestamp
+            if CarlaPerformance.reaction_time <= 0:
                 raise Exception("Reaction time cannot be lte 0!")
         else:
             raise Exception("Reaction variables are not in the correct state!")
@@ -488,13 +503,13 @@ class DrivingPerformance:
     @staticmethod
     def set_configuration(config_file, index):
         # config is a dictionary with the required IV values set for the trial
-        DrivingPerformance.config_file = config_file
-        DrivingPerformance.index = index
+        CarlaPerformance.config_file = config_file
+        CarlaPerformance.index = index
 
     @staticmethod
     def performance_tick(world, ego_vehicle):
         # Initialize the dataframes if not already
-        DrivingPerformance._init_dfs()
+        CarlaPerformance._init_dfs()
 
         # Now, start logging the data of the ego vehicle
         vehicle_control = ego_vehicle.get_control()
@@ -507,29 +522,29 @@ class DrivingPerformance:
         steering_angle = vehicle_control.steer * 450 # NOTE: The logitech wheel can rotate 450 degrees on one side.
 
         # Make sure we have the map
-        DrivingPerformance.world_map = world.get_map() if DrivingPerformance.world_map is None else DrivingPerformance.world_map
+        CarlaPerformance.world_map = world.get_map() if CarlaPerformance.world_map is None else CarlaPerformance.world_map
 
-        lane_offset = vehicle_location.distance(DrivingPerformance.world_map.get_waypoint(vehicle_location).transform.location)
+        lane_offset = vehicle_location.distance(CarlaPerformance.world_map.get_waypoint(vehicle_location).transform.location)
 
         # Store the common elements for ease of use
-        gen_section = DrivingPerformance.config_file[DrivingPerformance.config_file.sections()[0]]
-        curr_section_name = DrivingPerformance.config_file.sections()[DrivingPerformance.index]
-        curr_section = DrivingPerformance.config_file[curr_section_name]
+        gen_section = CarlaPerformance.config_file[CarlaPerformance.config_file.sections()[0]]
+        curr_section_name = CarlaPerformance.config_file.sections()[CarlaPerformance.index]
+        curr_section = CarlaPerformance.config_file[curr_section_name]
         match = re.match(r"(Block\d+)(Trial\d+)", curr_section_name)
-        common_row_elements = [gen_section["ParticipantID"],
-                               gen_section["InterruptionParadigm"],
+        common_row_elements = [gen_section["ParticipantID"].replace("\"", ""),
+                               gen_section["InterruptionParadigm"].replace("\"", ""),
                                match.group(1) if match else "UnknownBlock",
                                match.group(2) if match else "UnknownTrial",
-                               curr_section["NDRTTaskType"],
-                               curr_section["TaskSetting"],
-                               curr_section["Traffic"],
+                               curr_section["NDRTTaskType"].replace("\"", ""),
+                               curr_section["TaskSetting"].replace("\"", ""),
+                               curr_section["Traffic"].replace("\"", ""),
                                timestamp]
 
         # Store all the raw measurements in the dataframes
-        DrivingPerformance.braking_input_df.loc[len(DrivingPerformance.braking_input_df)] = common_row_elements + [braking_input]
-        DrivingPerformance.throttle_input_df.loc[len(DrivingPerformance.throttle_input_df)] = common_row_elements + [throttle_input]
-        DrivingPerformance.steering_angles_df.loc[len(DrivingPerformance.steering_angles_df)] = common_row_elements + [steering_angle]
-        DrivingPerformance.lane_offset_df.loc[len(DrivingPerformance.lane_offset_df)] = common_row_elements + [lane_offset]
+        CarlaPerformance.braking_input_df.loc[len(CarlaPerformance.braking_input_df)] = common_row_elements + [braking_input]
+        CarlaPerformance.throttle_input_df.loc[len(CarlaPerformance.throttle_input_df)] = common_row_elements + [throttle_input]
+        CarlaPerformance.steering_angles_df.loc[len(CarlaPerformance.steering_angles_df)] = common_row_elements + [steering_angle]
+        CarlaPerformance.lane_offset_df.loc[len(CarlaPerformance.lane_offset_df)] = common_row_elements + [lane_offset]
     
     @staticmethod
     def save_performance_data():
@@ -538,18 +553,47 @@ class DrivingPerformance:
             os.makedirs("DrivingData")
 
         # Save the dataframes to the files only if they are initialized
-        if DrivingPerformance.braking_input_df is not None:
-            DrivingPerformance.braking_input_df.to_csv("DrivingData/braking_input.csv", index=False)
-        if DrivingPerformance.throttle_input_df is not None:
-            DrivingPerformance.throttle_input_df.to_csv("DrivingData/throttle_input.csv", index=False)
-        if DrivingPerformance.steering_angles_df is not None:
-            DrivingPerformance.steering_angles_df.to_csv("DrivingData/steering_angles.csv", index=False)
-        if DrivingPerformance.lane_offset_df is not None:
-            DrivingPerformance.lane_offset_df.to_csv("DrivingData/lane_offset.csv", index=False)
-        if DrivingPerformance.speed_df is not None:
-            DrivingPerformance.speed_df.to_csv("DrivingData/speed.csv", index=False)
+        if CarlaPerformance.braking_input_df is not None:
+            CarlaPerformance.braking_input_df.to_csv("DrivingData/braking_input.csv", index=False)
+        if CarlaPerformance.throttle_input_df is not None:
+            CarlaPerformance.throttle_input_df.to_csv("DrivingData/throttle_input.csv", index=False)
+        if CarlaPerformance.steering_angles_df is not None:
+            CarlaPerformance.steering_angles_df.to_csv("DrivingData/steering_angles.csv", index=False)
+        if CarlaPerformance.lane_offset_df is not None:
+            CarlaPerformance.lane_offset_df.to_csv("DrivingData/lane_offset.csv", index=False)
+        if CarlaPerformance.speed_df is not None:
+            CarlaPerformance.speed_df.to_csv("DrivingData/speed.csv", index=False)
 
+    @staticmethod
+    def save_timestamp_data():
+        # Ensure the directory exists
+        if not os.path.exists("IntervalData"):
+            os.makedirs("IntervalData")
+        
+        # Store the common elements for ease of use
+        gen_section = CarlaPerformance.config_file[CarlaPerformance.config_file.sections()[0]]
+        curr_section_name = CarlaPerformance.config_file.sections()[CarlaPerformance.index]
+        curr_section = CarlaPerformance.config_file[curr_section_name]
+        match = re.match(r"(Block\d+)(Trial\d+)", curr_section_name)
+        common_row_elements = [gen_section["ParticipantID"].replace("\"", ""),
+                               gen_section["InterruptionParadigm"].replace("\"", ""),
+                               match.group(1) if match else "UnknownBlock",
+                               match.group(2) if match else "UnknownTrial",
+                               curr_section["NDRTTaskType"].replace("\"", ""),
+                               curr_section["TaskSetting"].replace("\"", ""),
+                               curr_section["Traffic"].replace("\"", "")]
 
+        # Store all the the timestamps for this trial in the dataframe
+        CarlaPerformance.intervals_df.loc[len(CarlaPerformance.intervals_df)] = common_row_elements + [CarlaPerformance.autopilot_start_timestamp,
+                                                                                                       CarlaPerformance.pre_alert_autopilot_start_timestamp,
+                                                                                                       CarlaPerformance.take_over_start_timestamp,
+                                                                                                       CarlaPerformance.take_over_manual_start_timestamp,
+                                                                                                       CarlaPerformance.resumed_autopilot_start_timestamp,
+                                                                                                       CarlaPerformance.trial_over_timestamp]
+        
+        # Finally, save the dataframe
+        CarlaPerformance.intervals_df.to_csv("IntervalData/interval_timestamps.csv", index=False)
+        
 class EyeTracking:
     # ZMQ variables
     pupil_context = None
@@ -668,8 +712,6 @@ class EyeTracking:
                 EyeTracking.establish_eye_tracking_connection()
 
             # Loop until all the required data is received
-            pupil_data_retrieved = False
-            surface_data_receiving = False
             data_retrival_index = -1
 
             while True:
@@ -680,30 +722,21 @@ class EyeTracking:
                     message_dict = loads(byte_message, raw=False)
 
                     # Check where does the data stand in the ordered flow of data
-                    if data_retrival_index < EyeTracking.ordered_sub_topics.index(topic):
+                    # NOTE: pupil_0 and pupil_1 data is sent in randomized order
+                    if data_retrival_index <= 1 or data_retrival_index < EyeTracking.ordered_sub_topics.index(topic):
                         # This means new data has been received that has not been received before
                         setattr(eye_tracker_data, topic.replace(".", "_") + "_data", message_dict)
                         data_retrival_index = EyeTracking.ordered_sub_topics.index(topic)
-
-                        # Update conditions if the index satisifes the conditions
-                        if data_retrival_index == 1: # Can be 0 or 1 when receving data for pupil.0/1
-                            pupil_data_retrieved = True # Pupil data is received
-                        elif data_retrival_index > 1: # Surface data is being received
-                            surface_data_receiving = True
                     else:
                         # Data of topic has been received before. Either this can be repeated data or data from the next cycle
-                        if pupil_data_retrieved and surface_data_receiving:
-                            # This means that all the data has been received. and we have reached next cycle
+                        if data_retrival_index > 1:
+                            # This means that all the data has been received (at least of pupils and one or more surfaces). and we have reached next cycle
                             break
-                        elif pupil_data_retrieved and not surface_data_receiving:
-                            # Since pupil data is received multiple times, this means that the data is repeated
-                            continue
                         else:
                             # This means that the data of lower index is received while we moved ahead
-                            raise Exception("Data of lower index is received while we moved ahead!")
+                            raise Exception(f"Data of lower index {data_retrival_index} is received while we moved ahead to {EyeTracking.ordered_sub_topics.index(topic)}")
                 except zmq.error.Again:
                     # This exception is raised on timeout
-                    print("WARNING: Did not receive any data from the eye tracker!")
                     pass
             
             # Get the common row elements for ease of use
@@ -711,13 +744,13 @@ class EyeTracking:
             curr_section_name = EyeTracking.config_file.sections()[EyeTracking.index]
             curr_section = EyeTracking.config_file[curr_section_name]
             match = re.match(r"(Block\d+)(Trial\d+)", curr_section_name)
-            common_row_elements = [gen_section["ParticipantID"],
-                                gen_section["InterruptionParadigm"],
+            common_row_elements = [gen_section["ParticipantID"].replace("\"", ""),
+                                gen_section["InterruptionParadigm"].replace("\"", ""),
                                 match.group(1) if match else "UnknownBlock",
                                 match.group(2) if match else "UnknownTrial",
-                                curr_section["NDRTTaskType"],
-                                curr_section["TaskSetting"],
-                                curr_section["Traffic"]]
+                                curr_section["NDRTTaskType"].replace("\"", ""),
+                                curr_section["TaskSetting"].replace("\"", ""),
+                                curr_section["Traffic"].replace("\"", "")]
 
             if EyeTracking.log_interleaving_performance or EyeTracking.log_driving_performance:
                 # Find out what surface is the driver looking at and get the required data
@@ -804,8 +837,8 @@ class EyeTracking:
                             pass
 
         # Mandatorily, log the pupil diameter data and blink data
-        right_eye_data = getattr(eye_tracker_data, "pupil_0_data")
-        left_eye_data = getattr(eye_tracker_data, "pupil_1_data")
+        right_eye_data = getattr(eye_tracker_data, "pupil_0_3d_data")
+        left_eye_data = getattr(eye_tracker_data, "pupil_1_3d_data")
         if right_eye_data is not None and left_eye_data is not None:
             sys_time = EyeTracking.convert_to_sys_time((right_eye_data["timestamp"] + left_eye_data["timestamp"])/2.0) # Calculate current time stamp
             if "diameter_3d" in right_eye_data.keys() and "diameter_3d" in left_eye_data.keys():
@@ -817,7 +850,7 @@ class EyeTracking:
         else:
             # print("WARNING: Right or left pupil data is unavailable!")
             pass
-        blink_data = getattr(eye_tracker_data, "blink_data")
+        blink_data = getattr(eye_tracker_data, "blinks_data")
         if blink_data is not None:
             sys_time = EyeTracking.convert_to_sys_time(blink_data["timestamp"]) # Calculate current time stamp
             EyeTracking.eye_blinks_df.loc[len(EyeTracking.eye_blinks_df)] = common_row_elements + [sys_time, blink_data["type"]]
