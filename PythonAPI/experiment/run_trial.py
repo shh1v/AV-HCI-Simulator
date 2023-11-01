@@ -25,9 +25,16 @@ import logging
 
 def main(args):
     logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
+    
+    ############# HARD CODED CONFIGURATION FILE PATH #############
+    config_file_path = "D:/CarlaDReyeVR/carla/Unreal/CarlaUE4/Config/ExperimentConfig.ini"
+    ##############################################################
+
+    # Set the experiment configuration file based on the participant ID
+    participant_id = input("Enter participant ID: ").strip()
+    ExperimentHelper.copy_experiment_config(from_file_path=f'config_files/ExperimentConfig_{participant_id}.ini', to_file_path=config_file_path)
 
     # Get config file and read the contents of the file
-    config_file_path = "D:/CarlaDReyeVR/carla/Unreal/CarlaUE4/Config/ExperimentConfig.ini"
     config_file = ExperimentHelper.get_experiment_config(config_file=config_file_path)
 
     # Change directory to scenario runner
