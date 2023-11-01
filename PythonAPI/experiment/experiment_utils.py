@@ -110,8 +110,12 @@ class ExperimentHelper:
             for comment in comments:
                 file.write(comment)
             config.write(file, space_around_delimiters=False)
-
-
+    
+    @staticmethod
+    def copy_experiment_config(from_file_path, to_file_path):
+        with open(from_file_path, 'r') as from_file:
+            with open(to_file_path, 'w') as to_file:
+                to_file.write(from_file.read())
 
 class VehicleBehaviourSuite:
     """
