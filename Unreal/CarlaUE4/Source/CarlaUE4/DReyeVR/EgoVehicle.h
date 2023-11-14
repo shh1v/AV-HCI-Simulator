@@ -324,6 +324,8 @@ public:
     TArray<FString> NBackPrompts;   // Store the n-back task prompts in this array
     TArray<FString> NBackRecordedResponses; // Store the "considered" responses in this array
     TArray<FString> NBackResponseBuffer; // Store the n-back responses temporarily in this array. Then do post-analysis
+    float OneBackTimeLimit = 3.0; // Time limit for 1-back task (This will be used to define the other limits)
+    float NBackTrialStartTimestamp;
     UPROPERTY(Category = NBackNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* NBackLetter;
     UPROPERTY(Category = NBackNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))

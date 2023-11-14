@@ -38,9 +38,11 @@ float AEgoVehicle::GazeOnHUDTime()
 			GazeOnHUDTimestamp = FPlatformTime::Seconds();
 			bGazeTimerRunning = true;
 		}
+		LOG("Gaze on HUD timestamp called: %f", FPlatformTime::Seconds() - GazeOnHUDTimestamp);
 		return FPlatformTime::Seconds() - GazeOnHUDTimestamp;
 	}
 	bGazeTimerRunning = false;
+	LOG("Gaze on HUD timestamp called: 0");
 	return 0;
 }
 

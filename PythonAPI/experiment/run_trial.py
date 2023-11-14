@@ -31,7 +31,7 @@ def main(args):
     ##############################################################
 
     # Set the experiment configuration file based on the participant ID
-    participant_id = input("Enter participant ID: ").strip()
+    participant_id = input("Enter participant ID: ").strip().upper()
     ExperimentHelper.copy_experiment_config(from_file_path=f'config_files/ExperimentConfig_{participant_id}.ini', to_file_path=config_file_path)
 
     # Get config file and read the contents of the file

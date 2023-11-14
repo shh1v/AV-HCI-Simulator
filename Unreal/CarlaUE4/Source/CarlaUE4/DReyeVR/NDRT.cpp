@@ -46,6 +46,8 @@ void AEgoVehicle::StartNDRT() {
 		}
 		// Set the first index letter on the HUD
 		SetLetter(NBackPrompts[0]);
+		// Set the starting time stamp of the n-back task trial now
+		NBackTrialStartTimestamp = FPlatformTime::Seconds();
 		break;
 	case TaskType::TVShowTask:
 		// Retrive the media player material and the video source which will be used later to play the video
@@ -119,7 +121,11 @@ void AEgoVehicle::SetInteractivityOfNDRT(bool interactivity) {
 }
 
 void AEgoVehicle::TerminateNDRT() {
-	// Set the vehicle status to TrialOver
+	// This method assumes that whensoever its called, the trial is over
+	// NOTE: Change code structure if that is not intended behaviour
+	SetMessagePaneText(TEXT("Trial Over"), FColor::Black);
+
+	// Set the vehicle status to TrialOver, so that client can execute respective behaviour
 	UpdateVehicleStatus(VehicleStatus::TrialOver);
 
 	// TODO: Save all the NDRT performance data here if needed
@@ -433,11 +439,22 @@ void AEgoVehicle::RecordNBackInputs(bool BtnUp, bool BtnDown)
 void AEgoVehicle::NBackTaskTick()
 {
 	// Note: This method, we assume that NBackPrompts is already initialized with randomized letters
-	// Computation is only required when an input is given
-	if (NBackResponseBuffer.Num() > 0)
+	// There are two cases when computation is required.
+	// CASE 1: When an input is given
+	// CASE 2: When the time for an input has expired
+
+	bool HasTimeExpired = FPlatformTime::Seconds() - NBackTrialStartTimestamp >= OneBackTimeLimit + 2.0 * (static_cast<int>(CurrentNValue) - 1);
+	if (NBackResponseBuffer.Num() > 0 || HasTimeExpired)
 	{
-		// If multiple responses are given, just take account of the latest response
-		FString LatestResponse = NBackResponseBuffer.Last();
+		// If multiple responses are given (unlikely), just take account of the latest response
+		FString LatestResponse;
+		if (HasTimeExpired)
+		{
+			LatestResponse = "ND"; // No Data
+		} else
+		{
+			LatestResponse = NBackResponseBuffer.Last();
+		}
 
 		// Get the current game index
 		int32 CurrentGameIndex = NBackRecordedResponses.Num();
@@ -514,6 +531,9 @@ void AEgoVehicle::NBackTaskTick()
 		{
 			// Set the next letter if there are more prompts left
 			SetLetter(NBackPrompts[CurrentGameIndex + 1]);
+
+			// Since a new letter is set, update the time stamp
+			NBackTrialStartTimestamp = FPlatformTime::Seconds();
 		}
 	}
 }
