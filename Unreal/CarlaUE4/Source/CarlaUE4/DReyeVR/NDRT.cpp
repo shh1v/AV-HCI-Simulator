@@ -7,6 +7,8 @@
 #include "FileMediaSource.h"
 #include "MediaTexture.h"
 #include "MediaSoundComponent.h"
+#include "NBackProgressBar.h"
+#include "WidgetComponent.h"
 
 
 void AEgoVehicle::SetupNDRT() {
@@ -347,6 +349,11 @@ void AEgoVehicle::ConstructNBackElements() {
 	static ConstructorHelpers::FObjectFinder<UMaterial> NewMaterial(*MaterialPath);
 	NBackTitle->SetMaterial(0, NewMaterial.Object);
 
+	// Construct the progress bar for the n-back task trial
+	ProgressWidgetComponent = CreateDefaultSubobject<UWidgetComponent>(TEXT("N-back progress bar"));
+	ProgressWidgetComponent->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+
+
 	// Construct all the sounds for Logitech inputs
 	static ConstructorHelpers::FObjectFinder<USoundWave> CorrectSoundWave(
 		TEXT("SoundWave'/Game/NDRT/NBackTask/Sounds/CorrectNBackSound.CorrectNBackSound'"));
@@ -442,8 +449,10 @@ void AEgoVehicle::NBackTaskTick()
 	// There are two cases when computation is required.
 	// CASE 1: When an input is given
 	// CASE 2: When the time for an input has expired
+	const float TrialTimeLimit = OneBackTimeLimit + 2.0 * (static_cast<int>(CurrentNValue) - 1);
+	const bool HasTimeExpired = FPlatformTime::Seconds() - NBackTrialStartTimestamp >= TrialTimeLimit;
+	UpdateProgressBar(HasTimeExpired ? 0.f : (FPlatformTime::Seconds() - NBackTrialStartTimestamp) / TrialTimeLimit);
 
-	bool HasTimeExpired = FPlatformTime::Seconds() - NBackTrialStartTimestamp >= OneBackTimeLimit + 2.0 * (static_cast<int>(CurrentNValue) - 1);
 	if (NBackResponseBuffer.Num() > 0 || HasTimeExpired)
 	{
 		// If multiple responses are given (unlikely), just take account of the latest response
@@ -549,4 +558,17 @@ void AEgoVehicle::TVShowTaskTick()
 void AEgoVehicle::SetMessagePaneText(FString DisplayText, FColor TextColor) {
 	MessagePane->SetTextRenderColor(TextColor);
 	MessagePane->SetText(DisplayText);
+}
+
+void AEgoVehicle::UpdateProgressBar(float NewProgressValue)
+{
+	UUserWidget* UserWidget = ProgressWidgetComponent->GetUserWidgetObject();
+	if (UserWidget)
+	{
+		UNBackProgressBar* ProgressBarWidget = Cast<UNBackProgressBar>(UserWidget);
+		if (ProgressBarWidget)
+		{
+			ProgressBarWidget->SetProgress(NewProgressValue); // NewProgressValue between 0.0 and 1.0
+		}
+	}
 }

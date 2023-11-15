@@ -326,6 +326,9 @@ public:
     TArray<FString> NBackResponseBuffer; // Store the n-back responses temporarily in this array. Then do post-analysis
     float OneBackTimeLimit = 3.0; // Time limit for 1-back task (This will be used to define the other limits)
     float NBackTrialStartTimestamp;
+    UPROPERTY(VisibleAnywhere)
+    class UWidgetComponent* ProgressWidgetComponent; // Component that manipulates the progress bar for the n-bask task
+    void UpdateProgressBar(float NewProgressValue);
     UPROPERTY(Category = NBackNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* NBackLetter;
     UPROPERTY(Category = NBackNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
