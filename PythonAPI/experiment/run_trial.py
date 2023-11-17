@@ -45,7 +45,13 @@ def main(args):
     while index < len(sections):
         section = sections[index]
 
-        print(f"Scenario for trial {section} is prepared.")
+        print("=================================")
+        print(f"Trial [{section}] is configured.")
+        for key, value in config_file[section].items():
+            print(f"{key}: {value}")
+        print("=================================")
+
+        # Ask whether to run the current trial, go back to the previous trial, or skip the current trial
         action = get_prompt()
         
         if action == "previous":
@@ -57,35 +63,35 @@ def main(args):
             # First set the current block name in the configuration file
             ExperimentHelper.update_current_block(config_file_path, section)
 
-            # Now, run the scenario runner
-            command = [
-                'python', 'scenario_runner.py',
-                '--route', 'srunner/data/take_over_routes.xml', 'srunner/data/traffic_complexity_{}.json'.format(config_file[section]["Traffic"].strip("\"")), '0',
-                '--agent', 'srunner/autoagents/npc_agent.py',
-                '--timeout', '5',
-                '--sync', '--output'
-            ]
-            try:
-                # Start vehicle status check process
-                vehicle_status_process = multiprocessing.Process(target=vehicle_status_check, args=(args.host, args.port, args.worker_threads, config_file, index))
-                vehicle_status_process.start()
+            # Now, run the scenario runner if SkipSR is False
+            if config_file[section]["SkipSR"].strip("\"").lower() == "False":
+                command = [
+                    'python', 'scenario_runner.py',
+                    '--route', 'srunner/data/take_over_routes.xml', 'srunner/data/traffic_complexity_{}.json'.format(config_file[section]["Traffic"].strip("\"")), '0',
+                    '--agent', 'srunner/autoagents/npc_agent.py',
+                    '--timeout', '5',
+                    '--sync', '--output'
+                ]
+                try:
+                    # Start vehicle status check process
+                    vehicle_status_process = multiprocessing.Process(target=vehicle_status_check, args=(args.host, args.port, args.worker_threads, config_file, index))
+                    vehicle_status_process.start()
 
-                # Directly run the scenario in the main flow
-                subprocess.run(command, stderr=subprocess.STDOUT)
+                    # Directly run the scenario in the main flow
+                    subprocess.run(command, stderr=subprocess.STDOUT)
 
-                # Wait for the vehicle status process to terminate. This will be done when CARLA sends a signal that the trial is over.
-                vehicle_status_process.join()
+                    # Wait for the vehicle status process to terminate. This will be done when CARLA sends a signal that the trial is over.
+                    vehicle_status_process.join()
+                except (TypeError, ValueError, AttributeError) as e:      
+                    print(f"{type(e).__name__} occurred: {e}")
+                    print(traceback.format_exc())
+
+                except Exception as e:
+                    print(f"An unexpected error of type {type(e).__name__} occurred: {e}")
+                    print(traceback.format_exc())
+            
+            index += 1
                 
-                index += 1
-            except (TypeError, ValueError, AttributeError) as e:      
-                print(f"{type(e).__name__} occurred: {e}")
-                print(traceback.format_exc())
-
-            except Exception as e:
-                print(f"An unexpected error of type {type(e).__name__} occurred: {e}")
-                print(traceback.format_exc())
-                
-            # TODO: End the pupil recorder
 
 def vehicle_status_check(host, port, threads, config_file, index):
     try:

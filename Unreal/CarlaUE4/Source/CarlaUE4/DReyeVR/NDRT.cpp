@@ -130,7 +130,12 @@ void AEgoVehicle::TerminateNDRT() {
 	// Set the vehicle status to TrialOver, so that client can execute respective behaviour
 	UpdateVehicleStatus(VehicleStatus::TrialOver);
 
-	// TODO: Save all the NDRT performance data here if needed
+	// Save all the NDRT performance data here if needed
+
+	if (CurrTaskType == TaskType::NBackTask)
+	{
+		// 
+	}
 }
 
 
@@ -142,9 +147,39 @@ void AEgoVehicle::TickNDRT() {
 	// Before doing all the computation, first find out for how long has the driver been looking on the HUD
 	GazeOnHUDTime();
 
+	// Create a lambda function to call the tick method based on the NDRT set from configuration file
+	auto HandleTaskTick = [&]() {
+		switch (CurrTaskType)
+		{
+		case TaskType::NBackTask:
+			NBackTaskTick();
+			break;
+		case TaskType::TVShowTask:
+			TVShowTaskTick();
+			break;
+		default:
+			break;
+		}
+	};
+
+	// CASE: This is the test trial condition. In this case, the scenario runner is not executed, and the
+	// participant is only expected to engage in the NDRT task. Vehicle status is also irrelevant
+	if (ExperimentParams.Get<FString>(ExperimentParams.Get<FString>("General", "CurrentBlock"), "SkipSR").Equals("True"))
+	{
+		// Allow the driver to engage in NDRT without interruption to practice the task.
+		SetMessagePaneText(TEXT("Test Trial"), FColor::Black);
+		HandleTaskTick();
+		return;
+	}
+
 	// CASE: When NDRT engagement is disabled/not expected (during TORs or manual control)
 	if (CurrVehicleStatus == VehicleStatus::ManualDrive || CurrVehicleStatus == VehicleStatus::TrialOver)
 	{
+		if (CurrVehicleStatus == VehicleStatus::ManualDrive)
+		{
+			SetMessagePaneText(TEXT("Please Wait"), FColor::Black);
+		}
+
 		// This is the case when scenario runner has not kicked in. Just do nothing
 		// This means not allowing driver to interact with NDRT
 		return;
@@ -160,20 +195,6 @@ void AEgoVehicle::TickNDRT() {
 	}
 
 	// CASE: When the user is allowed to engage in NDRT
-	// Create a lambda function to call the tick method based on the NDRT set from configuration file
-	auto HandleTaskTick = [&]() {
-		switch (CurrTaskType)
-		{
-		case TaskType::NBackTask:
-			NBackTaskTick();
-			break;
-		case TaskType::TVShowTask:
-			TVShowTaskTick();
-			break;
-		default:
-			break;
-		}
-	};
 	// Simply compute the NDRT task when the vehicle is on autopilot
 	if (CurrVehicleStatus == VehicleStatus::Autopilot || CurrVehicleStatus == VehicleStatus::ResumedAutopilot)
 	{
