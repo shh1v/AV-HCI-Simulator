@@ -352,7 +352,7 @@ void AEgoVehicle::ConstructNBackElements() {
 	// Construct the progress bar for the n-back task trial
 	ProgressWidgetComponent = CreateDefaultSubobject<UWidgetComponent>(TEXT("N-back progress bar"));
 	ProgressWidgetComponent->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
-
+	UpdateProgressBar(0.3f); // Update the progress bar
 
 	// Construct all the sounds for Logitech inputs
 	static ConstructorHelpers::FObjectFinder<USoundWave> CorrectSoundWave(
@@ -568,7 +568,7 @@ void AEgoVehicle::UpdateProgressBar(float NewProgressValue)
 		UNBackProgressBar* ProgressBarWidget = Cast<UNBackProgressBar>(UserWidget);
 		if (ProgressBarWidget)
 		{
-			ProgressBarWidget->SetProgress(NewProgressValue); // NewProgressValue between 0.0 and 1.0
+			ProgressBarWidget->SetProgress(NewProgressValue);
 		}
 	}
 }
