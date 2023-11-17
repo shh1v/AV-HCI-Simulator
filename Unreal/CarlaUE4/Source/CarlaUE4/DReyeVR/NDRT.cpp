@@ -134,7 +134,43 @@ void AEgoVehicle::TerminateNDRT() {
 
 	if (CurrTaskType == TaskType::NBackTask)
 	{
-		// 
+		// Define the CSV file path
+		FString CSVFilePath = FPaths::Combine(CarlaUE4Path, FString::Printf(TEXT("NDRTPerformance/n_back.csv")));
+
+		// Check if the file exists, and if not, create it and write the header
+		if (!FPaths::FileExists(CSVFilePath))
+		{
+			FString Header = TEXT("ParticipantID,BlockNumber,TrialNumber,TaskType,TaskSetting,TrafficComplexity,Timestamp,NBackPrompt,NBackResponse\n");
+			FFileHelper::SaveStringToFile(Header, *CSVFilePath);
+		}
+
+		// Preparing the common row data
+		TArray<FString> CommonRowData = {
+			ExperimentParams.Get<FString>("General", "ParticipantID"),
+			ExperimentParams.Get<FString>("General", "CurrentBlock")
+		};
+		CommonRowData.Add(TEXT("1")); // Replace this with the actual trial number
+		CommonRowData.Add(ExperimentParams.Get<FString>(CommonRowData[1], "TaskType"));
+		CommonRowData.Add(ExperimentParams.Get<FString>(CommonRowData[1], "TaskSetting"));
+		CommonRowData.Add(ExperimentParams.Get<FString>(CommonRowData[1], "TrafficComplexity"));
+
+		// Now, iterate through all the NBack prompts and responses and write in the CSV file
+		check(NBackPrompts.Num() == NBackRecordedResponses.Num() && NBackPrompts.Num() == NBackResponseTimestamp.Num())
+
+		for (int32 i = 0; i < NBackPrompts.Num(); i++)
+		{
+			// Combine the common data with the specific data for this iteration
+			TArray<FString> RowData = CommonRowData;
+			RowData.Add(NBackResponseTimestamp[i]);
+			RowData.Add(NBackPrompts[i]);
+			RowData.Add(NBackRecordedResponses[i]);
+
+			// Convert the row data to a single comma-separated string
+			FString RowString = FString::Join(RowData, TEXT(","));
+
+			// Append this row to the CSV file
+			FFileHelper::SaveStringToFile(RowString + TEXT("\n"), *CSVFilePath, FFileHelper::EEncodingOptions::AutoDetect, &IFileManager::Get(), FILEWRITE_Append);
+		}
 	}
 }
 
@@ -480,7 +516,7 @@ void AEgoVehicle::NBackTaskTick()
 		FString LatestResponse;
 		if (HasTimeExpired)
 		{
-			LatestResponse = "ND"; // No Data
+			LatestResponse = "NR"; // No Response
 		} else
 		{
 			LatestResponse = NBackResponseBuffer.Last();
@@ -527,6 +563,13 @@ void AEgoVehicle::NBackTaskTick()
 
 		// Now, add the latest response to the array just for record
 		NBackRecordedResponses.Add(LatestResponse);
+
+		// Get the current timestamp and record it
+		FDateTime CurrentTime = FDateTime::Now();
+		FString TimestampWithoutMilliseconds = CurrentTime.ToString(TEXT("%d/%m/%Y %H:%M:%S"));
+		int32 Milliseconds = CurrentTime.GetMillisecond();
+		FString Timestamp = FString::Printf(TEXT("%s.%03d"), *TimestampWithoutMilliseconds, Milliseconds);
+		NBackResponseTimestamp.Add(Timestamp);
 
 		// We can now clear the response buffer
 		NBackResponseBuffer.Empty();

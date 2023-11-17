@@ -323,6 +323,7 @@ public:
     int32 TotalNBackTasks = 40; // Total trials of n-back task. Possibly Retrieve this value from the the configuration file.
     TArray<FString> NBackPrompts;   // Store the n-back task prompts in this array
     TArray<FString> NBackRecordedResponses; // Store the "considered" responses in this array
+    TArray<FString> NBackResponseTimestamp; // Store the timestamp of when the response was registered by the simulator
     TArray<FString> NBackResponseBuffer; // Store the n-back responses temporarily in this array. Then do post-analysis
     float OneBackTimeLimit = 3.0; // Time limit for 1-back task (This will be used to define the other limits)
     float NBackTrialStartTimestamp;
