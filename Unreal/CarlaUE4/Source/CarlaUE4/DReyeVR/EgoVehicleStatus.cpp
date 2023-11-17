@@ -24,8 +24,8 @@ bool AEgoVehicle::EstablishVehicleStatusConnection() {
 		VehicleStatusSubscriber = new zmq::socket_t(*VehicleStatusReceiveContext, ZMQ_SUB);
 		VehicleStatusPublisher = new zmq::socket_t(*VehicleStatusSendContext, ZMQ_PUB);
 
-		// Setting 1 ms recv timeout
-		const int timeout = 1;  // 1 ms
+		// Setting 0 ms recv timeout to have non-blocking behaviour
+		const int timeout = 1;  // 0 ms
 		VehicleStatusSubscriber->setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
 		// Setup default topic
 		VehicleStatusSubscriber->setsockopt(ZMQ_SUBSCRIBE, "", 0);
@@ -140,8 +140,8 @@ FDcResult AEgoVehicle::RetrieveVehicleStatus() {
 	if (VehicleStatusData.vehicle_status == "ManualDrive") {
 		CurrVehicleStatus = VehicleStatus::ManualDrive;
 	}
-	else if (VehicleStatusData.vehicle_status == "AutoPilot") {
-		CurrVehicleStatus = VehicleStatus::AutoPilot;
+	else if (VehicleStatusData.vehicle_status == "Autopilot") {
+		CurrVehicleStatus = VehicleStatus::Autopilot;
 	}
 	else if (VehicleStatusData.vehicle_status == "PreAlertAutopilot") {
 		CurrVehicleStatus = VehicleStatus::PreAlertAutopilot;
@@ -155,6 +155,9 @@ FDcResult AEgoVehicle::RetrieveVehicleStatus() {
 	}
 	else if (VehicleStatusData.vehicle_status == "ResumedAutopilot") {
 		CurrVehicleStatus = VehicleStatus::ResumedAutopilot;
+	}
+	else if (VehicleStatusData.vehicle_status == "TrialOver") {
+		CurrVehicleStatus = VehicleStatus::TrialOver;
 	}
 	else {
 		CurrVehicleStatus = VehicleStatus::Unknown;
@@ -170,8 +173,8 @@ void AEgoVehicle::UpdateVehicleStatus(VehicleStatus NewStatus)
 	case VehicleStatus::ManualDrive:
 		VehicleStatusString = FString("ManualDrive");
 		break;
-	case VehicleStatus::AutoPilot:
-		VehicleStatusString = FString("AutoPilot");
+	case VehicleStatus::Autopilot:
+		VehicleStatusString = FString("Autopilot");
 		break;
 	case VehicleStatus::PreAlertAutopilot:
 		VehicleStatusString = FString("PreAlertAutopilot");
@@ -184,6 +187,9 @@ void AEgoVehicle::UpdateVehicleStatus(VehicleStatus NewStatus)
 		break;
 	case VehicleStatus::ResumedAutopilot:
 		VehicleStatusString = FString("ResumedAutopilot");
+		break;
+	case VehicleStatus::TrialOver:
+		VehicleStatusString = FString("TrialOver");
 		break;
 	default:
 		VehicleStatusString = FString("Unknown");
@@ -236,8 +242,8 @@ void AEgoVehicle::SendCurrVehicleStatus()
 	case VehicleStatus::ManualDrive:
 		VehicleStatusString = FString("ManualDrive");
 		break;
-	case VehicleStatus::AutoPilot:
-		VehicleStatusString = FString("AutoPilot");
+	case VehicleStatus::Autopilot:
+		VehicleStatusString = FString("Autopilot");
 		break;
 	case VehicleStatus::PreAlertAutopilot:
 		VehicleStatusString = FString("PreAlertAutopilot");
@@ -250,6 +256,9 @@ void AEgoVehicle::SendCurrVehicleStatus()
 		break;
 	case VehicleStatus::ResumedAutopilot:
 		VehicleStatusString = FString("ResumedAutopilot");
+		break;
+	case VehicleStatus::TrialOver:
+		VehicleStatusString = FString("TrialOver");
 		break;
 	default:
 		VehicleStatusString = FString("Unknown");
@@ -281,9 +290,6 @@ void AEgoVehicle::SendCurrVehicleStatus()
 		memcpy(Message.data(), DictStdString.c_str(), DictStdString.size());
 
 		VehicleStatusPublisher->send(Message);
-
-		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Sent message: %s"), *DictFString);
-
 	}
 	catch (...) {
 		UE_LOG(LogTemp, Error, TEXT("ZeroMQ: Failed to send message."));

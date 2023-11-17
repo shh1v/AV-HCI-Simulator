@@ -126,7 +126,7 @@ class ADReyeVRPawn : public APawn
     void InitLogiWheel();
     void TickLogiWheel();
     void DestroyLogiWheel(bool DestroyModule);
-    bool bLogLogitechWheel = false;
+    bool bLogLogitechWheel = true;
     float LogiThresh = 0.02f;      // threshold for change needed to overtake AI controls.
     int SaturationPercentage = 30; // "Level of saturation... comparable to a magnitude"
     int WheelDeviceIdx = 0;        // usually leaving as 0 is fine, only use 1 if 0 is taken
@@ -147,5 +147,5 @@ class ADReyeVRPawn : public APawn
 
 private:
     ////////////////:LOGGING:////////////////
-    DataLogger *Logger; // DataLogger Object to run loggin operations
+    //DataLogger *Logger; // DataLogger Object to run logging operations; now handled by client side
 };

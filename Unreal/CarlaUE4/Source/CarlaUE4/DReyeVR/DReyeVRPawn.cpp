@@ -24,7 +24,7 @@ ADReyeVRPawn::ADReyeVRPawn(const FObjectInitializer &ObjectInitializer) : Super(
     ConstructCamera();
 
     // Inializing logging operator
-    Logger = new DataLogger();
+    //Logger = new DataLogger(); // This is now being handled by client side
 
     // log
     LOG("Spawning DReyeVR pawn for player0");
@@ -510,8 +510,7 @@ void ADReyeVRPawn::LogitechWheelUpdate()
     // -1 = not pressed. 0 = Top. 0.25 = Right. 0.5 = Bottom. 0.75 = Left.
     const float Dpad = fabs(((WheelState->rgdwPOV[0] - 32767.0f) / (65535.0f)));
 
-    // First of all, the vehicle status needs to be retrived
-    EgoVehicle->RetrieveVehicleStatus();
+    // NOTE: The vehicle status is already retrieved in NDRTTick(). No need to do it here again.
 
     // weird behaviour: "Pedals will output a value of 0.5 until the wheel/pedals receive any kind of input"
     // as per https://github.com/HARPLab/LogitechWheelPlugin
@@ -525,13 +524,14 @@ void ADReyeVRPawn::LogitechWheelUpdate()
         {
             bPedalsDefaulting = false;
         }
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("WARNING: Pedals defaulting"));
+        // GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("WARNING: Pedals defaulting"));
 
     }
     else
     {
         // Calculate the threshold change once
-        bool bThreshChange = !FMath::IsNearlyEqual(WheelRotation, WheelRotationLast, LogiThresh) ||
+        // NOTE: Specifically increased the sensitivity of steering wheel due to force feedback feature
+        bool bThreshChange = !FMath::IsNearlyEqual(WheelRotation, WheelRotationLast, LogiThresh * 0.5f) ||
             !FMath::IsNearlyEqual(AccelerationPedal, AccelerationPedalLast, LogiThresh) ||
             !FMath::IsNearlyEqual(BrakePedal, BrakePedalLast, LogiThresh);
 
@@ -599,7 +599,9 @@ void ADReyeVRPawn::ManageButtonPresses(const DIJOYSTATE2 &WheelState)
     const bool bPositive = static_cast<bool>(WheelState.rgbButtons[19]);
     const bool bNegative = static_cast<bool>(WheelState.rgbButtons[20]);
 
-    EgoVehicle->CameraPositionAdjust(bDPad_Up, bDPad_Right, bDPad_Down, bDPad_Left, bPositive, bNegative);
+    // Record the up and down joystick click events for the n-back task type
+    EgoVehicle->RecordNBackInputs(bDPad_Up, bDPad_Down);
+
     EgoVehicle->UpdateWheelButton(EgoVehicle->Button_DPad_Up, bDPad_Up);
     EgoVehicle->UpdateWheelButton(EgoVehicle->Button_DPad_Right, bDPad_Right);
     EgoVehicle->UpdateWheelButton(EgoVehicle->Button_DPad_Left, bDPad_Left);

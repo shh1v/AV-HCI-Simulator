@@ -25,10 +25,19 @@ import logging
 
 def main(args):
     logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
+    
+    ############# HARD CODED CONFIGURATION FILE PATH #############
+    config_file_path = "D:/CarlaDReyeVR/carla/Unreal/CarlaUE4/Config/ExperimentConfig.ini"
+    ##############################################################
 
-    config_file_path = "../../Unreal/CarlaUE4/Config/ExperimentConfig.ini"
+    # Set the experiment configuration file based on the participant ID
+    participant_id = input("Enter participant ID: ").strip().upper()
+    ExperimentHelper.copy_experiment_config(from_file_path=f'config_files/ExperimentConfig_{participant_id}.ini', to_file_path=config_file_path)
+
+    # Get config file and read the contents of the file
     config_file = ExperimentHelper.get_experiment_config(config_file=config_file_path)
 
+    # Change directory to scenario runner
     os.chdir("../../../scenario_runner")
 
     index = 1
@@ -36,7 +45,13 @@ def main(args):
     while index < len(sections):
         section = sections[index]
 
-        print(f"Scenario for trial {section} is prepared.")
+        print("=================================")
+        print(f"Trial [{section}] is configured.")
+        for key, value in config_file[section].items():
+            print(f"{key}: {value}")
+        print("=================================")
+
+        # Ask whether to run the current trial, go back to the previous trial, or skip the current trial
         action = get_prompt()
         
         if action == "previous":
@@ -45,32 +60,38 @@ def main(args):
             index += 1
             continue
         else: # current
-            command = [
-                'python', 'scenario_runner.py',
-                '--route', 'srunner/data/take_over_routes_debug.xml', 'srunner/data/take_over_scenarios.json',
-                '--agent', 'srunner/autoagents/npc_agent.py',
-                '--timeout', '5',
-                '--sync', '--output'
-            ]
-        try:
-            # Start vehicle status check process
-            vehicle_status_process = multiprocessing.Process(target=vehicle_status_check, args=(args.host, args.port, args.worker_threads, config_file, index))
-            vehicle_status_process.start()
+            # First set the current block name in the configuration file
+            ExperimentHelper.update_current_block(config_file_path, section)
 
-            # Directly run the scenario in the main flow
-            subprocess.run(command, stderr=subprocess.STDOUT)
+            # Now, run the scenario runner if SkipSR is False
+            if config_file[section]["SkipSR"].strip("\"").lower() == "False":
+                command = [
+                    'python', 'scenario_runner.py',
+                    '--route', 'srunner/data/take_over_routes.xml', 'srunner/data/traffic_complexity_{}.json'.format(config_file[section]["Traffic"].strip("\"")), '0',
+                    '--agent', 'srunner/autoagents/npc_agent.py',
+                    '--timeout', '5',
+                    '--sync', '--output'
+                ]
+                try:
+                    # Start vehicle status check process
+                    vehicle_status_process = multiprocessing.Process(target=vehicle_status_check, args=(args.host, args.port, args.worker_threads, config_file, index))
+                    vehicle_status_process.start()
 
-            # Wait for the vehicle status process to terminate. This will be done when CARLA sends a signal that the trial is over.
-            vehicle_status_process.join()
+                    # Directly run the scenario in the main flow
+                    subprocess.run(command, stderr=subprocess.STDOUT)
+
+                    # Wait for the vehicle status process to terminate. This will be done when CARLA sends a signal that the trial is over.
+                    vehicle_status_process.join()
+                except (TypeError, ValueError, AttributeError) as e:      
+                    print(f"{type(e).__name__} occurred: {e}")
+                    print(traceback.format_exc())
+
+                except Exception as e:
+                    print(f"An unexpected error of type {type(e).__name__} occurred: {e}")
+                    print(traceback.format_exc())
             
             index += 1
-        except (TypeError, ValueError, AttributeError) as e:      
-            print(f"{type(e).__name__} occurred: {e}")
-            print(traceback.format_exc())
-
-        except Exception as e:
-            print(f"An unexpected error of type {type(e).__name__} occurred: {e}")
-            print(traceback.format_exc())
+                
 
 def vehicle_status_check(host, port, threads, config_file, index):
     try:
@@ -85,15 +106,13 @@ def vehicle_status_check(host, port, threads, config_file, index):
 
         # Start checking vehicle status and behaviour
         while True:
-            # Wait for the simulation to tick
-            world.wait_for_tick()
-
             # Check the vehicle status and execute any required behaviour. Also return a bool that tells you if the trial is over.
             trial_status = VehicleBehaviourSuite.vehicle_status_tick(client, world, config_file, index)
 
             # If the trial is over, terminate the process
             if not trial_status:
                 break
+            
     except Exception as e:
         print("Exception occurred in vehicle status check thread:", e)
         print(traceback.format_exc())

@@ -9,13 +9,42 @@
 #include "Deserialize/DcDeserializerSetup.h"		// EDcMsgPackDeserializeType
 
 bool AEgoVehicle::IsUserGazingOnHUD() {
-	if (bZMQEyeDataRetrive)
-	{
-		return HighestTimestampGazeData.OnSurf;
+	if (bZmqEyeDataRetrieve) {
+		if (bLastOnSurfValue == HighestTimestampGazeData.OnSurf) {
+			GazeShiftCounter = 0; // Reset the counter when the value is consistent
+		}
+		else {
+			// Increment the gaze shift counter and check if it exceeds the threshold
+			if (++GazeShiftCounter >= 5) {
+				bLastOnSurfValue = HighestTimestampGazeData.OnSurf;
+				GazeShiftCounter = 0;
+			}
+		}
+
+		return bLastOnSurfValue; // Return the current or updated value of OnSurf
 	}
+
+	// Handle the case when eye data retrieval is not enabled
 	return false;
 }
 
+
+float AEgoVehicle::GazeOnHUDTime()
+{
+	if (IsUserGazingOnHUD())
+	{
+		if (!bGazeTimerRunning)
+		{
+			GazeOnHUDTimestamp = FPlatformTime::Seconds();
+			bGazeTimerRunning = true;
+		}
+		LOG("Gaze on HUD timestamp called: %f", FPlatformTime::Seconds() - GazeOnHUDTimestamp);
+		return FPlatformTime::Seconds() - GazeOnHUDTimestamp;
+	}
+	bGazeTimerRunning = false;
+	LOG("Gaze on HUD timestamp called: 0");
+	return 0;
+}
 
 bool AEgoVehicle::EstablishEyeTrackerConnection() {
 	try {
@@ -24,13 +53,12 @@ bool AEgoVehicle::EstablishEyeTrackerConnection() {
 		EyeContext = new zmq::context_t(1);
 		std::string Address = "127.0.0.1";
 		std::string RequestPort = "50020";
-		int bCommSuccess = false; // Used for error handling
 		zmq::socket_t Requester(*EyeContext, ZMQ_REQ);
 		Requester.connect("tcp://" + Address + ":" + RequestPort);
 		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Connected to the eye-tracker TCP port"));
 
-		// Set send and recv timeout to 1 millisecond.
-		int timeout = 1;
+		// Set send and recv timeout to 0 millisecond to have non-blocking behaviour
+		int timeout = 100;
 		Requester.setsockopt(ZMQ_SNDTIMEO, &timeout, sizeof(timeout));
 		Requester.setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
 
@@ -51,7 +79,7 @@ bool AEgoVehicle::EstablishEyeTrackerConnection() {
 		// Setup the Subscriber socket
 		EyeSubscriber = new zmq::socket_t(*EyeContext, ZMQ_SUB);
 
-		// Setting 1 ms recv timeout
+		// Setting o ms recv timeout to have non-blocking behaviour
 		EyeSubscriber->setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
 
 		// Connecting
@@ -113,7 +141,7 @@ bool AEgoVehicle::TerminateEyeTrackerConnection() {
 FVector2D AEgoVehicle::GetGazeHUDLocation() {
 	// Multiply the normalized coordinates to the game resolution (i.e., equivalent to the screen resolution)
 	// Note/WARNING: The screen resolution values are hard coded
-	if (bZMQEyeDataRetrive)
+	if (bZmqEyeDataRetrieve)
 	{
 		return FVector2D(HighestTimestampGazeData.NormPos[0], HighestTimestampGazeData.NormPos[1]);
 	}
@@ -123,15 +151,15 @@ FVector2D AEgoVehicle::GetGazeHUDLocation() {
 FDcResult AEgoVehicle::GetSurfaceData() {
 	// Note: using raw C++ types in the following code as it does not interact with UE interface
 	// Establish connection if not already
-	if (!bZMQEyeConnection) {
+	if (!bZMQEyeConnection && !EstablishEyeTrackerConnection()) {
 		return FDcResult{ FDcResult::EStatus::Error };
 	}
 
 	// Receive an update and update to a string
 	zmq::message_t Update;
 	if (!EyeSubscriber->recv(&Update)) {
-		bZMQEyeDataRetrive = false;
-		UE_LOG(LogTemp, Error, TEXT("ZeroMQ: Failed to receive update from subscriber"));
+		bZmqEyeDataRetrieve = false;
+		UE_LOG(LogTemp, Error, TEXT("ZeroMQ: Failed to receive update from eye tracker"));
 		return FDcResult{ FDcResult::EStatus::Error };
 	}
 	std::string Topic(static_cast<char*>(Update.data()), Update.size());
@@ -139,8 +167,8 @@ FDcResult AEgoVehicle::GetSurfaceData() {
 	// Receive a message from the server
 	zmq::message_t Message;
 	if (!EyeSubscriber->recv(&Message)) {
-		bZMQEyeDataRetrive = false;
-		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Failed to receive message from subscriber"));
+		bZmqEyeDataRetrieve = false;
+		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Failed to receive message from eye tracker"));
 		return FDcResult{ FDcResult::EStatus::Error };
 	}
 
@@ -163,79 +191,51 @@ FDcResult AEgoVehicle::GetSurfaceData() {
 	Ctx.Deserializer = &Deserializer;
 	DC_TRY(Ctx.Prepare());
 	DC_TRY(Deserializer.Deserialize(Ctx));
-	bZMQEyeDataRetrive = true;
+	bZmqEyeDataRetrieve = true;
 	return DcOk();
 }
 
-void AEgoVehicle::ParseGazeData(FString GazeDataString) {
-	// Return if data was not retrived from the eye-tracker
-	if (!bZMQEyeDataRetrive) {
+void AEgoVehicle::ParseGazeData() {
+	// Return if data was not retrieved from the eye-tracker
+	if (!bZmqEyeDataRetrieve) {
 		return;
 	}
 
-	float HighestTimestamp = -1.0f;
-	// Remove the square brackets in the strings
-	GazeDataString = GazeDataString.Mid(1, GazeDataString.Len() - 2);
+	FString GazeDataString = SurfaceData.gaze_on_surfaces;
 
-	// Split the FString into individual gaze data entries
-	TArray<FString> GazeDataEntries;
-	GazeDataString.ParseIntoArray(GazeDataEntries, TEXT("}, "), true);
+	// Extract the last data entry (as the last entry is the relevant one)
+	int32 LastOpenBrace = GazeDataString.Find(TEXT("{"), ESearchCase::IgnoreCase, ESearchDir::FromEnd);
+	FString GazeEntry = GazeDataString.Mid(LastOpenBrace);
 
-	for (FString Entry : GazeDataEntries) {
-		LOG("Working on the gaze entry: %s", *Entry);
-		Entry = Entry.Replace(TEXT("{"), TEXT(""));
+	FTypedGazeData GazeData;
 
-		FTypedGazeData GazeData;
-		TArray<FString> KeyValuePairs;
-		Entry.ParseIntoArray(KeyValuePairs, TEXT(", '"), true);
-
-		for (FString KeyValuePair : KeyValuePairs) {
-			KeyValuePair = KeyValuePair.Replace(TEXT("'"), TEXT(""));
-			LOG("Entry: %s, KeyValuePair: %s", *Entry, *KeyValuePair);
-
-			TArray<FString> KeyAndValue;
-			KeyValuePair.ParseIntoArray(KeyAndValue, TEXT(": "), true);
-			if (KeyAndValue.Num() == 2) {
-				FString Key = KeyAndValue[0].TrimStartAndEnd();
-				FString Value = KeyAndValue[1].TrimStartAndEnd();
-
-				if (Key == TEXT("topic")) {
-					GazeData.Topic = Value.TrimQuotes();
-				}
-				else if (Key == TEXT("norm_pos")) {
-					// Remove the paranthesis in the key
-					Value = Value.Mid(1, Value.Len() - 2);
-					TArray<FString> NormPosValues;
-					Value.ParseIntoArray(NormPosValues, TEXT(", "), true);
-					for (FString NormPosValue : NormPosValues) {
-						LOG("NormPosValue: %s", *NormPosValue);
-						GazeData.NormPos.Add(FCString::Atof(*NormPosValue));
-					}
-				}
-				else if (Key == TEXT("confidence")) {
-					GazeData.Confidence = FCString::Atof(*Value);
-				}
-				else if (Key == TEXT("on_surf")) {
-					GazeData.OnSurf = Value == TEXT("True") ? true : false;
-				}
-				else if (Key == TEXT("base_data")) {
-					// Remove the paranthesis in the key
-					Value = Value.Mid(1, Value.Len() - 2);
-					TArray<FString> BaseDataValues;
-					Value.TrimStartAndEnd().ParseIntoArray(BaseDataValues, TEXT(", "), true);
-					GazeData.BaseData.TopicPrefix = BaseDataValues[0].TrimQuotes();
-					GazeData.BaseData.TimeStamp = FCString::Atof(*BaseDataValues[1]);
-				} 
-				else if (Key == TEXT("timestamp")) {
-					GazeData.TimeStamp = FCString::Atof(*Value);
-				}
-			}
+	// Extract on_surf value
+	FString OnSurfStr;
+	int32 OnSurfStart = GazeEntry.Find(TEXT("'on_surf': "));
+	if (OnSurfStart != INDEX_NONE) {
+		OnSurfStr = GazeEntry.Mid(OnSurfStart + 11).TrimStart();
+		if (OnSurfStr.StartsWith(TEXT("True"))) {
+			GazeData.OnSurf = true;
 		}
-
-		// If this gaze data has a higher timestamp, store it
-		if (GazeData.TimeStamp > HighestTimestamp) {
-			HighestTimestampGazeData = GazeData;
-			HighestTimestamp = GazeData.TimeStamp;
+		else if (OnSurfStr.StartsWith(TEXT("False"))) {
+			GazeData.OnSurf = false;
 		}
 	}
+
+	// Extract timestamp value
+	FString TimestampStr;
+	int32 TimestampStart = GazeEntry.Find(TEXT("'timestamp': "));
+	if (TimestampStart != INDEX_NONE) {
+		TimestampStr = GazeEntry.Mid(TimestampStart + 12).TrimStart();
+		int32 CommaPos = TimestampStr.Find(TEXT(","));
+		int32 BracePos = TimestampStr.Find(TEXT("}"));
+		int32 EndPos = (CommaPos == INDEX_NONE) ? BracePos : (BracePos == INDEX_NONE ? CommaPos : FMath::Min(CommaPos, BracePos));
+
+		if (EndPos != INDEX_NONE) {
+			TimestampStr = TimestampStr.Left(EndPos);
+		}
+		GazeData.TimeStamp = FCString::Atof(*TimestampStr);
+	}
+
+	HighestTimestampGazeData = GazeData;
 }
