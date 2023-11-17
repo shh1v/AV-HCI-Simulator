@@ -14,18 +14,47 @@ def generate_latin_square(n):
 # Function to create and write to the configuration file
 def write_config_file(participant_id, paradigm, task_order, traffic_order):
     lines = []
-    # General section
+    # Inputting general section data
     lines.append("[General]")
     lines.append(f'ParticipantID="{participant_id}"')
     lines.append('LogPerformance="True"')
     lines.append(f'InterruptionParadigm="{paradigm}"')
-    lines.append('CurrentBlock="Block1Trial1"')
+    lines.append('CurrentBlock="OneBackTestTrial"')  # This will be updated by the script
     lines.append("")  # Empty line for separation
-    
+
+    # These are trial blocks for n-back task trials. There is no take-over request in these blocks
+    # There will be 3 blocks, one for each n-back task
+    for n_back in ["One", "Two", "Three"]:
+        lines.append(f"[{n_back}BackTestTrial]")
+        lines.append('SkipSR="True"') # This will be used by client and CARLA to skip executing scenario runner and CARLA to run some custom behavior
+        lines.append('NDRTTaskType="NBackTask"')
+        lines.append(f'TaskSetting="{n_back}"')
+        lines.append(f'Traffic="1RV"') # Doesn't matter what traffic is here
+        lines.append("")
+
+    # These blocks are for take-over request trials. But, the data is not important.
+    # There will be two blocks, each with a randomized traffic complexity and n-back task
+    NDRT_TASKS_COPY = NDRT_TASKS.copy()
+    TRAFFIC_COMPLEXITIES_COPY = TRAFFIC_COMPLEXITIES.copy()
+    for trial_num in range(1, 3):
+        block_trial = f"Block0Trial{trial_num}"
+        lines.append(f"[{block_trial}]")
+        lines.append('SkipSR="False"') # This will be used by client and CARLA to skip executing scenario runner and CARLA to run some custom behavior
+        lines.append('NDRTTaskType="NBackTask"')
+        NDRT_TASK = random.choice(NDRT_TASKS_COPY)
+        lines.append(f'TaskSetting="{NDRT_TASK}"')
+        NDRT_TASKS_COPY.remove(NDRT_TASK)
+        TRAFFIC_COMPLEXITY = random.choice(TRAFFIC_COMPLEXITIES_COPY)
+        lines.append(f'Traffic="{TRAFFIC_COMPLEXITY}"')
+        TRAFFIC_COMPLEXITIES_COPY.remove(TRAFFIC_COMPLEXITY)
+        lines.append("")  # Empty line for separation
+
+    # These blocks are for the main trial (where the data is important)
     for block_num, task in enumerate(task_order, 1):
         for trial_num, traffic in enumerate(traffic_order[block_num-1], 1):
             block_trial = f"Block{block_num}Trial{trial_num}"
             lines.append(f"[{block_trial}]")
+            lines.append('SkipSR="False"') # This will be used by client and CARLA to skip executing scenario runner and CARLA to run some custom behavior
             lines.append('NDRTTaskType="NBackTask"')
             lines.append(f'TaskSetting="{NDRT_TASKS[task]}"')
             lines.append(f'Traffic="{traffic}"')
