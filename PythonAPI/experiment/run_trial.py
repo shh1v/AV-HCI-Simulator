@@ -89,6 +89,13 @@ def main(args):
                 except Exception as e:
                     print(f"An unexpected error of type {type(e).__name__} occurred: {e}")
                     print(traceback.format_exc())
+            else:
+                # We need to reload once so that CARLA can read the updated configuration file with the current block name
+                client = carla.Client(args.host, args.port, worker_threads=args.worker_threads)
+                client.set_timeout(10.0)
+                world = client.get_world()
+                world.reload_world()
+
             
             index += 1
                 
