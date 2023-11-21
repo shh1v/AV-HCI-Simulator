@@ -64,7 +64,7 @@ def main(args):
             ExperimentHelper.update_current_block(config_file_path, section)
 
             # Now, run the scenario runner if SkipSR is False
-            if config_file[section]["SkipSR"].strip("\"").lower() == "False":
+            if config_file[section]["SkipSR"].strip("\"") == "False":
                 command = [
                     'python', 'scenario_runner.py',
                     '--route', 'srunner/data/take_over_routes.xml', 'srunner/data/traffic_complexity_{}.json'.format(config_file[section]["Traffic"].strip("\"")), '0',
@@ -94,6 +94,7 @@ def main(args):
                 client = carla.Client(args.host, args.port, worker_threads=args.worker_threads)
                 client.set_timeout(10.0)
                 client.reload_world()
+                print("Reloaded world.")
 
             
             index += 1

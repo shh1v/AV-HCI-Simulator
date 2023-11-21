@@ -326,7 +326,8 @@ public:
     TArray<FString> NBackResponseTimestamp; // Store the timestamp of when the response was registered by the simulator
     TArray<FString> NBackResponseBuffer; // Store the n-back responses temporarily in this array. Then do post-analysis
     float OneBackTimeLimit = 3.0; // Time limit for 1-back task (This will be used to define the other limits)
-    float NBackTrialStartTimestamp;
+    float NBackTrialStartTimestamp; // This will store the time stamp of the start of the trial
+    bool IsNBackResponseGiven = false; // Stores whether an input was given for a specific trial
     UPROPERTY(VisibleAnywhere)
     class UWidgetComponent* ProgressWidgetComponent; // Component that manipulates the progress bar for the n-bask task
     void UpdateProgressBar(float NewProgressValue);

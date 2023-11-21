@@ -504,23 +504,75 @@ void AEgoVehicle::NBackTaskTick()
 {
 	// Note: This method, we assume that NBackPrompts is already initialized with randomized letters
 	// There are two cases when computation is required.
-	// CASE 1: When an input is given
-	// CASE 2: When the time for an input has expired
+	// CASE 1: [Response already registered] Input is given and time has not expired
+	// CASE 2: [Response already registered] Time has expired (go to the next trial)
+	// CASE 3: [Response not registered] Input is given and time has not expired
+	// CASE 4: [Response not registered] Time has expired (go to the next trial)
 	const float TrialTimeLimit = OneBackTimeLimit + 2.0 * (static_cast<int>(CurrentNValue) - 1);
 	const bool HasTimeExpired = FPlatformTime::Seconds() - NBackTrialStartTimestamp >= TrialTimeLimit;
 	UpdateProgressBar(HasTimeExpired ? 0.f : (FPlatformTime::Seconds() - NBackTrialStartTimestamp) / TrialTimeLimit);
 
-	if (NBackResponseBuffer.Num() > 0 || HasTimeExpired)
+	if (IsNBackResponseGiven)
 	{
-		// If multiple responses are given (unlikely), just take account of the latest response
-		FString LatestResponse;
 		if (HasTimeExpired)
+		{
+			// Go to the next trial regardless if whether an input was given or not
+			// Check all the n-back task trials are over. If TOR is not finished, add more tasks.
+			if (NBackPrompts.Num() == NBackRecordedResponses.Num())
+			{
+				if (CurrVehicleStatus == VehicleStatus::ResumedAutopilot)
+				{
+					// We can safely end the trial here
+					TerminateNDRT();
+				}
+				else
+				{
+					for (int32 i = 0; i < 10; i++)
+					{
+						// NOTE: A "MATCH" is generated 33.3% times and "MISMATCH" other times
+						FString SingleLetter;
+						if (FMath::FRand() < 1.0f / 3.0f && i >= static_cast<int>(CurrentNValue))
+						{
+							SingleLetter = NBackPrompts[i - static_cast<int>(CurrentNValue)];
+						}
+						else
+						{
+							TCHAR RandomChar = FMath::RandRange('A', 'Z');
+							SingleLetter = FString(1, &RandomChar);
+						}
+						NBackPrompts.Add(SingleLetter);
+					}
+				}
+			}
+			// Set the next letter if there are more prompts left
+			SetLetter(NBackPrompts[NBackRecordedResponses.Num()]);
+
+			// Since a new letter is set, update the time stamp
+			NBackTrialStartTimestamp = FPlatformTime::Seconds();
+
+			// Reset the boolean variable for the new trial now
+			IsNBackResponseGiven = false;
+		} else if (NBackResponseBuffer.Num() > 0)
+		{
+			// Clear the response buffer as the input is already registered.
+			NBackResponseBuffer.Empty();
+		}
+	} else
+	{
+		FString LatestResponse;
+		if (NBackResponseBuffer.Num() > 0)
+		{
+			LatestResponse = NBackResponseBuffer[0];
+		}
+		else if (HasTimeExpired)
 		{
 			LatestResponse = "NR"; // No Response
 		} else
 		{
-			LatestResponse = NBackResponseBuffer.Last();
+			return;
 		}
+
+		IsNBackResponseGiven = true;
 
 		// Get the current game index
 		int32 CurrentGameIndex = NBackRecordedResponses.Num();
@@ -537,7 +589,8 @@ void AEgoVehicle::NBackTaskTick()
 		if (CurrentGameIndex < static_cast<int>(CurrentNValue))
 		{
 			CorrectResponse = TEXT("MM");
-		} else
+		}
+		else
 		{
 			if (NBackPrompts[CurrentGameIndex].Equals(NBackPrompts[CurrentGameIndex - static_cast<int>(CurrentNValue)]))
 			{
@@ -573,41 +626,6 @@ void AEgoVehicle::NBackTaskTick()
 
 		// We can now clear the response buffer
 		NBackResponseBuffer.Empty();
-
-		// Check all the n-back task trials are over. If TOR is not finished, add more tasks.
-		if (NBackPrompts.Num() == NBackRecordedResponses.Num())
-		{
-			if (CurrVehicleStatus == VehicleStatus::ResumedAutopilot)
-			{
-				// We can safely end the trial here
-				TerminateNDRT();
-			}
-			else
-			{
-				for (int32 i = 0; i < 10; i++)
-				{
-					// NOTE: A "MATCH" is generated 33.3% times and "MISMATCH" other times
-					FString SingleLetter;
-					if (FMath::FRand() < 1.0f / 3.0f && i >= static_cast<int>(CurrentNValue))
-					{
-						SingleLetter = NBackPrompts[i - static_cast<int>(CurrentNValue)];
-					}
-					else
-					{
-						TCHAR RandomChar = FMath::RandRange('A', 'Z');
-						SingleLetter = FString(1, &RandomChar);
-					}
-					NBackPrompts.Add(SingleLetter);
-				}
-			}
-		} else
-		{
-			// Set the next letter if there are more prompts left
-			SetLetter(NBackPrompts[CurrentGameIndex + 1]);
-
-			// Since a new letter is set, update the time stamp
-			NBackTrialStartTimestamp = FPlatformTime::Seconds();
-		}
 	}
 }
 
