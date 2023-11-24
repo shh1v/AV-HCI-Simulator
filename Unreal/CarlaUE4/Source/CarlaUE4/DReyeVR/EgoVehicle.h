@@ -417,7 +417,8 @@ private:
     float bGazeTimerRunning = false; // Store whether the driver has been looking at the HUD
     bool bLastOnSurfValue = false; // Stores the last updated on surf value retrieved from the eye tracker
     float GazeShiftCounter = 0; // This counter will be used to record number of times a certain boolean value is received, after which it considers an actual gaze shift
-    float GazeOnHUDTimeConstraint = 3; // Time after which alert is displayed in sys-recommended and sys-initiated modes
+    void SetHUDTimeThreshold(float Threshold); // Set the GazeOnHUDTimeConstraint
+    float GazeOnHUDTimeConstraint = 2; // Time after which alert is displayed in sys-recommended and sys-initiated modes
 
   private: // other
     UPROPERTY(Category = "Dash", EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))

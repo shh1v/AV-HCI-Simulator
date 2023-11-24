@@ -19,6 +19,7 @@ void AEgoVehicle::SetupNDRT() {
 	switch (CurrTaskType) {
 	case TaskType::NBackTask:
 		ConstructNBackElements();
+		SetHUDTimeThreshold(2 + 2 * (static_cast<int>(CurrentNValue) - 1)); // Setting time constraint based on the n-back task type
 		break;
 	case TaskType::TVShowTask:
 		ConstructTVShowElements();
@@ -640,6 +641,11 @@ void AEgoVehicle::TVShowTaskTick()
 void AEgoVehicle::SetMessagePaneText(FString DisplayText, FColor TextColor) {
 	MessagePane->SetTextRenderColor(TextColor);
 	MessagePane->SetText(DisplayText);
+}
+
+void AEgoVehicle::SetHUDTimeThreshold(float Threshold)
+{
+	GazeOnHUDTimeConstraint = Threshold;
 }
 
 void AEgoVehicle::UpdateProgressBar(float NewProgressValue)
