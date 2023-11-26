@@ -80,6 +80,7 @@ void AEgoVehicle::ToggleNDRT(bool active) {
 		NBackLetter->SetVisibility(active, false);
 		NBackControlsInfo->SetVisibility(active, false);
 		NBackTitle->SetVisibility(active, false);
+		ProgressWidgetComponent->SetVisibility(active, false);
 		break;
 	case TaskType::TVShowTask:
 		MediaPlayerMesh->SetVisibility(active, false);
@@ -174,8 +175,6 @@ void AEgoVehicle::TerminateNDRT() {
 		}
 	}
 }
-
-
 
 void AEgoVehicle::TickNDRT() {
 	// WARNING/NOTE: It is the responsibility of the respective NDRT tick methods to change the vehicle status
@@ -410,7 +409,6 @@ void AEgoVehicle::ConstructNBackElements() {
 	// Construct the progress bar for the n-back task trial
 	ProgressWidgetComponent = CreateDefaultSubobject<UWidgetComponent>(TEXT("N-back progress bar"));
 	ProgressWidgetComponent->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
-	UpdateProgressBar(0.3f); // Update the progress bar
 
 	// Construct all the sounds for Logitech inputs
 	static ConstructorHelpers::FObjectFinder<USoundWave> CorrectSoundWave(
