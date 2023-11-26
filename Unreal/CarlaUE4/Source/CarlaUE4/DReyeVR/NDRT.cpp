@@ -198,16 +198,6 @@ void AEgoVehicle::TickNDRT() {
 		}
 	};
 
-	// CASE: This is the test trial condition. In this case, the scenario runner is not executed, and the
-	// participant is only expected to engage in the NDRT task. Vehicle status is also irrelevant
-	if (ExperimentParams.Get<FString>(ExperimentParams.Get<FString>("General", "CurrentBlock"), "SkipSR").Equals("True"))
-	{
-		// Allow the driver to engage in NDRT without interruption to practice the task.
-		SetMessagePaneText(TEXT("Test Trial"), FColor::Black);
-		HandleTaskTick();
-		return;
-	}
-
 	// CASE: When NDRT engagement is disabled/not expected (during TORs or manual control)
 	if (CurrVehicleStatus == VehicleStatus::ManualDrive || CurrVehicleStatus == VehicleStatus::TrialOver)
 	{
@@ -218,8 +208,10 @@ void AEgoVehicle::TickNDRT() {
 
 		// This is the case when scenario runner has not kicked in. Just do nothing
 		// This means not allowing driver to interact with NDRT
-		return;
+		return; // Exit for efficiency
 	}
+
+	// CASE: During a take-over request, disable and hide the NDRT interface
 	if (CurrVehicleStatus == VehicleStatus::TakeOver || CurrVehicleStatus == VehicleStatus::TakeOverManual)
 	{
 		// Disable the NDRT interface by toggling it
@@ -227,11 +219,22 @@ void AEgoVehicle::TickNDRT() {
 
 		// Show a message asking the driver to take control of the vehicle
 		SetMessagePaneText(TEXT("Take Over!"), FColor::Red);
-		return;
+		return; // Exit for efficiency
 	}
 
-	// CASE: When the user is allowed to engage in NDRT
-	// Simply compute the NDRT task when the vehicle is on autopilot
+	// Now, we are dealing with all the cases when NDRT task engagement is expected. Thus, we run the NDRT task tick
+	HandleTaskTick();
+
+	// CASE: This is the test trial condition. In this case, the scenario runner is not executed, and the
+	// participant is only expected to engage in the NDRT task. Vehicle status is also irrelevant
+	if (ExperimentParams.Get<FString>(ExperimentParams.Get<FString>("General", "CurrentBlock"), "SkipSR").Equals("True"))
+	{
+		// Allow the driver to engage in NDRT without interruption to practice the task.
+		SetMessagePaneText(TEXT("Test Trial"), FColor::Black);
+		return; // Exit for efficiency
+	}
+
+	// CASE: Execute necessary UI behaviour/messages for when autopilot is engaged.
 	if (CurrVehicleStatus == VehicleStatus::Autopilot || CurrVehicleStatus == VehicleStatus::ResumedAutopilot)
 	{
 		// Tell the driver that the ADS is engaged
@@ -240,15 +243,12 @@ void AEgoVehicle::TickNDRT() {
 		// Make sure NDRT is toggled up again
 		ToggleNDRT(true);
 
-		// Run/computer the NDRT
-		HandleTaskTick();
-
-		// The rest of the code is only relevant for the pre-alert interval. So, exit
-		return;
+		return; // Exit for efficiency
 
 	}
+
 	// During the pre-alert period, allow NDRT engagement, but with potential restriction based
-	// on the interruption paradigm
+	// on the interruption paradigm. However, the task (timer) will continue to run
 	if (CurrVehicleStatus == VehicleStatus::PreAlertAutopilot)
 	{
 		// Show a pre-alert message suggesting that a take-over request may be issued in the future
@@ -260,16 +260,11 @@ void AEgoVehicle::TickNDRT() {
 	{
 		switch (CurrInterruptionParadigm)
 		{
-		case InterruptionParadigm::SelfRegulated:
-			HandleTaskTick();
-			break;
-
 		case InterruptionParadigm::SystemRecommended:
 			if (GazeOnHUDTime() >= GazeOnHUDTimeConstraint)
 			{
 				ToggleAlertOnNDRT(true);
 			}
-			HandleTaskTick();
 			break;
 
 		case InterruptionParadigm::SystemInitiated:
@@ -277,10 +272,6 @@ void AEgoVehicle::TickNDRT() {
 			{
 				ToggleAlertOnNDRT(true);
 				SetInteractivityOfNDRT(false);
-			}
-			else
-			{
-				HandleTaskTick();
 			}
 			break;
 
