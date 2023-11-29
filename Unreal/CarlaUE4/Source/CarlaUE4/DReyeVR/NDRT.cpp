@@ -346,7 +346,7 @@ void AEgoVehicle::ConstructHUD() {
 
 	// Also construct all the sounds here
 	static ConstructorHelpers::FObjectFinder<USoundWave> HUDAlertSoundWave(
-		TEXT("SoundWave'/Game/DReyeVR/EgoVehicle/Extra/HUDAlertSound.HUDAlertSound'"));
+		TEXT("SoundWave'/Game/DReyeVR/EgoVehicle/Extra/InterruptionSound.InterruptionSound'"));
 	HUDAlertSound = CreateDefaultSubobject<UAudioComponent>(TEXT("HUDAlert"));
 	HUDAlertSound->SetupAttachment(GetRootComponent());
 	HUDAlertSound->bAutoActivate = false;
