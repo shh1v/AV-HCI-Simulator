@@ -93,7 +93,76 @@ void AEgoVehicle::ReadConfigVariables()
     GeneralParams.Get("VehicleInputs", "ScaleBrakeInput", ScaleBrakeInput);
     // replay
     GeneralParams.Get("Replayer", "CameraFollowHMD", bCameraFollowHMD);
+
+    // Read the experiment variables
+    ReadExperimentVariables();
 }
+
+void AEgoVehicle::ReadExperimentVariables()
+{
+    // Retrieve the interruption paradigm that will be used
+    FString InterruptionParadigm;
+    ExperimentParams.Get("General", "InterruptionParadigm", InterruptionParadigm);
+    if (InterruptionParadigm.Equals(TEXT("SelfRegulated")))
+    {
+        CurrInterruptionParadigm = InterruptionParadigm::SelfRegulated;
+    }
+    else if (InterruptionParadigm.Equals(TEXT("SystemRecommended")))
+    {
+        CurrInterruptionParadigm = InterruptionParadigm::SystemRecommended;
+    }
+    else if (InterruptionParadigm.Equals(TEXT("SystemInitiated")))
+    {
+        CurrInterruptionParadigm = InterruptionParadigm::SystemInitiated;
+    }
+
+    // Get the current block name so that trial specific variables can be retrieved
+    FString CurrentBlock;
+    ExperimentParams.Get<FString>("General", "CurrentBlock", CurrentBlock);
+
+    // Get the type of NDRT
+    FString NDRTTaskType;
+    ExperimentParams.Get<FString>(CurrentBlock, "NDRTTaskType", NDRTTaskType);
+    if (NDRTTaskType.Equals(TEXT("NBackTask")))
+    {
+        CurrTaskType = TaskType::NBackTask;
+    }
+    else if (NDRTTaskType.Equals(TEXT("TVShowTask")))
+    {
+        CurrTaskType = TaskType::TVShowTask;
+    }
+
+    // Find if the current trial is a test trial
+    IsSkippingSR = ExperimentParams.Get<FString>(ExperimentParams.Get<FString>("General", "CurrentBlock"), "SkipSR").Equals("True");
+
+    // Get the specific configuration of the NDRT
+    FString TaskSetting;
+    ExperimentParams.Get<FString>(CurrentBlock, "TaskSetting", TaskSetting);
+
+    if (CurrTaskType == TaskType::NBackTask)
+    {
+        if (TaskSetting.Equals(TEXT("One")))
+        {
+            CurrentNValue = NValue::One;
+            TotalNBackTasks = 40;
+        }
+        else if (TaskSetting.Equals(TEXT("Two")))
+        {
+            CurrentNValue = NValue::Two;
+            TotalNBackTasks = 30;
+        }
+        else if (TaskSetting.Equals(TEXT("Three")))
+        {
+            CurrentNValue = NValue::Three;
+            TotalNBackTasks = 20;
+        }
+    }
+    else if (CurrTaskType == TaskType::TVShowTask)
+    {
+        // TODO: Implement all the necessary functionality here for the TV show task
+    }
+}
+
 
 void AEgoVehicle::BeginPlay()
 {

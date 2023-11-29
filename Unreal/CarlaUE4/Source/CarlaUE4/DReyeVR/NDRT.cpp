@@ -199,7 +199,7 @@ void AEgoVehicle::TickNDRT() {
 	};
 
 	// CASE: When NDRT engagement is disabled/not expected (during TORs or manual control)
-	if (CurrVehicleStatus == VehicleStatus::ManualDrive || CurrVehicleStatus == VehicleStatus::TrialOver)
+	if (!IsSkippingSR && (CurrVehicleStatus == VehicleStatus::ManualDrive || CurrVehicleStatus == VehicleStatus::TrialOver))
 	{
 		if (CurrVehicleStatus == VehicleStatus::ManualDrive)
 		{
@@ -227,7 +227,7 @@ void AEgoVehicle::TickNDRT() {
 
 	// CASE: This is the test trial condition. In this case, the scenario runner is not executed, and the
 	// participant is only expected to engage in the NDRT task. Vehicle status is also irrelevant
-	if (ExperimentParams.Get<FString>(ExperimentParams.Get<FString>("General", "CurrentBlock"), "SkipSR").Equals("True"))
+	if (IsSkippingSR)
 	{
 		// Allow the driver to engage in NDRT without interruption to practice the task.
 		SetMessagePaneText(TEXT("Test Trial"), FColor::Black);
