@@ -15,6 +15,7 @@ import multiprocessing
 import argparse
 
 import traceback
+import time
 
 # Local imports
 import carla
@@ -90,6 +91,8 @@ def main(args):
                     print(f"An unexpected error of type {type(e).__name__} occurred: {e}")
                     print(traceback.format_exc())
             else:
+                # Wait for three seconds so that the user has activated UE window
+                time.sleep(3)
                 # We need to reload once so that CARLA can read the updated configuration file with the current block name
                 client = carla.Client(args.host, args.port, worker_threads=args.worker_threads)
                 client.set_timeout(10.0)
@@ -145,4 +148,4 @@ if __name__ == '__main__':
     try:
         main(args)
     except KeyboardInterrupt:
-        print("Cancelled by user. Bye!")
+        print("Exiting the script.")

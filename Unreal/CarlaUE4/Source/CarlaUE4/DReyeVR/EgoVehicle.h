@@ -320,7 +320,7 @@ public:
     // Alert assets
     
     // N-back task
-    enum class NValue{One=1, Two, Three}; // Change n-back task functionality based on the n-value provided
+    enum class NValue{One=1, Two=2, Three=3}; // Change n-back task functionality based on the n-value provided
     NValue CurrentNValue = NValue::One;
     int32 TotalNBackTasks = 40; // Total trials of n-back task. Possibly Retrieve this value from the the configuration file.
     TArray<FString> NBackPrompts;   // Store the n-back task prompts in this array
