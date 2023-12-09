@@ -28,6 +28,9 @@ void AEgoVehicle::SetupNDRT() {
 }
 
 void AEgoVehicle::StartNDRT() {
+	// We must set the n-back task title (outside of the contructor call; hence done here)
+	SetNBackTitle(static_cast<int>(CurrentNValue));
+
 	// Start the NDRT based on the task type
 	switch (CurrTaskType) {
 	case TaskType::NBackTask:
@@ -392,10 +395,8 @@ void AEgoVehicle::ConstructNBackElements() {
 	NBackTitle->SetStaticMesh(NBackTitleMeshObj.Object);
 	NBackTitle->SetCastShadow(false);
 
-	// Changing the title dynamically based on the n-back task
-	FString MaterialPath = FString::Printf(TEXT("Material'/Game/NDRT/NBackTask/Titles/M_%dBackTaskTitle.M_%dBackTaskTitle'"), (int32)CurrentNValue, (int32)CurrentNValue);
-	static ConstructorHelpers::FObjectFinder<UMaterial> NewMaterial(*MaterialPath);
-	NBackTitle->SetMaterial(0, NewMaterial.Object);
+	// Setting the appropriate n-back task title
+	SetNBackTitle(static_cast<int>(CurrentNValue));
 
 	// Construct the progress bar for the n-back task trial
 	ProgressWidgetComponent = CreateDefaultSubobject<UWidgetComponent>(TEXT("N-back progress bar"));
@@ -618,6 +619,18 @@ void AEgoVehicle::NBackTaskTick()
 		NBackResponseBuffer.Empty();
 	}
 }
+
+void AEgoVehicle::SetNBackTitle(int32 NBackValue)
+{
+	// Changing the title dynamically based on the n-back task.
+	// NOTE: We will have to use StaticLoadObject instead of FObjectFinder due to the runtime nature.
+	// NOTE: Assumes NBackTitle is initialized
+
+	const FString MaterialPath = FString::Printf(TEXT("Material'/Game/NDRT/NBackTask/Titles/M_%dBackTaskTitle.M_%dBackTaskTitle'"), NBackValue, NBackValue);
+	UMaterial* NewMaterial = Cast<UMaterial>(StaticLoadObject(UMaterial::StaticClass(), nullptr, *MaterialPath));
+	NBackTitle->SetMaterial(0, NewMaterial);
+}
+
 
 // TV show task exclusive methods
 

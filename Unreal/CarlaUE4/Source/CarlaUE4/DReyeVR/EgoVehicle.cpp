@@ -131,6 +131,9 @@ void AEgoVehicle::ReadExperimentVariables()
     ExperimentParams.Get<FString>("General", "CurrentBlock", CurrentBlock);
     UE_LOG(LogTemp, Warning, TEXT("[%s] Current Block: %s"), *Now.ToString(), *CurrentBlock);
 
+    // Retrieve if this is a test trial or not
+    IsSkippingSR = ExperimentParams.Get<FString>(CurrentBlock, "SkipSR").Equals("True");
+
     // Get the type of NDRT
     FString NDRTTaskType;
     ExperimentParams.Get<FString>(CurrentBlock, "NDRTTaskType", NDRTTaskType);

@@ -349,6 +349,7 @@ public:
     void NBackTaskTick(); // Update the n-back task in every tick
 
     void ConstructNBackElements(); // Construct the static meshes to present the N-back task components
+    void SetNBackTitle(int32 NBackValue); // Set the n-back title with the correct n-value.
     void SetLetter(const FString& letter); // Set a new letter in the n-back task.
 
     // TV show task
