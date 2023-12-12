@@ -9,6 +9,7 @@
 #include "GameFramework/Actor.h"                    // Destroy
 #include "Math/Rotator.h"                           // RotateVector, Clamp
 #include "Math/UnrealMathUtility.h"                 // Clamp
+#include <DateTime.h>
 
 #include <algorithm>
 
@@ -94,26 +95,44 @@ void AEgoVehicle::ReadConfigVariables()
     // replay
     GeneralParams.Get("Replayer", "CameraFollowHMD", bCameraFollowHMD);
 
+    // Read the experiment variables
+    ReadExperimentVariables();
+}
+
+void AEgoVehicle::ReadExperimentVariables()
+{
+    // Get the current time
+    const FDateTime Now = FDateTime::Now();
+
+    // This is done so that the updated file (by python API) is re-read
+    ExperimentParams = ConfigFile(FPaths::Combine(CarlaUE4Path, TEXT("Config/ExperimentConfig.ini")));
+
     // Retrieve the interruption paradigm that will be used
     FString InterruptionParadigm;
     ExperimentParams.Get("General", "InterruptionParadigm", InterruptionParadigm);
     if (InterruptionParadigm.Equals(TEXT("SelfRegulated")))
     {
         CurrInterruptionParadigm = InterruptionParadigm::SelfRegulated;
+        UE_LOG(LogTemp, Warning, TEXT("[%s] Interruption Paradigm: SelfRegulated"), *Now.ToString());
     }
     else if (InterruptionParadigm.Equals(TEXT("SystemRecommended")))
     {
         CurrInterruptionParadigm = InterruptionParadigm::SystemRecommended;
+        UE_LOG(LogTemp, Warning, TEXT("[%s] Interruption Paradigm: SystemRecommended"), *Now.ToString());
     }
     else if (InterruptionParadigm.Equals(TEXT("SystemInitiated")))
     {
         CurrInterruptionParadigm = InterruptionParadigm::SystemInitiated;
+        UE_LOG(LogTemp, Warning, TEXT("[%s] Interruption Paradigm: SystemInitiated"), *Now.ToString());
     }
-
 
     // Get the current block name so that trial specific variables can be retrieved
     FString CurrentBlock;
     ExperimentParams.Get<FString>("General", "CurrentBlock", CurrentBlock);
+    UE_LOG(LogTemp, Warning, TEXT("[%s] Current Block: %s"), *Now.ToString(), *CurrentBlock);
+
+    // Retrieve if this is a test trial or not
+    IsSkippingSR = ExperimentParams.Get<FString>(CurrentBlock, "SkipSR").Equals("True");
 
     // Get the type of NDRT
     FString NDRTTaskType;
@@ -121,10 +140,12 @@ void AEgoVehicle::ReadConfigVariables()
     if (NDRTTaskType.Equals(TEXT("NBackTask")))
     {
         CurrTaskType = TaskType::NBackTask;
+        UE_LOG(LogTemp, Warning, TEXT("[%s] NDRT Task Type: NBackTask"), *Now.ToString());
     }
     else if (NDRTTaskType.Equals(TEXT("TVShowTask")))
     {
         CurrTaskType = TaskType::TVShowTask;
+        UE_LOG(LogTemp, Warning, TEXT("[%s] NDRT Task Type: TVShowTask"), *Now.ToString());
     }
 
     // Get the specific configuration of the NDRT
@@ -137,23 +158,28 @@ void AEgoVehicle::ReadConfigVariables()
         {
             CurrentNValue = NValue::One;
             TotalNBackTasks = 40;
+            UE_LOG(LogTemp, Warning, TEXT("[%s] Task Setting: One"), *Now.ToString());
         }
         else if (TaskSetting.Equals(TEXT("Two")))
         {
             CurrentNValue = NValue::Two;
             TotalNBackTasks = 30;
+            UE_LOG(LogTemp, Warning, TEXT("[%s] Task Setting: Two"), *Now.ToString());
         }
         else if (TaskSetting.Equals(TEXT("Three")))
         {
             CurrentNValue = NValue::Three;
             TotalNBackTasks = 20;
+            UE_LOG(LogTemp, Warning, TEXT("[%s] Task Setting: Three"), *Now.ToString());
         }
     }
     else if (CurrTaskType == TaskType::TVShowTask)
     {
-	    // TODO: Implement all the necessary functionality here for the TV show task
+        // TODO: Implement all the necessary functionality here for the TV show task
+        UE_LOG(LogTemp, Warning, TEXT("[%s] Task Type: TVShowTask - Specific settings not implemented yet"), *Now.ToString());
     }
 }
+
 
 void AEgoVehicle::BeginPlay()
 {

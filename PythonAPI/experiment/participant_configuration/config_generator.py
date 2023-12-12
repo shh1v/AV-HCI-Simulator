@@ -19,7 +19,7 @@ def write_config_file(participant_id, paradigm, task_order, traffic_order):
     lines.append(f'ParticipantID="{participant_id}"')
     lines.append('LogPerformance="True"')
     lines.append(f'InterruptionParadigm="{paradigm}"')
-    lines.append('CurrentBlock="OneBackTestTrial"')  # This will be updated by the script
+    lines.append('CurrentBlock="Block0Trial1"')  # This will be updated by the script
     lines.append("")  # Empty line for separation
 
     # These are trial blocks for n-back task trials. There is no take-over request in these blocks

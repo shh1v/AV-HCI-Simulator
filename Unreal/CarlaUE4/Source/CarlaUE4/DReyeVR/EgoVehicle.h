@@ -39,6 +39,7 @@ class CARLAUE4_API AEgoVehicle : public ACarlaWheeledVehicle
     AEgoVehicle(const FObjectInitializer &ObjectInitializer);
 
     void ReadConfigVariables();
+    void ReadExperimentVariables();
 
     virtual void Tick(float DeltaTime) override; // called automatically
 
@@ -301,6 +302,7 @@ public:
     bool TerminateVehicleStatusConnection(); // Terminate connection to Client ZMQ
 
   private: // Non-Driving-Related Task
+	bool IsSkippingSR = false; // Stores if the current trial is a test trial. True is its a test trial.
     enum class TaskType {NBackTask, TVShowTask}; // Change the behaviour of the NDRT based on the task type provided
     // The following value will determine the 
     TaskType CurrTaskType = TaskType::NBackTask; // Should be dynamically retrieved from a config file
@@ -318,7 +320,7 @@ public:
     // Alert assets
     
     // N-back task
-    enum class NValue{One=1, Two, Three}; // Change n-back task functionality based on the n-value provided
+    enum class NValue{One=1, Two=2, Three=3}; // Change n-back task functionality based on the n-value provided
     NValue CurrentNValue = NValue::One;
     int32 TotalNBackTasks = 40; // Total trials of n-back task. Possibly Retrieve this value from the the configuration file.
     TArray<FString> NBackPrompts;   // Store the n-back task prompts in this array
@@ -326,7 +328,8 @@ public:
     TArray<FString> NBackResponseTimestamp; // Store the timestamp of when the response was registered by the simulator
     TArray<FString> NBackResponseBuffer; // Store the n-back responses temporarily in this array. Then do post-analysis
     float OneBackTimeLimit = 3.0; // Time limit for 1-back task (This will be used to define the other limits)
-    float NBackTrialStartTimestamp;
+    float NBackTrialStartTimestamp; // This will store the time stamp of the start of the trial
+    bool IsNBackResponseGiven = false; // Stores whether an input was given for a specific trial
     UPROPERTY(VisibleAnywhere)
     class UWidgetComponent* ProgressWidgetComponent; // Component that manipulates the progress bar for the n-bask task
     void UpdateProgressBar(float NewProgressValue);
@@ -346,6 +349,7 @@ public:
     void NBackTaskTick(); // Update the n-back task in every tick
 
     void ConstructNBackElements(); // Construct the static meshes to present the N-back task components
+    void SetNBackTitle(int32 NBackValue); // Set the n-back title with the correct n-value.
     void SetLetter(const FString& letter); // Set a new letter in the n-back task.
 
     // TV show task
@@ -416,7 +420,8 @@ private:
     float bGazeTimerRunning = false; // Store whether the driver has been looking at the HUD
     bool bLastOnSurfValue = false; // Stores the last updated on surf value retrieved from the eye tracker
     float GazeShiftCounter = 0; // This counter will be used to record number of times a certain boolean value is received, after which it considers an actual gaze shift
-    float GazeOnHUDTimeConstraint = 3; // Time after which alert is displayed in sys-recommended and sys-initiated modes
+    void SetHUDTimeThreshold(float Threshold); // Set the GazeOnHUDTimeConstraint
+    float GazeOnHUDTimeConstraint = 2; // Time after which alert is displayed in sys-recommended and sys-initiated modes
 
   private: // other
     UPROPERTY(Category = "Dash", EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))

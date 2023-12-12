@@ -19,6 +19,7 @@ void AEgoVehicle::SetupNDRT() {
 	switch (CurrTaskType) {
 	case TaskType::NBackTask:
 		ConstructNBackElements();
+		SetHUDTimeThreshold(2 + 2 * (static_cast<int>(CurrentNValue) - 1)); // Setting time constraint based on the n-back task type
 		break;
 	case TaskType::TVShowTask:
 		ConstructTVShowElements();
@@ -27,6 +28,9 @@ void AEgoVehicle::SetupNDRT() {
 }
 
 void AEgoVehicle::StartNDRT() {
+	// We must set the n-back task title (outside of the contructor call; hence done here)
+	SetNBackTitle(static_cast<int>(CurrentNValue));
+
 	// Start the NDRT based on the task type
 	switch (CurrTaskType) {
 	case TaskType::NBackTask:
@@ -79,6 +83,7 @@ void AEgoVehicle::ToggleNDRT(bool active) {
 		NBackLetter->SetVisibility(active, false);
 		NBackControlsInfo->SetVisibility(active, false);
 		NBackTitle->SetVisibility(active, false);
+		ProgressWidgetComponent->SetVisibility(active, false);
 		break;
 	case TaskType::TVShowTask:
 		MediaPlayerMesh->SetVisibility(active, false);
@@ -174,8 +179,6 @@ void AEgoVehicle::TerminateNDRT() {
 	}
 }
 
-
-
 void AEgoVehicle::TickNDRT() {
 	// WARNING/NOTE: It is the responsibility of the respective NDRT tick methods to change the vehicle status
 	// to TrialOver when the NDRT task is over.
@@ -198,18 +201,8 @@ void AEgoVehicle::TickNDRT() {
 		}
 	};
 
-	// CASE: This is the test trial condition. In this case, the scenario runner is not executed, and the
-	// participant is only expected to engage in the NDRT task. Vehicle status is also irrelevant
-	if (ExperimentParams.Get<FString>(ExperimentParams.Get<FString>("General", "CurrentBlock"), "SkipSR").Equals("True"))
-	{
-		// Allow the driver to engage in NDRT without interruption to practice the task.
-		SetMessagePaneText(TEXT("Test Trial"), FColor::Black);
-		HandleTaskTick();
-		return;
-	}
-
 	// CASE: When NDRT engagement is disabled/not expected (during TORs or manual control)
-	if (CurrVehicleStatus == VehicleStatus::ManualDrive || CurrVehicleStatus == VehicleStatus::TrialOver)
+	if (!IsSkippingSR && (CurrVehicleStatus == VehicleStatus::ManualDrive || CurrVehicleStatus == VehicleStatus::TrialOver))
 	{
 		if (CurrVehicleStatus == VehicleStatus::ManualDrive)
 		{
@@ -218,8 +211,10 @@ void AEgoVehicle::TickNDRT() {
 
 		// This is the case when scenario runner has not kicked in. Just do nothing
 		// This means not allowing driver to interact with NDRT
-		return;
+		return; // Exit for efficiency
 	}
+
+	// CASE: During a take-over request, disable and hide the NDRT interface
 	if (CurrVehicleStatus == VehicleStatus::TakeOver || CurrVehicleStatus == VehicleStatus::TakeOverManual)
 	{
 		// Disable the NDRT interface by toggling it
@@ -227,11 +222,22 @@ void AEgoVehicle::TickNDRT() {
 
 		// Show a message asking the driver to take control of the vehicle
 		SetMessagePaneText(TEXT("Take Over!"), FColor::Red);
-		return;
+		return; // Exit for efficiency
 	}
 
-	// CASE: When the user is allowed to engage in NDRT
-	// Simply compute the NDRT task when the vehicle is on autopilot
+	// Now, we are dealing with all the cases when NDRT task engagement is expected. Thus, we run the NDRT task tick
+	HandleTaskTick();
+
+	// CASE: This is the test trial condition. In this case, the scenario runner is not executed, and the
+	// participant is only expected to engage in the NDRT task. Vehicle status is also irrelevant
+	if (IsSkippingSR)
+	{
+		// Allow the driver to engage in NDRT without interruption to practice the task.
+		SetMessagePaneText(TEXT("Test Trial"), FColor::Black);
+		return; // Exit for efficiency
+	}
+
+	// CASE: Execute necessary UI behaviour/messages for when autopilot is engaged.
 	if (CurrVehicleStatus == VehicleStatus::Autopilot || CurrVehicleStatus == VehicleStatus::ResumedAutopilot)
 	{
 		// Tell the driver that the ADS is engaged
@@ -240,15 +246,12 @@ void AEgoVehicle::TickNDRT() {
 		// Make sure NDRT is toggled up again
 		ToggleNDRT(true);
 
-		// Run/computer the NDRT
-		HandleTaskTick();
-
-		// The rest of the code is only relevant for the pre-alert interval. So, exit
-		return;
+		return; // Exit for efficiency
 
 	}
+
 	// During the pre-alert period, allow NDRT engagement, but with potential restriction based
-	// on the interruption paradigm
+	// on the interruption paradigm. However, the task (timer) will continue to run
 	if (CurrVehicleStatus == VehicleStatus::PreAlertAutopilot)
 	{
 		// Show a pre-alert message suggesting that a take-over request may be issued in the future
@@ -260,16 +263,11 @@ void AEgoVehicle::TickNDRT() {
 	{
 		switch (CurrInterruptionParadigm)
 		{
-		case InterruptionParadigm::SelfRegulated:
-			HandleTaskTick();
-			break;
-
 		case InterruptionParadigm::SystemRecommended:
 			if (GazeOnHUDTime() >= GazeOnHUDTimeConstraint)
 			{
 				ToggleAlertOnNDRT(true);
 			}
-			HandleTaskTick();
 			break;
 
 		case InterruptionParadigm::SystemInitiated:
@@ -277,10 +275,6 @@ void AEgoVehicle::TickNDRT() {
 			{
 				ToggleAlertOnNDRT(true);
 				SetInteractivityOfNDRT(false);
-			}
-			else
-			{
-				HandleTaskTick();
 			}
 			break;
 
@@ -355,7 +349,7 @@ void AEgoVehicle::ConstructHUD() {
 
 	// Also construct all the sounds here
 	static ConstructorHelpers::FObjectFinder<USoundWave> HUDAlertSoundWave(
-		TEXT("SoundWave'/Game/DReyeVR/EgoVehicle/Extra/HUDAlertSound.HUDAlertSound'"));
+		TEXT("SoundWave'/Game/DReyeVR/EgoVehicle/Extra/InterruptionSound.InterruptionSound'"));
 	HUDAlertSound = CreateDefaultSubobject<UAudioComponent>(TEXT("HUDAlert"));
 	HUDAlertSound->SetupAttachment(GetRootComponent());
 	HUDAlertSound->bAutoActivate = false;
@@ -401,15 +395,12 @@ void AEgoVehicle::ConstructNBackElements() {
 	NBackTitle->SetStaticMesh(NBackTitleMeshObj.Object);
 	NBackTitle->SetCastShadow(false);
 
-	// Changing the title dynamically based on the n-back task
-	FString MaterialPath = FString::Printf(TEXT("Material'/Game/NDRT/NBackTask/Titles/M_%dBackTaskTitle.M_%dBackTaskTitle'"), (int32)CurrentNValue, (int32)CurrentNValue);
-	static ConstructorHelpers::FObjectFinder<UMaterial> NewMaterial(*MaterialPath);
-	NBackTitle->SetMaterial(0, NewMaterial.Object);
+	// Setting the appropriate n-back task title
+	SetNBackTitle(static_cast<int>(CurrentNValue));
 
 	// Construct the progress bar for the n-back task trial
 	ProgressWidgetComponent = CreateDefaultSubobject<UWidgetComponent>(TEXT("N-back progress bar"));
 	ProgressWidgetComponent->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
-	UpdateProgressBar(0.3f); // Update the progress bar
 
 	// Construct all the sounds for Logitech inputs
 	static ConstructorHelpers::FObjectFinder<USoundWave> CorrectSoundWave(
@@ -504,23 +495,75 @@ void AEgoVehicle::NBackTaskTick()
 {
 	// Note: This method, we assume that NBackPrompts is already initialized with randomized letters
 	// There are two cases when computation is required.
-	// CASE 1: When an input is given
-	// CASE 2: When the time for an input has expired
+	// CASE 1: [Response already registered] Input is given and time has not expired
+	// CASE 2: [Response already registered] Time has expired (go to the next trial)
+	// CASE 3: [Response not registered] Input is given and time has not expired
+	// CASE 4: [Response not registered] Time has expired (go to the next trial)
 	const float TrialTimeLimit = OneBackTimeLimit + 2.0 * (static_cast<int>(CurrentNValue) - 1);
 	const bool HasTimeExpired = FPlatformTime::Seconds() - NBackTrialStartTimestamp >= TrialTimeLimit;
 	UpdateProgressBar(HasTimeExpired ? 0.f : (FPlatformTime::Seconds() - NBackTrialStartTimestamp) / TrialTimeLimit);
 
-	if (NBackResponseBuffer.Num() > 0 || HasTimeExpired)
+	if (IsNBackResponseGiven)
 	{
-		// If multiple responses are given (unlikely), just take account of the latest response
-		FString LatestResponse;
 		if (HasTimeExpired)
+		{
+			// Go to the next trial regardless if whether an input was given or not
+			// Check all the n-back task trials are over. If TOR is not finished, add more tasks.
+			if (NBackPrompts.Num() == NBackRecordedResponses.Num())
+			{
+				if (CurrVehicleStatus == VehicleStatus::ResumedAutopilot)
+				{
+					// We can safely end the trial here
+					TerminateNDRT();
+				}
+				else
+				{
+					for (int32 i = 0; i < 10; i++)
+					{
+						// NOTE: A "MATCH" is generated 33.3% times and "MISMATCH" other times
+						FString SingleLetter;
+						if (FMath::FRand() < 1.0f / 3.0f && i >= static_cast<int>(CurrentNValue))
+						{
+							SingleLetter = NBackPrompts[i - static_cast<int>(CurrentNValue)];
+						}
+						else
+						{
+							TCHAR RandomChar = FMath::RandRange('A', 'Z');
+							SingleLetter = FString(1, &RandomChar);
+						}
+						NBackPrompts.Add(SingleLetter);
+					}
+				}
+			}
+			// Set the next letter if there are more prompts left
+			SetLetter(NBackPrompts[NBackRecordedResponses.Num()]);
+
+			// Since a new letter is set, update the time stamp
+			NBackTrialStartTimestamp = FPlatformTime::Seconds();
+
+			// Reset the boolean variable for the new trial now
+			IsNBackResponseGiven = false;
+		} else if (NBackResponseBuffer.Num() > 0)
+		{
+			// Clear the response buffer as the input is already registered.
+			NBackResponseBuffer.Empty();
+		}
+	} else
+	{
+		FString LatestResponse;
+		if (NBackResponseBuffer.Num() > 0)
+		{
+			LatestResponse = NBackResponseBuffer[0];
+		}
+		else if (HasTimeExpired)
 		{
 			LatestResponse = "NR"; // No Response
 		} else
 		{
-			LatestResponse = NBackResponseBuffer.Last();
+			return;
 		}
+
+		IsNBackResponseGiven = true;
 
 		// Get the current game index
 		int32 CurrentGameIndex = NBackRecordedResponses.Num();
@@ -537,7 +580,8 @@ void AEgoVehicle::NBackTaskTick()
 		if (CurrentGameIndex < static_cast<int>(CurrentNValue))
 		{
 			CorrectResponse = TEXT("MM");
-		} else
+		}
+		else
 		{
 			if (NBackPrompts[CurrentGameIndex].Equals(NBackPrompts[CurrentGameIndex - static_cast<int>(CurrentNValue)]))
 			{
@@ -573,43 +617,20 @@ void AEgoVehicle::NBackTaskTick()
 
 		// We can now clear the response buffer
 		NBackResponseBuffer.Empty();
-
-		// Check all the n-back task trials are over. If TOR is not finished, add more tasks.
-		if (NBackPrompts.Num() == NBackRecordedResponses.Num())
-		{
-			if (CurrVehicleStatus == VehicleStatus::ResumedAutopilot)
-			{
-				// We can safely end the trial here
-				TerminateNDRT();
-			}
-			else
-			{
-				for (int32 i = 0; i < 10; i++)
-				{
-					// NOTE: A "MATCH" is generated 33.3% times and "MISMATCH" other times
-					FString SingleLetter;
-					if (FMath::FRand() < 1.0f / 3.0f && i >= static_cast<int>(CurrentNValue))
-					{
-						SingleLetter = NBackPrompts[i - static_cast<int>(CurrentNValue)];
-					}
-					else
-					{
-						TCHAR RandomChar = FMath::RandRange('A', 'Z');
-						SingleLetter = FString(1, &RandomChar);
-					}
-					NBackPrompts.Add(SingleLetter);
-				}
-			}
-		} else
-		{
-			// Set the next letter if there are more prompts left
-			SetLetter(NBackPrompts[CurrentGameIndex + 1]);
-
-			// Since a new letter is set, update the time stamp
-			NBackTrialStartTimestamp = FPlatformTime::Seconds();
-		}
 	}
 }
+
+void AEgoVehicle::SetNBackTitle(int32 NBackValue)
+{
+	// Changing the title dynamically based on the n-back task.
+	// NOTE: We will have to use StaticLoadObject instead of FObjectFinder due to the runtime nature.
+	// NOTE: Assumes NBackTitle is initialized
+
+	const FString MaterialPath = FString::Printf(TEXT("Material'/Game/NDRT/NBackTask/Titles/M_%dBackTaskTitle.M_%dBackTaskTitle'"), NBackValue, NBackValue);
+	UMaterial* NewMaterial = Cast<UMaterial>(StaticLoadObject(UMaterial::StaticClass(), nullptr, *MaterialPath));
+	NBackTitle->SetMaterial(0, NewMaterial);
+}
+
 
 // TV show task exclusive methods
 
@@ -622,6 +643,11 @@ void AEgoVehicle::TVShowTaskTick()
 void AEgoVehicle::SetMessagePaneText(FString DisplayText, FColor TextColor) {
 	MessagePane->SetTextRenderColor(TextColor);
 	MessagePane->SetText(DisplayText);
+}
+
+void AEgoVehicle::SetHUDTimeThreshold(float Threshold)
+{
+	GazeOnHUDTimeConstraint = Threshold;
 }
 
 void AEgoVehicle::UpdateProgressBar(float NewProgressValue)
