@@ -524,6 +524,7 @@ class CarlaPerformance:
         braking_input = vehicle_control.brake # NOTE: This is normalized between 0 and 1
         throttle_input = vehicle_control.throttle # NOTE: This is normalized between 0 and 1
         steering_angle = vehicle_control.steer * 450 # NOTE: The logitech wheel can rotate 450 degrees on one side.
+        ego_speed = ego_vehicle.get_velocity().length() * 3.6 # NOTE: The speed is in m/s, so convert it to km/h
 
         # Make sure we have the map
         CarlaPerformance.world_map = world.get_map() if CarlaPerformance.world_map is None else CarlaPerformance.world_map
@@ -548,6 +549,7 @@ class CarlaPerformance:
         CarlaPerformance.braking_input_df.loc[len(CarlaPerformance.braking_input_df)] = common_row_elements + [braking_input]
         CarlaPerformance.throttle_input_df.loc[len(CarlaPerformance.throttle_input_df)] = common_row_elements + [throttle_input]
         CarlaPerformance.steering_angles_df.loc[len(CarlaPerformance.steering_angles_df)] = common_row_elements + [steering_angle]
+        CarlaPerformance.speed_df.loc[len(CarlaPerformance.speed_df)] = common_row_elements + [ego_speed]
         CarlaPerformance.lane_offset_df.loc[len(CarlaPerformance.lane_offset_df)] = common_row_elements + [lane_offset]
     
     @staticmethod
