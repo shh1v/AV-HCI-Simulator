@@ -515,6 +515,9 @@ void AEgoVehicle::NBackTaskTick()
 				{
 					// We can safely end the trial here
 					TerminateNDRT();
+
+					// Exit to not cause index out of bound error
+					return;
 				}
 				else
 				{
