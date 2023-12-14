@@ -381,6 +381,14 @@ public:
     void TickNDRT(); // Update the NDRT on every tick based on its individual implementation
     void RecordInput(); // Record the input from the Logitech steering wheel
 
+private:
+    UPROPERTY(Category = "Audio", EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UAudioComponent* TORAlertSound;   // For TOR alert sound
+    bool bIsTORAlertPlaying = false;
+    UPROPERTY(Category = "Audio", EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UAudioComponent* HUDAlertSound;           // For interruption alert sound
+    bool bIsAlertOnNDRTOn = false;
+
 private: // Eye-tracking
     bool bZMQEyeConnection = false; // True if connection is established
     bool bZmqEyeDataRetrieve = false; // True if data is retrieved from ZMQ
@@ -400,11 +408,6 @@ private: // Eye-tracking
         float TimeStamp;
     };
     FTypedGazeData HighestTimestampGazeData;    // This will store the latest surface gaze data
-    UPROPERTY(Category = "Audio", EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
-    class UAudioComponent *TORAlertSound;   // For TOR alert sound
-    UPROPERTY(Category = "Audio", EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
-    class UAudioComponent *HUDAlertSound;           // For interruption alert sound
-    bool bisAlertOnNDRTOn = false;
 
 public: // Eye-tracking
     bool IsUserGazingOnHUD(); // Returns true if the gaze is on the HUD

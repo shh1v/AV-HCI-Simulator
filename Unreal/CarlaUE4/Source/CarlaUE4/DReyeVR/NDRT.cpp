@@ -99,18 +99,18 @@ void AEgoVehicle::ToggleAlertOnNDRT(bool active) {
 		// Make a red rim appear around the HUD
 		SecondaryHUD->SetVisibility(true, false);
 		// Play a subtle alert sound if not already played
-		if (!bisAlertOnNDRTOn)
+		if (!bIsAlertOnNDRTOn)
 		{
 			// Play an alert sound once (looping is disabled)
 			HUDAlertSound->Play();
-			bisAlertOnNDRTOn = true;
+			bIsAlertOnNDRTOn = true;
 		}
 	}
 	else
 	{
 		// Make the red rim around the HUD disappear
 		SecondaryHUD->SetVisibility(false, false);
-		bisAlertOnNDRTOn = false;
+		bIsAlertOnNDRTOn = false;
 	}
 }
 
@@ -222,6 +222,19 @@ void AEgoVehicle::TickNDRT() {
 
 		// Show a message asking the driver to take control of the vehicle
 		SetMessagePaneText(TEXT("Take Over!"), FColor::Red);
+
+		// Play the TOR alert sound if not already
+		if (CurrVehicleStatus == VehicleStatus::TakeOver && !bIsTORAlertPlaying)
+		{
+			TORAlertSound->Play();
+			bIsTORAlertPlaying = true;
+		}
+		else if (CurrVehicleStatus == VehicleStatus::TakeOverManual && bIsTORAlertPlaying)
+		{
+			TORAlertSound->Stop();
+			bIsTORAlertPlaying = false;
+		}
+
 		return; // Exit for efficiency
 	}
 
