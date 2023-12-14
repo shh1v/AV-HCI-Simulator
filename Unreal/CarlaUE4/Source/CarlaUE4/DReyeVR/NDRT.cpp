@@ -19,7 +19,7 @@ void AEgoVehicle::SetupNDRT() {
 	switch (CurrTaskType) {
 	case TaskType::NBackTask:
 		ConstructNBackElements();
-		SetHUDTimeThreshold(2 + 2 * (static_cast<int>(CurrentNValue) - 1)); // Setting time constraint based on the n-back task type
+		SetHUDTimeThreshold(OneBackTimeLimit + 1 * (static_cast<int>(CurrentNValue) - 1)); // Setting time constraint based on the n-back task type
 		break;
 	case TaskType::TVShowTask:
 		ConstructTVShowElements();
@@ -37,9 +37,9 @@ void AEgoVehicle::StartNDRT() {
 		// Add randomly generated elements to NBackPrompts
 		for (int32 i = 0; i < TotalNBackTasks; i++)
 		{
-			// NOTE: A "MATCH" is generated 33.3% times and "MISMATCH" other times
+			// NOTE: A "MATCH" is generated 50% of the times
 			FString SingleLetter;
-			if (FMath::FRand() < 1.0f/3.0f && i >= static_cast<int>(CurrentNValue))
+			if (FMath::RandBool() && i >= static_cast<int>(CurrentNValue))
 			{
 				SingleLetter = NBackPrompts[i - static_cast<int>(CurrentNValue)];
 			}
@@ -512,7 +512,7 @@ void AEgoVehicle::NBackTaskTick()
 	// CASE 2: [Response already registered] Time has expired (go to the next trial)
 	// CASE 3: [Response not registered] Input is given and time has not expired
 	// CASE 4: [Response not registered] Time has expired (go to the next trial)
-	const float TrialTimeLimit = OneBackTimeLimit + 2.0 * (static_cast<int>(CurrentNValue) - 1);
+	const float TrialTimeLimit = OneBackTimeLimit + 1.0 * (static_cast<int>(CurrentNValue) - 1);
 	const bool HasTimeExpired = FPlatformTime::Seconds() - NBackTrialStartTimestamp >= TrialTimeLimit;
 	UpdateProgressBar(HasTimeExpired ? 0.f : (FPlatformTime::Seconds() - NBackTrialStartTimestamp) / TrialTimeLimit);
 
