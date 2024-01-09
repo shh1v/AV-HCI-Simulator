@@ -319,15 +319,15 @@ class VehicleBehaviourSuite:
                 # Change the eye-tracking logging behaviour
                 EyeTracking.log_interleaving_performance = False
                 EyeTracking.log_driving_performance = True
-            elif VehicleBehaviourSuite.local_vehicle_status == "TakeOverManual":
-                # Record the timestamp of the take over manual start
-                CarlaPerformance.take_over_manual_start_timestamp = sent_timestamp
 
                 # Set metadata for the driving performance data
                 CarlaPerformance.set_configuration(config_file, index)
 
                 # Start logging the performance data
                 VehicleBehaviourSuite.log_driving_performance_data = True
+            elif VehicleBehaviourSuite.local_vehicle_status == "TakeOverManual":
+                # Record the timestamp of the take over manual start
+                CarlaPerformance.take_over_manual_start_timestamp = sent_timestamp
 
                 # Log the reaction time (by stopping the timer)
                 CarlaPerformance.start_logging_reaction_time(False)
