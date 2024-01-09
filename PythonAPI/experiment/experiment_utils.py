@@ -489,7 +489,7 @@ class CarlaPerformance:
         init_or_load_dataframe("braking_input_df", "PerformanceData", "braking_input", ["Timestamp", "BrakingInput"])
         init_or_load_dataframe("throttle_input_df", "PerformanceData", "throttle_input", ["Timestamp", "AccelerationInput"])
         init_or_load_dataframe("steering_angles_df", "PerformanceData", "steering_angles", ["Timestamp", "SteeringAngle"])
-        init_or_load_dataframe("lane_offset_df", "PerformanceData", "lane_offset", ["Timestamp", "LaneOffset"])
+        init_or_load_dataframe("lane_offset_df", "PerformanceData", "lane_offset", ["Timestamp", "LaneID", "LaneOffset"])
         init_or_load_dataframe("speed_df", "PerformanceData", "speed", ["Timestamp", "Speed"])
         init_or_load_dataframe("intervals_df", "IntervalData", "interval_timestamps", ["Autopilot", "PreAlertAutopilot", "TakeOver", "TakeOverManual", "ResumedAutopilot", "TrialOver"])
 
@@ -529,7 +529,9 @@ class CarlaPerformance:
         # Make sure we have the map
         CarlaPerformance.world_map = world.get_map() if CarlaPerformance.world_map is None else CarlaPerformance.world_map
 
-        lane_offset = vehicle_location.distance(CarlaPerformance.world_map.get_waypoint(vehicle_location).transform.location)
+        vehicle_waypoint = CarlaPerformance.world_map.get_waypoint(vehicle_location)
+        lane_offset = vehicle_location.distance(vehicle_waypoint.transform.location)
+        lane_id = str(vehicle_waypoint.lane_id)
 
         # Store the common elements for ease of use
         gen_section = CarlaPerformance.config_file[CarlaPerformance.config_file.sections()[0]]
@@ -550,7 +552,7 @@ class CarlaPerformance:
         CarlaPerformance.throttle_input_df.loc[len(CarlaPerformance.throttle_input_df)] = common_row_elements + [throttle_input]
         CarlaPerformance.steering_angles_df.loc[len(CarlaPerformance.steering_angles_df)] = common_row_elements + [steering_angle]
         CarlaPerformance.speed_df.loc[len(CarlaPerformance.speed_df)] = common_row_elements + [ego_speed]
-        CarlaPerformance.lane_offset_df.loc[len(CarlaPerformance.lane_offset_df)] = common_row_elements + [lane_offset]
+        CarlaPerformance.lane_offset_df.loc[len(CarlaPerformance.lane_offset_df)] = common_row_elements + [lane_id, lane_offset]
     
     @staticmethod
     def save_performance_data():
