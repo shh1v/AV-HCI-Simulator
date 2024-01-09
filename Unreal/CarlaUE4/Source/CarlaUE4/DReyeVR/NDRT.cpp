@@ -157,7 +157,7 @@ void AEgoVehicle::TerminateNDRT() {
 		CommonRowData.Add(TEXT("1")); // Replace this with the actual trial number
 		CommonRowData.Add(ExperimentParams.Get<FString>(CommonRowData[1], "TaskType"));
 		CommonRowData.Add(ExperimentParams.Get<FString>(CommonRowData[1], "TaskSetting"));
-		CommonRowData.Add(ExperimentParams.Get<FString>(CommonRowData[1], "TrafficComplexity"));
+		CommonRowData.Add(ExperimentParams.Get<FString>(CommonRowData[1], "Traffic"));
 
 		// Now, iterate through all the NBack prompts and responses and write in the CSV file
 		check(NBackPrompts.Num() == NBackRecordedResponses.Num() && NBackPrompts.Num() == NBackResponseTimestamp.Num())
