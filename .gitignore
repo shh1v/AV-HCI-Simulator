@@ -32,6 +32,9 @@ cmake-build-debug
 # added by AutoHive to ignore script to test trial implementation
 PythonAPI/experiment/run_tests.py
 
+# Ignore logged data
+Unreal/CarlaUE4/NDRTPerformance/
+
 /ExportedMaps
 /Import/*
 !/Import/README.md

@@ -115,16 +115,8 @@ void AEgoVehicle::ToggleAlertOnNDRT(bool active) {
 }
 
 void AEgoVehicle::SetInteractivityOfNDRT(bool interactivity) {
-	if (interactivity)
-	{
-		// Make a black screen appear at the front
-		DisableHUD->SetVisibility(true, false);
-	}
-	else
-	{
-		// Make the black screen at front of HUD disappear
-		DisableHUD->SetVisibility(false, false);
-	}
+	// If interactivity is true, set visibility false, otherwise true.
+	DisableHUD->SetVisibility(!interactivity, false);
 }
 
 void AEgoVehicle::TerminateNDRT() {
