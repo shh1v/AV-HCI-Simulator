@@ -55,10 +55,10 @@ bool AEgoVehicle::EstablishEyeTrackerConnection() {
 		Requester.connect("tcp://" + Address + ":" + RequestPort);
 		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Connected to the eye-tracker TCP port"));
 
-		// Set send and recv timeout to 100 millisecond to have non-blocking behaviour
-		int timeout = 100;
-		Requester.setsockopt(ZMQ_SNDTIMEO, &timeout, sizeof(timeout));
-		Requester.setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
+		// Set send and recv timeout to 500 milliseconds to have non-blocking behaviour
+		int timeout = 500; // 500 ms
+		Requester.setsockopt(ZMQ_SNDTIMEO, timeout);
+		Requester.setsockopt(ZMQ_RCVTIMEO, timeout);
 
 		// Get the SUBSCRIBE port to connect for communication
 		std::string RequestString = "SUB_PORT";
@@ -77,10 +77,8 @@ bool AEgoVehicle::EstablishEyeTrackerConnection() {
 		// Setup the Subscriber socket
 		EyeSubscriber = new zmq::socket_t(*EyeContext, ZMQ_SUB);
 
-		// Setting 100 ms recv timeout to have non-blocking behaviour
-		EyeSubscriber->setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
-		int conflate = 1;
-		EyeSubscriber->setsockopt(ZMQ_CONFLATE, &conflate, sizeof(conflate));
+		// Setting 500 ms recv timeout to have non-blocking behaviour
+		EyeSubscriber->setsockopt(ZMQ_RCVTIMEO, timeout);
 
 		// Connecting
 		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Connecting to the eye-tracker SUB PORT"));
@@ -159,7 +157,7 @@ FDcResult AEgoVehicle::GetSurfaceData() {
 	zmq::message_t Update;
 	if (!EyeSubscriber->recv(&Update)) {
 		bZmqEyeDataRetrieve = false;
-		UE_LOG(LogTemp, Error, TEXT("ZeroMQ: Failed to receive update from eye tracker"));
+		UE_LOG(LogTemp, Error, TEXT("ZeroMQ: Eye-tracker update message timeout"));
 		return FDcResult{ FDcResult::EStatus::Error };
 	}
 	std::string Topic(static_cast<char*>(Update.data()), Update.size());
@@ -168,7 +166,7 @@ FDcResult AEgoVehicle::GetSurfaceData() {
 	zmq::message_t Message;
 	if (!EyeSubscriber->recv(&Message)) {
 		bZmqEyeDataRetrieve = false;
-		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Failed to receive message from eye tracker"));
+		UE_LOG(LogTemp, Display, TEXT("ZeroMQ: Eye-tracker recieve message timeout"));
 		return FDcResult{ FDcResult::EStatus::Error };
 	}
 

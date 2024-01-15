@@ -19,7 +19,7 @@ void AEgoVehicle::SetupNDRT() {
 	switch (CurrTaskType) {
 	case TaskType::NBackTask:
 		ConstructNBackElements();
-		SetHUDTimeThreshold(OneBackTimeLimit + 1 * (static_cast<int>(CurrentNValue) - 1)); // Setting time constraint based on the n-back task type
+		SetHUDTimeThreshold(1);
 		break;
 	case TaskType::TVShowTask:
 		ConstructTVShowElements();
@@ -175,8 +175,8 @@ void AEgoVehicle::TickNDRT() {
 	// WARNING/NOTE: It is the responsibility of the respective NDRT tick methods to change the vehicle status
 	// to TrialOver when the NDRT task is over.
 
-	// Before doing all the computation, first find out for how long has the driver been looking on the HUD
-	GazeOnHUDTime();
+	// Debug to find out for how long has the driver been looking on the HUD
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Black, FString::Printf(TEXT("Gaze time: %f"), GazeOnHUDTime()));
 
 	// Create a lambda function to call the tick method based on the NDRT set from configuration file
 	auto HandleTaskTick = [&]() {
@@ -264,25 +264,18 @@ void AEgoVehicle::TickNDRT() {
 	}
 
 
-	if (IsUserGazingOnHUD())
+	if (GazeOnHUDTime() >= GazeOnHUDTimeConstraint)
 	{
 		switch (CurrInterruptionParadigm)
 		{
 		case InterruptionParadigm::SystemRecommended:
-			if (GazeOnHUDTime() >= GazeOnHUDTimeConstraint)
-			{
-				ToggleAlertOnNDRT(true);
-			}
+			ToggleAlertOnNDRT(true);
 			break;
 
 		case InterruptionParadigm::SystemInitiated:
-			if (GazeOnHUDTime() >= GazeOnHUDTimeConstraint)
-			{
-				ToggleAlertOnNDRT(true);
-				SetInteractivityOfNDRT(false);
-			}
+			ToggleAlertOnNDRT(true);
+			SetInteractivityOfNDRT(false);
 			break;
-
 		default:
 			break;
 		}
