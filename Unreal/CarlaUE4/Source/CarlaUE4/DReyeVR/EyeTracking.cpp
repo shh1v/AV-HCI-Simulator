@@ -190,6 +190,7 @@ FDcResult AEgoVehicle::GetSurfaceData() {
 	DC_TRY(Ctx.Prepare());
 	DC_TRY(Deserializer.Deserialize(Ctx));
 	bZmqEyeDataRetrieve = true;
+
 	return DcOk();
 }
 

@@ -55,7 +55,7 @@ uint32 RetrieveDataRunnable::Run()
             // Send the current locally stored vehicle status
             EgoVehicle->SendCurrVehicleStatus();
 
-            FPlatformProcess::Sleep(0.01);
+            //FPlatformProcess::Sleep(0.01);
 
             // Retrieve vehicle status from the client
             EgoVehicle->RetrieveVehicleStatus();

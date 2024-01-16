@@ -119,7 +119,7 @@ class ExperimentHelper:
 
 class VehicleBehaviourSuite:
     """
-    The VehicleStatusSuite class is used to send and receive vehicle status between the scenario runner and carla server.
+    The VehicleBehaviourSuite class is used to send and receive vehicle status between the scenario runner and carla server.
     Note that this class exclusively has class variables and static methods to ensure that only one instance of this class is created.
     This is also done to ensure that the ZMQ socket is not created multiple times.
 
