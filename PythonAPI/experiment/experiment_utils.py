@@ -117,6 +117,109 @@ class ExperimentHelper:
             with open(to_file_path, 'w') as to_file:
                 to_file.write(from_file.read())
 
+class HardwareSuite:
+    # ZMQ communication subsriber variables for receiving eye-tracking data from pupil core
+    pupil_context = None
+    pupil_socket = None
+
+    # ZMQ communication subsriber variables for sending hardware data to CARLA
+    hardware_context = None
+    hardware_socket = None
+
+    # Other variables
+    pupil_addr = "127.0.0.1"
+    pupil_request_port = "50020"
+
+    # Store the clock offset
+    clock_offset = None
+
+    @staticmethod
+    def establish_eye_tracking_connection():
+        if HardwareSuite.pupil_context is None or HardwareSuite.pupil_socket is None:
+            HardwareSuite.pupil_context = zmq.Context()
+            req = HardwareSuite.pupil_context.socket(zmq.REQ)
+            req.connect(f"tcp://{HardwareSuite.pupil_addr}:{HardwareSuite.pupil_request_port}")
+            
+            # Ask for sub port
+            req.send_string("SUB_PORT")
+            sub_port = req.recv_string()
+
+            # Also calculate the clock offset to get the system time
+            clock_offsets = []
+            for _ in range(0, 10):
+                req.send_string("t")
+                local_before_time = time.time()
+                pupil_time = float(req.recv())
+                local_after_time = time.time()
+                clock_offsets.append(((local_before_time + local_after_time) / 2.0) - pupil_time)
+            HardwareSuite.clock_offset = sum(clock_offsets) / len(clock_offsets)
+
+            # Open a sub port to listen to pupil core eye tracker
+            HardwareSuite.pupil_socket = HardwareSuite.pupil_context.socket(zmq.SUB)
+            HardwareSuite.pupil_socket.connect(f"tcp://{HardwareSuite.pupil_addr}:{sub_port}")
+
+            # Subscribe to the HUD topic
+            HardwareSuite.pupil_socket.setsockopt_string(zmq.SUBSCRIBE, "surfaces._HUD")
+
+    def establish_publish_connection():
+        if HardwareSuite.hardware_context is None or HardwareSuite.hardware_socket is None:
+            HardwareSuite.hardware_context = zmq.Context()
+            HardwareSuite.hardware_socket = HardwareSuite.hardware_context.socket(zmq.PUB)
+            HardwareSuite.hardware_socket.bind("tcp://*:5558")
+
+    @staticmethod
+    def send_hardware_data():
+        """
+        Send send eye-tracker (for now) data to the carla server
+        """
+        # Create ZMQ socket if not created
+        if (HardwareSuite.hardware_context == None or HardwareSuite.hardware_socket == None):
+            HardwareSuite.establish_publish_connection()
+
+        # Retrieve the hardware data
+        HUD_OnSurf = HardwareSuite.retrive_eye_tracking_data()
+
+        # Send the hardware data
+        message = {
+            "from": "client",
+            "timestamp": datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3],
+            "HUD_OnSurf": HUD_OnSurf if HUD_OnSurf is not None else "Unknown",
+        }
+        serialized_message = serializer.packb(message, use_bin_type=True) # Note: The message is serialized because carla by default deserialize the message
+        
+        # Send the the message
+        HardwareSuite.hardware_socket.send(serialized_message)
+    
+    @staticmethod
+    def retrive_eye_tracking_data():
+        """
+        Receive eye-tracking data from the pupil core
+        """
+        # Create ZMQ socket if not created
+        if (HardwareSuite.pupil_context == None or HardwareSuite.pupil_socket == None):
+            HardwareSuite.establish_eye_tracking_connection()
+
+        latest_gaze_position = None
+
+        try:
+            topic = HardwareSuite.pupil_socket.recv_string(flags=zmq.NOBLOCK)
+            msg = HardwareSuite.pupil_socket.recv(flags=zmq.NOBLOCK)  # bytes
+            surfaces = loads(msg, raw=False)
+            surface_data = {
+                k: v for k, v in surfaces.items()
+            }
+            try:
+                # note that we may have more than one gaze position data point (this is expected behavior)
+                gaze_positions = surface_data["gaze_on_surfaces"]
+                latest_gaze_position = str(gaze_positions[-1]["on_surf"])
+            except Exception as e:
+                print(e)
+        except Exception as e:
+            print(e)
+
+        return latest_gaze_position
+
+
 class VehicleBehaviourSuite:
     """
     The VehicleBehaviourSuite class is used to send and receive vehicle status between the scenario runner and carla server.
@@ -131,7 +234,7 @@ class VehicleBehaviourSuite:
     carla_subscriber_context = None
     carla_subscriber_socket = None
 
-    # ZMQ communication subsriber variables for receiving vehicle status to scenario runner
+    # ZMQ communication subsriber variables for sending vehicle status to scenario runner
     scenario_runner_context = None
     scenario_runner_socket = None
 
@@ -433,7 +536,6 @@ class VehicleBehaviourSuite:
 
         # TODO: Reset all the driving performance variables
         # TODO: Reset all the eye-tracking performance variables
-
 
 class CarlaPerformance:
 
