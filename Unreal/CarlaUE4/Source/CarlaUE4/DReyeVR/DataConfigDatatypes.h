@@ -40,3 +40,15 @@ struct FVehicleStatusData
 
 	UPROPERTY() FString vehicle_status;
 };
+
+USTRUCT()
+struct FHardwareData
+{
+	GENERATED_BODY()
+
+	UPROPERTY() FString from;
+
+	UPROPERTY() FString timestamp;
+
+	UPROPERTY() FString HUD_OnSurf;
+};

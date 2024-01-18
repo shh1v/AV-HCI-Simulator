@@ -389,39 +389,25 @@ private:
     class UAudioComponent* HUDAlertSound;           // For interruption alert sound
     bool bIsAlertOnNDRTOn = false;
 
+private: // External hardware
+    FHardwareData HardwareData; // Stores all the python hardware client stream data.
+
 private: // Eye-tracking
     bool bZMQEyeConnection = false; // True if connection is established
     bool bZmqEyeDataRetrieve = false; // True if data is retrieved from ZMQ
     zmq::context_t* EyeContext;    // Stores the context of the zmq proccess
     zmq::socket_t* EyeSubscriber; // Pointer to the sub socket to listen to pupil labs software
-    FSurfaceData SurfaceData; // Store all the data from the surface topic
-    struct FBaseData {
-        FString TopicPrefix;
-        float TimeStamp;
-    };
-    struct FTypedGazeData {
-        FString Topic;
-        TArray<float> NormPos;
-        float Confidence;
-        bool OnSurf;
-        FBaseData BaseData;
-        float TimeStamp;
-    };
-    FTypedGazeData HighestTimestampGazeData;    // This will store the latest surface gaze data
 
 public: // Eye-tracking
     bool IsUserGazingOnHUD(); // Returns true if the gaze is on the HUD
     float GazeOnHUDTime(); // Returns the time the user has been looking at the HUD
     bool EstablishEyeTrackerConnection(); // Establish connection to a TCP port for PUBLISH-SUBSCRIBE protocol communication
     bool TerminateEyeTrackerConnection(); // Terminate connection to a TCP port for PUBLISH-SUBSCRIBE protocol communication
-    FDcResult GetSurfaceData(); // Get all the surface data from the eye tracker
-    void ParseGazeData(); // This method will load data into FGazeData object
-    FVector2D GetGazeHUDLocation(); // Returns the screen gaze location from the eye tracker
-
+    FDcResult RetrieveOnSurf(); // Retrieved the OnSurf value from the python hardware stream client
 private:
     float GazeOnHUDTimestamp; // Store the timestamp at which the driver starts looking at the HUD
     float bGazeTimerRunning = false; // Store whether the driver has been looking at the HUD
-    bool bLastOnSurfValue = false; // Stores the last updated on surf value retrieved from the eye tracker
+    bool bLatestOnSurfValue = false; // Stores the latest OnSurf value retrieved from the python hardware stream client
     float GazeShiftCounter = 0; // This counter will be used to record number of times a certain boolean value is received, after which it considers an actual gaze shift
     void SetHUDTimeThreshold(float Threshold); // Set the GazeOnHUDTimeConstraint
     float GazeOnHUDTimeConstraint = 2; // Time after which alert is displayed in sys-recommended and sys-initiated modes

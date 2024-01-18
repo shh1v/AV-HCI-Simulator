@@ -19,7 +19,7 @@ void AEgoVehicle::SetupNDRT() {
 	switch (CurrTaskType) {
 	case TaskType::NBackTask:
 		ConstructNBackElements();
-		SetHUDTimeThreshold(1);
+		SetHUDTimeThreshold(2);
 		break;
 	case TaskType::TVShowTask:
 		ConstructTVShowElements();
