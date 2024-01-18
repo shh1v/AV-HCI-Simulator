@@ -49,13 +49,10 @@ uint32 RetrieveDataRunnable::Run()
         if (EgoVehicle != nullptr)
         {
 			// Retrieve all the data from the pupil eye tracker
-            EgoVehicle->GetSurfaceData();
-            EgoVehicle->ParseGazeData();
+            EgoVehicle->RetrieveOnSurf();
 
             // Send the current locally stored vehicle status
             EgoVehicle->SendCurrVehicleStatus();
-
-            //FPlatformProcess::Sleep(0.01);
 
             // Retrieve vehicle status from the client
             EgoVehicle->RetrieveVehicleStatus();

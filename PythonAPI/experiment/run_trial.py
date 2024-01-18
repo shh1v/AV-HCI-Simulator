@@ -75,15 +75,9 @@ def main(args):
                     '--sync', '--output'
                 ]
                 try:
-                    # Run the necessary parallel modules
+                    # Run the necessary parallel modules                    
                     parallel_modules = multiprocessing.Process(target=run_parallel_modules,
-                                                                     args=({
-                                                                            "host": args.host,
-                                                                            "port": args.port,
-                                                                            "threads": args.worker_threads,
-                                                                            "config_file": config_file_path,
-                                                                            "index": index
-                                                                            }))
+                                                                     args=(args.host, args.port, args.worker_threads, config_file, index))
                     parallel_modules.start()
 
                     # Directly run the scenario in the main flow
@@ -110,10 +104,10 @@ def main(args):
             
             index += 1
 
-def run_parallel_modules(vars_dict):
+def run_parallel_modules(host, port, threads, config_file, index):
     try:
         # Connect to the server
-        client = carla.Client(vars_dict["host"], vars_dict["port"], worker_threads=vars_dict["threads"])
+        client = carla.Client(host, port, worker_threads=threads)
         client.set_timeout(10.0)
         world = client.get_world()
 
@@ -125,7 +119,7 @@ def run_parallel_modules(vars_dict):
         while True:
 
             # Check the vehicle status and execute any required behaviour. Also return a bool that tells you if the trial is over.
-            trial_status = VehicleBehaviourSuite.vehicle_status_tick(client, world, vars_dict["config_file"], vars_dict["index"])
+            trial_status = VehicleBehaviourSuite.vehicle_status_tick(client, world, config_file, index)
 
             # If the trial is over, terminate the process
             if not trial_status:
