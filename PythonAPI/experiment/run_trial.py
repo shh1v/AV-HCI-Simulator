@@ -44,6 +44,7 @@ def main(args):
 
     index = 1
     sections = config_file.sections()
+    skipToMain = False
     while index < len(sections):
         section = sections[index]
 
@@ -54,10 +55,13 @@ def main(args):
         print("=================================")
 
         # Ask whether to run the current trial, go back to the previous trial, or skip the current trial
-        action = get_prompt()
+        if not skipToMain:
+            action = get_prompt()
         
         if action == "previous":
             index = max(index - 1, 1)
+        elif action =="main":
+            index = len(sections)-1
         elif action == "skip":
             index += 1
             continue
