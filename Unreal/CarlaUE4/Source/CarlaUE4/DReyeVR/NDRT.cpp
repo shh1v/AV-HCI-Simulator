@@ -15,6 +15,9 @@ void AEgoVehicle::SetupNDRT() {
 	// Construct the head-up display
 	ConstructHUD();
 
+	// Construct the HUD Debugger
+	ConstructHUDDebugger();
+
 	// Present the visual elements based on the task type {n-back, TV show, etc..}
 	switch (CurrTaskType) {
 	case TaskType::NBackTask:
@@ -662,4 +665,27 @@ void AEgoVehicle::UpdateProgressBar(float NewProgressValue)
 			ProgressBarWidget->SetProgress(NewProgressValue);
 		}
 	}
+}
+
+// Construct HUD debugger
+
+void AEgoVehicle::ConstructHUDDebugger()
+{
+	// Construct the pane responsible for setting eye-tracker HUD location boolean here
+	OnSurfValue = CreateEgoObject<UTextRenderComponent>("OnSurfValue");
+	OnSurfValue->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+	OnSurfValue->SetRelativeTransform(VehicleParams.Get<FTransform>("HUD", "DebuggerPaneLocation"));
+	OnSurfValue->SetTextRenderColor(FColor::Black);
+	OnSurfValue->SetText(FText::FromString(""));
+	OnSurfValue->SetWorldSize(5); // scale the font with this
+	OnSurfValue->SetVerticalAlignment(EVerticalTextAligment::EVRTA_TextCenter);
+	OnSurfValue->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
+}
+
+void AEgoVehicle::HUDDebuggerTick()
+{
+	// Set the OnSurf Value here
+	FString BoolAsString = bLatestOnSurfValue ? TEXT("True") : TEXT("False");
+	FString OnSurf = FString::Printf(TEXT("OnSurf: %s"), *BoolAsString);
+	OnSurfValue->SetText(FText::FromString(OnSurf));
 }
