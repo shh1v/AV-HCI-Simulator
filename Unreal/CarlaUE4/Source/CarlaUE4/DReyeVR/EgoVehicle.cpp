@@ -282,6 +282,9 @@ void AEgoVehicle::Tick(float DeltaSeconds)
 
     // Tick NDRT
     TickNDRT();
+
+    // Tick HUD debugger
+    HUDDebuggerTick();
 }
 
 /// ========================================== ///

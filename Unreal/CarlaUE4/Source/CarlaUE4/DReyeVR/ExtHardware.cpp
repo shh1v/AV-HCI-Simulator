@@ -1,5 +1,6 @@
 #include "EgoVehicle.h"
 #include "Carla/Game/CarlaStatics.h"                // GetCurrentEpisode
+#include "Kismet/GameplayStatics.h"					// GetRealTimeSeconds
 #include <zmq.hpp>									// ZeroMQ plugin
 #include <string>									// Raw string for ZeroMQ
 #include "MsgPack/DcMsgPackReader.h"				// MsgPackReader
@@ -12,19 +13,13 @@ bool AEgoVehicle::IsUserGazingOnHUD() {
 	return bLatestOnSurfValue;
 }
 
-
 float AEgoVehicle::GazeOnHUDTime()
 {
 	if (IsUserGazingOnHUD())
 	{
-		if (!bGazeTimerRunning)
-		{
-			GazeOnHUDTimestamp = FPlatformTime::Seconds();
-			bGazeTimerRunning = true;
-		}
-		return FPlatformTime::Seconds() - GazeOnHUDTimestamp;
+		return UGameplayStatics::GetRealTimeSeconds(GetWorld()) - GazeOnHUDTimestamp;
 	}
-	bGazeTimerRunning = false;
+	GazeOnHUDTimestamp = UGameplayStatics::GetRealTimeSeconds(GetWorld());
 	return 0;
 }
 
