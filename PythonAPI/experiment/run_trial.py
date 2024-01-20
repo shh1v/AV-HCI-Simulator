@@ -138,8 +138,8 @@ def run_parallel_modules(host, port, threads, config_file, index):
         print(traceback.format_exc())
 
 def get_prompt():
-    choices = ["current", "previous", "skip"]
-    prompt = input("Choices: 'current' (start the current scenario), 'previous' (go back), 'skip' (skip current scenario). Enter choice: ").lower().strip()
+    choices = ["current", "previous", "skip", "main"]
+    prompt = input("Choices: 'current' (start the current scenario), 'previous' (go back), 'skip' (skip current scenario), 'main' (skip to last scenario). Enter choice: ").lower().strip()
     
     while prompt not in choices:
         prompt = input(f"Invalid input. Choose from {choices}. Enter choice: ").lower().strip()
