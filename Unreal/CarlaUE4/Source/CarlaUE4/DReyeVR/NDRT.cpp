@@ -16,7 +16,10 @@ void AEgoVehicle::SetupNDRT() {
 	ConstructHUD();
 
 	// Construct the HUD Debugger
-	ConstructHUDDebugger();
+	if (GeneralParams.Get<bool>("EgoVehicleHUD", "EnableHUDDebugger"))
+	{
+		ConstructHUDDebugger();
+	}
 
 	// Present the visual elements based on the task type {n-back, TV show, etc..}
 	switch (CurrTaskType) {
@@ -178,8 +181,8 @@ void AEgoVehicle::TickNDRT() {
 	// WARNING/NOTE: It is the responsibility of the respective NDRT tick methods to change the vehicle status
 	// to TrialOver when the NDRT task is over.
 
-	// Debug to find out for how long has the driver been looking on the HUD
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Black, FString::Printf(TEXT("Gaze time: %f"), GazeOnHUDTime()));
+	// Calling the HUD Gaze timer calculator just to be sure it is called frequently enough
+	GazeOnHUDTime();
 
 	// Create a lambda function to call the tick method based on the NDRT set from configuration file
 	auto HandleTaskTick = [&]() {
@@ -674,18 +677,35 @@ void AEgoVehicle::ConstructHUDDebugger()
 	// Construct the pane responsible for setting eye-tracker HUD location boolean here
 	OnSurfValue = CreateEgoObject<UTextRenderComponent>("OnSurfValue");
 	OnSurfValue->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
-	OnSurfValue->SetRelativeTransform(VehicleParams.Get<FTransform>("HUD", "DebuggerPaneLocation"));
+	OnSurfValue->SetRelativeTransform(VehicleParams.Get<FTransform>("HUDDebugger", "OnSurfLocation"));
 	OnSurfValue->SetTextRenderColor(FColor::Black);
 	OnSurfValue->SetText(FText::FromString(""));
 	OnSurfValue->SetWorldSize(5); // scale the font with this
 	OnSurfValue->SetVerticalAlignment(EVerticalTextAligment::EVRTA_TextCenter);
 	OnSurfValue->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
+
+	// Construct the pane responsible for setting eye-tracker HUD location boolean here
+	HUDGazeTime = CreateEgoObject<UTextRenderComponent>("HUDGazeTime");
+	HUDGazeTime->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+	HUDGazeTime->SetRelativeTransform(VehicleParams.Get<FTransform>("HUDDebugger", "HUDGazeTimerLocation"));
+	HUDGazeTime->SetTextRenderColor(FColor::Black);
+	HUDGazeTime->SetText(FText::FromString(""));
+	HUDGazeTime->SetWorldSize(5); // scale the font with this
+	HUDGazeTime->SetVerticalAlignment(EVerticalTextAligment::EVRTA_TextCenter);
+	HUDGazeTime->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
 }
 
 void AEgoVehicle::HUDDebuggerTick()
 {
 	// Set the OnSurf Value here
 	FString BoolAsString = bLatestOnSurfValue ? TEXT("True") : TEXT("False");
+	OnSurfValue->SetTextRenderColor(bLatestOnSurfValue ? FColor::Green : FColor::Red);
 	FString OnSurf = FString::Printf(TEXT("OnSurf: %s"), *BoolAsString);
 	OnSurfValue->SetText(FText::FromString(OnSurf));
+
+	// Set the HUD Timer Value here
+	float GazeTime = GazeOnHUDTime();
+	HUDGazeTime->SetTextRenderColor(FMath::IsNearlyEqual(GazeTime, 0.f, 0.0001f) ? FColor::Red : FColor::Green);
+	FString GazeTimeString = FString::Printf(TEXT("Gaze Time: %.3f"), GazeTime);
+	HUDGazeTime->SetText(FText::FromString(GazeTimeString));
 }

@@ -10,7 +10,18 @@
 #include "Deserialize/DcDeserializerSetup.h"		// EDcMsgPackDeserializeType
 
 bool AEgoVehicle::IsUserGazingOnHUD() {
-	return bLatestOnSurfValue;
+	if (bLastOnSurfValue == bLatestOnSurfValue) {
+		GazeShiftCounter = 0; // Reset the counter when the value is consistent
+	}
+	else {
+		// Increment the gaze shift counter and check if it exceeds the threshold
+		if (++GazeShiftCounter >= 10) {
+			bLastOnSurfValue = bLatestOnSurfValue;
+			GazeShiftCounter = 0;
+		}
+	}
+
+	return bLastOnSurfValue; // Return the current or updated value of OnSurf
 }
 
 float AEgoVehicle::GazeOnHUDTime()

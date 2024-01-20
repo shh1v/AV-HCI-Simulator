@@ -406,7 +406,9 @@ public: // Eye-tracking
     FDcResult RetrieveOnSurf(); // Retrieved the OnSurf value from the python hardware stream client
 private:
     float GazeOnHUDTimestamp; // Store the timestamp at which the driver starts looking at the HUD
+    bool bLastOnSurfValue = false; // Stores the previous OnSurf value
     bool bLatestOnSurfValue = false; // Stores the latest OnSurf value retrieved from the python hardware stream client
+    int32 GazeShiftCounter = 0; // For checking if the OnSurf value change threshold has been reached.
     void SetHUDTimeThreshold(float Threshold); // Set the GazeOnHUDTimeConstraint
     float GazeOnHUDTimeConstraint = 2; // Time after which alert is displayed in sys-recommended and sys-initiated modes
 
@@ -422,4 +424,5 @@ public: // HUD Debugger
     void HUDDebuggerTick();
     UPROPERTY(Category = "Dash", EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UTextRenderComponent* OnSurfValue;
+    class UTextRenderComponent* HUDGazeTime;
 };

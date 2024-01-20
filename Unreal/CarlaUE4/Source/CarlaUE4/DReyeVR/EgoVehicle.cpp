@@ -284,7 +284,10 @@ void AEgoVehicle::Tick(float DeltaSeconds)
     TickNDRT();
 
     // Tick HUD debugger
-    HUDDebuggerTick();
+    if (GeneralParams.Get<bool>("EgoVehicleHUD", "EnableHUDDebugger"))
+    {
+        HUDDebuggerTick();
+    }
 }
 
 /// ========================================== ///
