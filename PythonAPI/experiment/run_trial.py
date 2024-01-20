@@ -61,7 +61,8 @@ def main(args):
         if action == "previous":
             index = max(index - 1, 1)
         elif action =="main":
-            index = len(sections)-1
+            index = len(sections)
+            skipToMain = True
         elif action == "skip":
             index += 1
             continue
