@@ -8,6 +8,7 @@ import re
 import traceback
 
 import zmq
+import socket
 import msgpack as serializer
 from msgpack import loads
 import pandas as pd
@@ -122,9 +123,9 @@ class HardwareSuite:
     pupil_context = None
     pupil_socket = None
 
-    # ZMQ communication subsriber variables for sending hardware data to CARLA
-    hardware_context = None
+    # UDP Connection variables for sending vehicle control to carla server
     hardware_socket = None
+    hardware_address = None
 
     # Other variables
     pupil_addr = "127.0.0.1"
@@ -162,10 +163,9 @@ class HardwareSuite:
             HardwareSuite.pupil_socket.setsockopt_string(zmq.SUBSCRIBE, "surfaces._HUD")
 
     def establish_publish_connection():
-        if HardwareSuite.hardware_context is None or HardwareSuite.hardware_socket is None:
-            HardwareSuite.hardware_context = zmq.Context()
-            HardwareSuite.hardware_socket = HardwareSuite.hardware_context.socket(zmq.PUB)
-            HardwareSuite.hardware_socket.bind("tcp://*:5558")
+        if HardwareSuite.hardware_socket is None or HardwareSuite.hardware_address is None:
+            HardwareSuite.hardware_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            HardwareSuite.hardware_address = ('127.0.0.1', 5558)
 
     @staticmethod
     def send_hardware_data():
@@ -173,23 +173,28 @@ class HardwareSuite:
         Send send eye-tracker (for now) data to the carla server
         """
         # Create ZMQ socket if not created
-        if (HardwareSuite.hardware_context == None or HardwareSuite.hardware_socket == None):
+        if (HardwareSuite.hardware_socket == None or HardwareSuite.hardware_address == None):
             HardwareSuite.establish_publish_connection()
 
         # Retrieve the hardware data
         HUD_OnSurf = HardwareSuite.retrive_eye_tracking_data()
 
-        # Send the hardware data
-        message = {
-            "from": "client",
-            "timestamp": datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3],
-            "HUD_OnSurf": HUD_OnSurf if HUD_OnSurf is not None else "Unknown",
-        }
-        serialized_message = serializer.packb(message, use_bin_type=True) # Note: The message is serialized because carla by default deserialize the message
-        
-        # Send the the message
-        HardwareSuite.hardware_socket.send(serialized_message)
+        # Send the hardware data (for now, just send the HUD_OnSurf data)
+        try:
+            message = b'\x01' if HUD_OnSurf else b'\x00'
+            HardwareSuite.hardware_socket.sendto(message, HardwareSuite.hardware_address)
+        except socket.error as e:
+            print(f"Socket error: {e}")
+        except Exception as e:
+            print(f"Other exception: {e}")
     
+    @staticmethod
+    def terminate_hardware_connection():
+        """
+        Close the hardware connection
+        """
+        HardwareSuite.hardware_socket.close()
+
     @staticmethod
     def retrive_eye_tracking_data():
         """
@@ -211,7 +216,7 @@ class HardwareSuite:
             try:
                 # note that we may have more than one gaze position data point (this is expected behavior)
                 gaze_positions = surface_data["gaze_on_surfaces"]
-                latest_gaze_position = str(gaze_positions[-1]["on_surf"])
+                latest_gaze_position = gaze_positions[-1]["on_surf"]
             except Exception as e:
                 print(e)
         except Exception as e:
