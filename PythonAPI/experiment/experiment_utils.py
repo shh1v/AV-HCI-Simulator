@@ -177,7 +177,7 @@ class HardwareSuite:
             HardwareSuite.establish_publish_connection()
 
         # Retrieve the hardware data
-        HUD_OnSurf = HardwareSuite.retrive_eye_tracking_data()
+        HUD_OnSurf = HardwareSuite.retrieve_eye_tracking_data()
 
         # Send the hardware data (for now, just send the HUD_OnSurf data)
         try:
@@ -196,7 +196,7 @@ class HardwareSuite:
         HardwareSuite.hardware_socket.close()
 
     @staticmethod
-    def retrive_eye_tracking_data():
+    def retrieve_eye_tracking_data():
         """
         Receive eye-tracking data from the pupil core
         """

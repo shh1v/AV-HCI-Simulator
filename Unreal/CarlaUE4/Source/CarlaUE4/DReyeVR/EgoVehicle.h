@@ -19,6 +19,9 @@
 #include "WheeledVehicle.h"                           // VehicleMovementComponent
 #include "RetrieveDataRunnable.h"                     // Retreive all the data in parallel
 #include <zmq.hpp>                                    // ZeroMQ Plugin
+#include "Sockets.h"                                  // Socket programming
+#include "SocketSubsystem.h"						  // Socket programming
+#include "Networking.h"								  // Socket programming
 #include "DcTypes.h"                                  // FDcResult
 #include "DataConfigDatatypes.h"                      // FSurfaceData, FVehicleStatusData
 #include <stdio.h>
@@ -393,17 +396,17 @@ private: // External hardware
     FHardwareData HardwareData; // Stores all the python hardware client stream data.
 
 private: // Eye-tracking
-    bool bZMQEyeConnection = false; // True if connection is established
-    bool bZmqEyeDataRetrieve = false; // True if data is retrieved from ZMQ
-    zmq::context_t* EyeContext;    // Stores the context of the zmq proccess
-    zmq::socket_t* EyeSubscriber; // Pointer to the sub socket to listen to pupil labs software
+    bool bUDPEyeConnection = false; // True if connection is established
+    bool bUDPEyeDataRetrieve = false; // True if data is retrieved from ZMQ
+    FSocket* ListenSocket; // Used for UDP communication
+    FIPv4Endpoint Endpoint; // Used for UDP communication
 
 public: // Eye-tracking
     bool IsUserGazingOnHUD(); // Returns true if the gaze is on the HUD
     float GazeOnHUDTime(); // Returns the time the user has been looking at the HUD
     bool EstablishEyeTrackerConnection(); // Establish connection to a TCP port for PUBLISH-SUBSCRIBE protocol communication
     bool TerminateEyeTrackerConnection(); // Terminate connection to a TCP port for PUBLISH-SUBSCRIBE protocol communication
-    FDcResult RetrieveOnSurf(); // Retrieved the OnSurf value from the python hardware stream client
+    void RetrieveOnSurf(); // Retrieved the OnSurf value from the python hardware stream client
 private:
     float GazeOnHUDTimestamp; // Store the timestamp at which the driver starts looking at the HUD
     bool bLastOnSurfValue = false; // Stores the previous OnSurf value
