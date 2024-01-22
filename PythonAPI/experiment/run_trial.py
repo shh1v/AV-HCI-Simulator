@@ -123,6 +123,7 @@ def run_parallel_modules(host, port, threads, config_file, index):
 
             # If the trial is over, terminate the process
             if not trial_status:
+                HardwareSuite.terminate_hardware_connection() # Terminate UDP connection
                 break
 
             # If the trial is still running, send hardware data

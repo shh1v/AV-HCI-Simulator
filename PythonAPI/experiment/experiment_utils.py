@@ -8,6 +8,7 @@ import re
 import traceback
 
 import zmq
+import socket
 import msgpack as serializer
 from msgpack import loads
 import pandas as pd
@@ -122,9 +123,9 @@ class HardwareSuite:
     pupil_context = None
     pupil_socket = None
 
-    # ZMQ communication subsriber variables for sending hardware data to CARLA
-    hardware_context = None
+    # UDP Connection variables for sending vehicle control to carla server
     hardware_socket = None
+    hardware_address = None
 
     # Other variables
     pupil_addr = "127.0.0.1"
@@ -159,13 +160,12 @@ class HardwareSuite:
             HardwareSuite.pupil_socket.connect(f"tcp://{HardwareSuite.pupil_addr}:{sub_port}")
 
             # Subscribe to the HUD topic
-            HardwareSuite.pupil_socket.setsockopt_string(zmq.SUBSCRIBE, "surfaces._HUD")
+            HardwareSuite.pupil_socket.setsockopt_string(zmq.SUBSCRIBE, "surfaces.HUD")
 
     def establish_publish_connection():
-        if HardwareSuite.hardware_context is None or HardwareSuite.hardware_socket is None:
-            HardwareSuite.hardware_context = zmq.Context()
-            HardwareSuite.hardware_socket = HardwareSuite.hardware_context.socket(zmq.PUB)
-            HardwareSuite.hardware_socket.bind("tcp://*:5558")
+        if HardwareSuite.hardware_socket is None or HardwareSuite.hardware_address is None:
+            HardwareSuite.hardware_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            HardwareSuite.hardware_address = ('127.0.0.1', 5558)
 
     @staticmethod
     def send_hardware_data():
@@ -173,25 +173,33 @@ class HardwareSuite:
         Send send eye-tracker (for now) data to the carla server
         """
         # Create ZMQ socket if not created
-        if (HardwareSuite.hardware_context == None or HardwareSuite.hardware_socket == None):
+        if (HardwareSuite.hardware_socket == None or HardwareSuite.hardware_address == None):
             HardwareSuite.establish_publish_connection()
 
         # Retrieve the hardware data
-        HUD_OnSurf = HardwareSuite.retrive_eye_tracking_data()
+        HUD_OnSurf = HardwareSuite.retrieve_eye_tracking_data()
 
-        # Send the hardware data
-        message = {
-            "from": "client",
-            "timestamp": datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S.%f")[:-3],
-            "HUD_OnSurf": HUD_OnSurf if HUD_OnSurf is not None else "Unknown",
-        }
-        serialized_message = serializer.packb(message, use_bin_type=True) # Note: The message is serialized because carla by default deserialize the message
-        
-        # Send the the message
-        HardwareSuite.hardware_socket.send(serialized_message)
+        if HUD_OnSurf is None:
+            return # Exit if no data is received
+
+        # Send the hardware data (for now, just send the HUD_OnSurf data)
+        try:
+            message = b'\x01' if HUD_OnSurf else b'\x00'
+            HardwareSuite.hardware_socket.sendto(message, HardwareSuite.hardware_address)
+        except socket.error as e:
+            print(f"Socket error: {e}")
+        except Exception as e:
+            print(f"Other exception: {e}")
     
     @staticmethod
-    def retrive_eye_tracking_data():
+    def terminate_hardware_connection():
+        """
+        Close the hardware connection
+        """
+        HardwareSuite.hardware_socket.close()
+
+    @staticmethod
+    def retrieve_eye_tracking_data():
         """
         Receive eye-tracking data from the pupil core
         """
@@ -211,7 +219,7 @@ class HardwareSuite:
             try:
                 # note that we may have more than one gaze position data point (this is expected behavior)
                 gaze_positions = surface_data["gaze_on_surfaces"]
-                latest_gaze_position = str(gaze_positions[-1]["on_surf"])
+                latest_gaze_position = gaze_positions[-1]["on_surf"]
             except Exception as e:
                 print(e)
         except Exception as e:
@@ -715,7 +723,7 @@ class EyeTracking:
     clock_offset = None
 
     # Store all the topics so that they can be looped through
-    ordered_sub_topics = ["pupil.1.3d", "pupil.0.3d", "surfaces.RightMirror", "surfaces.LeftMirror", "surfaces.RearMirror", "surfaces.LeftMonitor", "surfaces.CenterMonitor", "surfaces.RightMonitor", "surfaces._HUD", "blinks"]
+    ordered_sub_topics = ["pupil.1.3d", "pupil.0.3d", "surfaces.RightMirror", "surfaces.LeftMirror", "surfaces.RearMirror", "surfaces.LeftMonitor", "surfaces.CenterMonitor", "surfaces.RightMonitor", "surfaces.HUD", "blinks"]
     # Variables that decide what to log
     log_interleaving_performance = False
     log_driving_performance = False
@@ -878,18 +886,18 @@ class EyeTracking:
                         if len(gaze_on_surfaces) > 0:
                             gaze_on_surfaces.sort(key=lambda x: x["timestamp"], reverse=True)
                             if gaze_on_surfaces[0]["on_surf"]:
-                                if "_HUD" not in surface and not EyeTracking.log_driving_performance:
+                                if "HUD" not in surface and not EyeTracking.log_driving_performance:
                                     surfaces_with_eye_gaze.append([surface, gaze_on_surfaces])
                         if len(fixations_on_surfaces) > 0:
                             # Here, we dont have on_surf as fixation are noticed after some time, so the fixation data may not be current
                             fixations_on_surfaces.sort(key=lambda x: x["timestamp"], reverse=True)
-                            if "_HUD" not in surface and not EyeTracking.log_driving_performance:
+                            if "HUD" not in surface and not EyeTracking.log_driving_performance:
                                 surfaces_with_fixations.append([surface, fixations_on_surfaces])
                         else:
                             continue # Check for the next surface as gaze_on_surfaces is empty
                 
                 # Add surface data to the dataframe
-                first_priority_surfaces = ["surfaces._HUD", "surfaces.LeftMirror", "surfaces.RightMirror", "surfaces.RearMirror"]
+                first_priority_surfaces = ["surfaces.HUD", "surfaces.LeftMirror", "surfaces.RightMirror", "surfaces.RearMirror"]
                 if len(surfaces_with_eye_gaze) > 0:
                     # Now, add the data to the dataframes
                     found_first_surface = False
