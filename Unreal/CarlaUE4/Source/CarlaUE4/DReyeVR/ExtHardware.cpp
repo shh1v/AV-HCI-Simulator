@@ -35,15 +35,16 @@ float AEgoVehicle::GazeOnHUDTime()
 }
 
 bool AEgoVehicle::EstablishEyeTrackerConnection() {
-	const FString YourChosenSocketName = TEXT("EyeTrackerData");
+	const FString SocketName = TEXT("EyeTrackerData");
 	const FString IP = TEXT("127.0.0.1");
-	const int32 Port = 12345;
+	const int32 Port = 5558;
 
 	FIPv4Address Address;
 	FIPv4Address::Parse(IP, Address);
 	Endpoint = FIPv4Endpoint(Address, Port);
 
-	ListenSocket = FTcpSocketBuilder(*YourChosenSocketName)
+	// Create a UDP Socket
+	ListenSocket = FUdpSocketBuilder(*SocketName)
 		.AsNonBlocking()
 		.AsReusable()
 		.BoundToEndpoint(Endpoint)
@@ -53,10 +54,12 @@ bool AEgoVehicle::EstablishEyeTrackerConnection() {
 	{
 		UE_LOG(LogTemp, Error, TEXT("UDP: Failed to create socket!"));
 		bUDPEyeConnection = false;
+		return false;
 	}
 
+	UE_LOG(LogTemp, Error, TEXT("UDP: Successfully created socket!"));
 	bUDPEyeConnection = true;
-	return ListenSocket != nullptr;
+	return true;
 }
 
 bool AEgoVehicle::TerminateEyeTrackerConnection() {
@@ -99,5 +102,8 @@ void AEgoVehicle::RetrieveOnSurf()
 			// Record the received boolean value
 			bLatestOnSurfValue = ReceivedData[0] != 0;
 		}
+	} else
+	{
+		UE_LOG(LogTemp, Display, TEXT("UDP: Unable to retrieve the OnSurf value."));
 	}
 }

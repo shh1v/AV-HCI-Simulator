@@ -160,7 +160,7 @@ class HardwareSuite:
             HardwareSuite.pupil_socket.connect(f"tcp://{HardwareSuite.pupil_addr}:{sub_port}")
 
             # Subscribe to the HUD topic
-            HardwareSuite.pupil_socket.setsockopt_string(zmq.SUBSCRIBE, "surfaces._HUD")
+            HardwareSuite.pupil_socket.setsockopt_string(zmq.SUBSCRIBE, "surfaces.HUD")
 
     def establish_publish_connection():
         if HardwareSuite.hardware_socket is None or HardwareSuite.hardware_address is None:
@@ -178,6 +178,9 @@ class HardwareSuite:
 
         # Retrieve the hardware data
         HUD_OnSurf = HardwareSuite.retrieve_eye_tracking_data()
+
+        if HUD_OnSurf is None:
+            return # Exit if no data is received
 
         # Send the hardware data (for now, just send the HUD_OnSurf data)
         try:
@@ -720,7 +723,7 @@ class EyeTracking:
     clock_offset = None
 
     # Store all the topics so that they can be looped through
-    ordered_sub_topics = ["pupil.1.3d", "pupil.0.3d", "surfaces.RightMirror", "surfaces.LeftMirror", "surfaces.RearMirror", "surfaces.LeftMonitor", "surfaces.CenterMonitor", "surfaces.RightMonitor", "surfaces._HUD", "blinks"]
+    ordered_sub_topics = ["pupil.1.3d", "pupil.0.3d", "surfaces.RightMirror", "surfaces.LeftMirror", "surfaces.RearMirror", "surfaces.LeftMonitor", "surfaces.CenterMonitor", "surfaces.RightMonitor", "surfaces.HUD", "blinks"]
     # Variables that decide what to log
     log_interleaving_performance = False
     log_driving_performance = False
@@ -883,18 +886,18 @@ class EyeTracking:
                         if len(gaze_on_surfaces) > 0:
                             gaze_on_surfaces.sort(key=lambda x: x["timestamp"], reverse=True)
                             if gaze_on_surfaces[0]["on_surf"]:
-                                if "_HUD" not in surface and not EyeTracking.log_driving_performance:
+                                if "HUD" not in surface and not EyeTracking.log_driving_performance:
                                     surfaces_with_eye_gaze.append([surface, gaze_on_surfaces])
                         if len(fixations_on_surfaces) > 0:
                             # Here, we dont have on_surf as fixation are noticed after some time, so the fixation data may not be current
                             fixations_on_surfaces.sort(key=lambda x: x["timestamp"], reverse=True)
-                            if "_HUD" not in surface and not EyeTracking.log_driving_performance:
+                            if "HUD" not in surface and not EyeTracking.log_driving_performance:
                                 surfaces_with_fixations.append([surface, fixations_on_surfaces])
                         else:
                             continue # Check for the next surface as gaze_on_surfaces is empty
                 
                 # Add surface data to the dataframe
-                first_priority_surfaces = ["surfaces._HUD", "surfaces.LeftMirror", "surfaces.RightMirror", "surfaces.RearMirror"]
+                first_priority_surfaces = ["surfaces.HUD", "surfaces.LeftMirror", "surfaces.RightMirror", "surfaces.RearMirror"]
                 if len(surfaces_with_eye_gaze) > 0:
                     # Now, add the data to the dataframes
                     found_first_surface = False
