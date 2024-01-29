@@ -9,7 +9,7 @@ RetrieveDataRunnable::RetrieveDataRunnable(AEgoVehicle* InEgoVehicleInstance)
     : EgoVehicle(InEgoVehicleInstance)
 {
     // Now create the thread with the static ThreadStarter
-    Thread = FRunnableThread::Create(this, TEXT("RetrieveDataRunnable"), 0, TPri_BelowNormal);
+    Thread = FRunnableThread::Create(this, TEXT("RetrieveDataRunnable"), 0, TPri_TimeCritical);
 }
 
 RetrieveDataRunnable::~RetrieveDataRunnable()
@@ -49,8 +49,7 @@ uint32 RetrieveDataRunnable::Run()
         if (EgoVehicle != nullptr)
         {
 			// Retrieve all the data from the pupil eye tracker
-            EgoVehicle->GetSurfaceData();
-            EgoVehicle->ParseGazeData();
+            EgoVehicle->RetrieveOnSurf();
 
             // Send the current locally stored vehicle status
             EgoVehicle->SendCurrVehicleStatus();

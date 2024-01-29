@@ -15,11 +15,17 @@ void AEgoVehicle::SetupNDRT() {
 	// Construct the head-up display
 	ConstructHUD();
 
+	// Construct the HUD Debugger
+	if (GeneralParams.Get<bool>("EgoVehicleHUD", "EnableHUDDebugger"))
+	{
+		ConstructHUDDebugger();
+	}
+
 	// Present the visual elements based on the task type {n-back, TV show, etc..}
 	switch (CurrTaskType) {
 	case TaskType::NBackTask:
 		ConstructNBackElements();
-		SetHUDTimeThreshold(2 + 2 * (static_cast<int>(CurrentNValue) - 1)); // Setting time constraint based on the n-back task type
+		SetHUDTimeThreshold(OneBackTimeLimit + 1 * (static_cast<int>(CurrentNValue) - 1)); // Setting time constraint based on the n-back task type
 		break;
 	case TaskType::TVShowTask:
 		ConstructTVShowElements();
@@ -37,9 +43,9 @@ void AEgoVehicle::StartNDRT() {
 		// Add randomly generated elements to NBackPrompts
 		for (int32 i = 0; i < TotalNBackTasks; i++)
 		{
-			// NOTE: A "MATCH" is generated 33.3% times and "MISMATCH" other times
+			// NOTE: A "MATCH" is generated 50% of the times
 			FString SingleLetter;
-			if (FMath::FRand() < 1.0f/3.0f && i >= static_cast<int>(CurrentNValue))
+			if (FMath::RandBool() && i >= static_cast<int>(CurrentNValue))
 			{
 				SingleLetter = NBackPrompts[i - static_cast<int>(CurrentNValue)];
 			}
@@ -99,32 +105,24 @@ void AEgoVehicle::ToggleAlertOnNDRT(bool active) {
 		// Make a red rim appear around the HUD
 		SecondaryHUD->SetVisibility(true, false);
 		// Play a subtle alert sound if not already played
-		if (!bisAlertOnNDRTOn)
+		if (!bIsAlertOnNDRTOn)
 		{
 			// Play an alert sound once (looping is disabled)
 			HUDAlertSound->Play();
-			bisAlertOnNDRTOn = true;
+			bIsAlertOnNDRTOn = true;
 		}
 	}
 	else
 	{
 		// Make the red rim around the HUD disappear
 		SecondaryHUD->SetVisibility(false, false);
-		bisAlertOnNDRTOn = false;
+		bIsAlertOnNDRTOn = false;
 	}
 }
 
 void AEgoVehicle::SetInteractivityOfNDRT(bool interactivity) {
-	if (interactivity)
-	{
-		// Make a black screen appear at the front
-		DisableHUD->SetVisibility(true, false);
-	}
-	else
-	{
-		// Make the black screen at front of HUD disappear
-		DisableHUD->SetVisibility(false, false);
-	}
+	// If interactivity is true, set visibility false, otherwise true.
+	DisableHUD->SetVisibility(!interactivity, false);
 }
 
 void AEgoVehicle::TerminateNDRT() {
@@ -157,7 +155,7 @@ void AEgoVehicle::TerminateNDRT() {
 		CommonRowData.Add(TEXT("1")); // Replace this with the actual trial number
 		CommonRowData.Add(ExperimentParams.Get<FString>(CommonRowData[1], "TaskType"));
 		CommonRowData.Add(ExperimentParams.Get<FString>(CommonRowData[1], "TaskSetting"));
-		CommonRowData.Add(ExperimentParams.Get<FString>(CommonRowData[1], "TrafficComplexity"));
+		CommonRowData.Add(ExperimentParams.Get<FString>(CommonRowData[1], "Traffic"));
 
 		// Now, iterate through all the NBack prompts and responses and write in the CSV file
 		check(NBackPrompts.Num() == NBackRecordedResponses.Num() && NBackPrompts.Num() == NBackResponseTimestamp.Num())
@@ -183,7 +181,7 @@ void AEgoVehicle::TickNDRT() {
 	// WARNING/NOTE: It is the responsibility of the respective NDRT tick methods to change the vehicle status
 	// to TrialOver when the NDRT task is over.
 
-	// Before doing all the computation, first find out for how long has the driver been looking on the HUD
+	// Calling the HUD Gaze timer calculator just to be sure it is called frequently enough
 	GazeOnHUDTime();
 
 	// Create a lambda function to call the tick method based on the NDRT set from configuration file
@@ -222,6 +220,19 @@ void AEgoVehicle::TickNDRT() {
 
 		// Show a message asking the driver to take control of the vehicle
 		SetMessagePaneText(TEXT("Take Over!"), FColor::Red);
+
+		// Play the TOR alert sound if not already
+		if (CurrVehicleStatus == VehicleStatus::TakeOver && !bIsTORAlertPlaying)
+		{
+			TORAlertSound->Play();
+			bIsTORAlertPlaying = true;
+		}
+		else if (CurrVehicleStatus == VehicleStatus::TakeOverManual && bIsTORAlertPlaying)
+		{
+			TORAlertSound->Stop();
+			bIsTORAlertPlaying = false;
+		}
+
 		return; // Exit for efficiency
 	}
 
@@ -259,25 +270,18 @@ void AEgoVehicle::TickNDRT() {
 	}
 
 
-	if (IsUserGazingOnHUD())
+	if (GazeOnHUDTime() >= GazeOnHUDTimeConstraint)
 	{
 		switch (CurrInterruptionParadigm)
 		{
 		case InterruptionParadigm::SystemRecommended:
-			if (GazeOnHUDTime() >= GazeOnHUDTimeConstraint)
-			{
-				ToggleAlertOnNDRT(true);
-			}
+			ToggleAlertOnNDRT(true);
 			break;
 
 		case InterruptionParadigm::SystemInitiated:
-			if (GazeOnHUDTime() >= GazeOnHUDTimeConstraint)
-			{
-				ToggleAlertOnNDRT(true);
-				SetInteractivityOfNDRT(false);
-			}
+			ToggleAlertOnNDRT(true);
+			SetInteractivityOfNDRT(false);
 			break;
-
 		default:
 			break;
 		}
@@ -499,7 +503,7 @@ void AEgoVehicle::NBackTaskTick()
 	// CASE 2: [Response already registered] Time has expired (go to the next trial)
 	// CASE 3: [Response not registered] Input is given and time has not expired
 	// CASE 4: [Response not registered] Time has expired (go to the next trial)
-	const float TrialTimeLimit = OneBackTimeLimit + 2.0 * (static_cast<int>(CurrentNValue) - 1);
+	const float TrialTimeLimit = OneBackTimeLimit + 1.0 * (static_cast<int>(CurrentNValue) - 1);
 	const bool HasTimeExpired = FPlatformTime::Seconds() - NBackTrialStartTimestamp >= TrialTimeLimit;
 	UpdateProgressBar(HasTimeExpired ? 0.f : (FPlatformTime::Seconds() - NBackTrialStartTimestamp) / TrialTimeLimit);
 
@@ -515,6 +519,9 @@ void AEgoVehicle::NBackTaskTick()
 				{
 					// We can safely end the trial here
 					TerminateNDRT();
+
+					// Exit to not cause index out of bound error
+					return;
 				}
 				else
 				{
@@ -661,4 +668,44 @@ void AEgoVehicle::UpdateProgressBar(float NewProgressValue)
 			ProgressBarWidget->SetProgress(NewProgressValue);
 		}
 	}
+}
+
+// Construct HUD debugger
+
+void AEgoVehicle::ConstructHUDDebugger()
+{
+	// Construct the pane responsible for setting eye-tracker HUD location boolean here
+	OnSurfValue = CreateEgoObject<UTextRenderComponent>("OnSurfValue");
+	OnSurfValue->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+	OnSurfValue->SetRelativeTransform(VehicleParams.Get<FTransform>("HUDDebugger", "OnSurfLocation"));
+	OnSurfValue->SetTextRenderColor(FColor::Black);
+	OnSurfValue->SetText(FText::FromString(""));
+	OnSurfValue->SetWorldSize(5); // scale the font with this
+	OnSurfValue->SetVerticalAlignment(EVerticalTextAligment::EVRTA_TextCenter);
+	OnSurfValue->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
+
+	// Construct the pane responsible for setting eye-tracker HUD location boolean here
+	HUDGazeTime = CreateEgoObject<UTextRenderComponent>("HUDGazeTime");
+	HUDGazeTime->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+	HUDGazeTime->SetRelativeTransform(VehicleParams.Get<FTransform>("HUDDebugger", "HUDGazeTimerLocation"));
+	HUDGazeTime->SetTextRenderColor(FColor::Black);
+	HUDGazeTime->SetText(FText::FromString(""));
+	HUDGazeTime->SetWorldSize(5); // scale the font with this
+	HUDGazeTime->SetVerticalAlignment(EVerticalTextAligment::EVRTA_TextCenter);
+	HUDGazeTime->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
+}
+
+void AEgoVehicle::HUDDebuggerTick()
+{
+	// Set the OnSurf Value here
+	FString BoolAsString = bLatestOnSurfValue ? TEXT("True") : TEXT("False");
+	OnSurfValue->SetTextRenderColor(bLatestOnSurfValue ? FColor::Green : FColor::Red);
+	FString OnSurf = FString::Printf(TEXT("OnSurf: %s"), *BoolAsString);
+	OnSurfValue->SetText(FText::FromString(OnSurf));
+
+	// Set the HUD Timer Value here
+	float GazeTime = GazeOnHUDTime();
+	HUDGazeTime->SetTextRenderColor(FMath::IsNearlyEqual(GazeTime, 0.f, 0.0001f) ? FColor::Red : FColor::Green);
+	FString GazeTimeString = FString::Printf(TEXT("Gaze Time: %.3f"), GazeTime);
+	HUDGazeTime->SetText(FText::FromString(GazeTimeString));
 }

@@ -19,6 +19,9 @@
 #include "WheeledVehicle.h"                           // VehicleMovementComponent
 #include "RetrieveDataRunnable.h"                     // Retreive all the data in parallel
 #include <zmq.hpp>                                    // ZeroMQ Plugin
+#include "Sockets.h"                                  // Socket programming
+#include "SocketSubsystem.h"						  // Socket programming
+#include "Networking.h"								  // Socket programming
 #include "DcTypes.h"                                  // FDcResult
 #include "DataConfigDatatypes.h"                      // FSurfaceData, FVehicleStatusData
 #include <stdio.h>
@@ -381,45 +384,34 @@ public:
     void TickNDRT(); // Update the NDRT on every tick based on its individual implementation
     void RecordInput(); // Record the input from the Logitech steering wheel
 
+private:
+    UPROPERTY(Category = "Audio", EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UAudioComponent* TORAlertSound;   // For TOR alert sound
+    bool bIsTORAlertPlaying = false;
+    UPROPERTY(Category = "Audio", EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UAudioComponent* HUDAlertSound;           // For interruption alert sound
+    bool bIsAlertOnNDRTOn = false;
+
+private: // External hardware
+    FHardwareData HardwareData; // Stores all the python hardware client stream data.
+
 private: // Eye-tracking
-    bool bZMQEyeConnection = false; // True if connection is established
-    bool bZmqEyeDataRetrieve = false; // True if data is retrieved from ZMQ
-    zmq::context_t* EyeContext;    // Stores the context of the zmq proccess
-    zmq::socket_t* EyeSubscriber; // Pointer to the sub socket to listen to pupil labs software
-    FSurfaceData SurfaceData; // Store all the data from the surface topic
-    struct FBaseData {
-        FString TopicPrefix;
-        float TimeStamp;
-    };
-    struct FTypedGazeData {
-        FString Topic;
-        TArray<float> NormPos;
-        float Confidence;
-        bool OnSurf;
-        FBaseData BaseData;
-        float TimeStamp;
-    };
-    FTypedGazeData HighestTimestampGazeData;    // This will store the latest surface gaze data
-    UPROPERTY(Category = "Audio", EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
-    class UAudioComponent *TORAlertSound;   // For TOR alert sound
-    UPROPERTY(Category = "Audio", EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
-    class UAudioComponent *HUDAlertSound;           // For interruption alert sound
-    bool bisAlertOnNDRTOn = false;
+    bool bUDPEyeConnection = false; // True if connection is established
+    bool bUDPEyeDataRetrieve = false; // True if data is retrieved from ZMQ
+    FSocket* ListenSocket; // Used for UDP communication
+    FIPv4Endpoint Endpoint; // Used for UDP communication
 
 public: // Eye-tracking
     bool IsUserGazingOnHUD(); // Returns true if the gaze is on the HUD
     float GazeOnHUDTime(); // Returns the time the user has been looking at the HUD
     bool EstablishEyeTrackerConnection(); // Establish connection to a TCP port for PUBLISH-SUBSCRIBE protocol communication
     bool TerminateEyeTrackerConnection(); // Terminate connection to a TCP port for PUBLISH-SUBSCRIBE protocol communication
-    FDcResult GetSurfaceData(); // Get all the surface data from the eye tracker
-    void ParseGazeData(); // This method will load data into FGazeData object
-    FVector2D GetGazeHUDLocation(); // Returns the screen gaze location from the eye tracker
-
+    void RetrieveOnSurf(); // Retrieved the OnSurf value from the python hardware stream client
 private:
     float GazeOnHUDTimestamp; // Store the timestamp at which the driver starts looking at the HUD
-    float bGazeTimerRunning = false; // Store whether the driver has been looking at the HUD
-    bool bLastOnSurfValue = false; // Stores the last updated on surf value retrieved from the eye tracker
-    float GazeShiftCounter = 0; // This counter will be used to record number of times a certain boolean value is received, after which it considers an actual gaze shift
+    bool bLastOnSurfValue = false; // Stores the previous OnSurf value
+    bool bLatestOnSurfValue = false; // Stores the latest OnSurf value retrieved from the python hardware stream client
+    float GazeShiftThreshTimeStamp = 0; // For checking if the OnSurf value change time limit threshold has been reached.
     void SetHUDTimeThreshold(float Threshold); // Set the GazeOnHUDTimeConstraint
     float GazeOnHUDTimeConstraint = 2; // Time after which alert is displayed in sys-recommended and sys-initiated modes
 
@@ -429,4 +421,11 @@ private:
     void SetMessagePaneText(FString DisplayText, FColor TextColor);
     void DebugLines() const;
     bool bDrawDebugEditor = false;
+
+public: // HUD Debugger
+    void ConstructHUDDebugger();
+    void HUDDebuggerTick();
+    UPROPERTY(Category = "Dash", EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UTextRenderComponent* OnSurfValue;
+    class UTextRenderComponent* HUDGazeTime;
 };

@@ -34,9 +34,9 @@ while True:
             gaze_positions = surface_data["gaze_on_surfaces"]
             latest_gaze_position = gaze_positions[-1]
             if latest_gaze_position["on_surf"]:
-                print("OnHUD: TRUE")
+                print("TRUE")
             else:
-                print("OnHUD: FALSE")
+                print("FALSE")
         except Exception as e:
             print(e)
     except KeyboardInterrupt:

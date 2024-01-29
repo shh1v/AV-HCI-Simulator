@@ -19,7 +19,7 @@ import time
 
 # Local imports
 import carla
-from experiment_utils import ExperimentHelper, VehicleBehaviourSuite
+from experiment_utils import ExperimentHelper, VehicleBehaviourSuite, HardwareSuite
 
 # Other library imports
 import logging
@@ -28,7 +28,8 @@ def main(args):
     logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
     
     ############# HARD CODED CONFIGURATION FILE PATH #############
-    config_file_path = "D:/CarlaDReyeVR/carla/Unreal/CarlaUE4/Config/ExperimentConfig.ini"
+    # config_file_path = "D:/CarlaDReyeVR/carla/Unreal/CarlaUE4/Config/ExperimentConfig.ini"
+    config_file_path = "D:/CarlaDReyeVR/carla/Build/UE4Carla/52c99d1-dirty/WindowsNoEditor/CarlaUE4/Config/ExperimentConfig.ini"
     ##############################################################
 
     # Set the experiment configuration file based on the participant ID
@@ -74,15 +75,16 @@ def main(args):
                     '--sync', '--output'
                 ]
                 try:
-                    # Start vehicle status check process
-                    vehicle_status_process = multiprocessing.Process(target=vehicle_status_check, args=(args.host, args.port, args.worker_threads, config_file, index))
-                    vehicle_status_process.start()
+                    # Run the necessary parallel modules                    
+                    parallel_modules = multiprocessing.Process(target=run_parallel_modules,
+                                                                     args=(args.host, args.port, args.worker_threads, config_file, index))
+                    parallel_modules.start()
 
                     # Directly run the scenario in the main flow
                     subprocess.run(command, stderr=subprocess.STDOUT)
 
                     # Wait for the vehicle status process to terminate. This will be done when CARLA sends a signal that the trial is over.
-                    vehicle_status_process.join()
+                    parallel_modules.join()
                 except (TypeError, ValueError, AttributeError) as e:      
                     print(f"{type(e).__name__} occurred: {e}")
                     print(traceback.format_exc())
@@ -101,9 +103,8 @@ def main(args):
 
             
             index += 1
-                
 
-def vehicle_status_check(host, port, threads, config_file, index):
+def run_parallel_modules(host, port, threads, config_file, index):
     try:
         # Connect to the server
         client = carla.Client(host, port, worker_threads=threads)
@@ -114,14 +115,19 @@ def vehicle_status_check(host, port, threads, config_file, index):
         # NOTE: The provided tm_port is set to 8005 instead of 8000 as the scenario runner is using 8000
         ExperimentHelper.set_simulation_mode(client=client, synchronous_mode=False, tm_synchronous_mode=False, tm_port=8005)
 
-        # Start checking vehicle status and behaviour
+        # Start checking vehicle status/behaviour and sending hardware data
         while True:
+
             # Check the vehicle status and execute any required behaviour. Also return a bool that tells you if the trial is over.
             trial_status = VehicleBehaviourSuite.vehicle_status_tick(client, world, config_file, index)
 
             # If the trial is over, terminate the process
             if not trial_status:
+                HardwareSuite.terminate_hardware_connection() # Terminate UDP connection
                 break
+
+            # If the trial is still running, send hardware data
+            HardwareSuite.send_hardware_data()
             
     except Exception as e:
         print("Exception occurred in vehicle status check thread:", e)

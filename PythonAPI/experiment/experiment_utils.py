@@ -8,6 +8,7 @@ import re
 import traceback
 
 import zmq
+import socket
 import msgpack as serializer
 from msgpack import loads
 import pandas as pd
@@ -117,9 +118,119 @@ class ExperimentHelper:
             with open(to_file_path, 'w') as to_file:
                 to_file.write(from_file.read())
 
+class HardwareSuite:
+    # ZMQ communication subsriber variables for receiving eye-tracking data from pupil core
+    pupil_context = None
+    pupil_socket = None
+
+    # UDP Connection variables for sending vehicle control to carla server
+    hardware_socket = None
+    hardware_address = None
+
+    # Other variables
+    pupil_addr = "127.0.0.1"
+    pupil_request_port = "50020"
+
+    # Store the clock offset
+    clock_offset = None
+
+    @staticmethod
+    def establish_eye_tracking_connection():
+        if HardwareSuite.pupil_context is None or HardwareSuite.pupil_socket is None:
+            HardwareSuite.pupil_context = zmq.Context()
+            req = HardwareSuite.pupil_context.socket(zmq.REQ)
+            req.connect(f"tcp://{HardwareSuite.pupil_addr}:{HardwareSuite.pupil_request_port}")
+            
+            # Ask for sub port
+            req.send_string("SUB_PORT")
+            sub_port = req.recv_string()
+
+            # Also calculate the clock offset to get the system time
+            clock_offsets = []
+            for _ in range(0, 10):
+                req.send_string("t")
+                local_before_time = time.time()
+                pupil_time = float(req.recv())
+                local_after_time = time.time()
+                clock_offsets.append(((local_before_time + local_after_time) / 2.0) - pupil_time)
+            HardwareSuite.clock_offset = sum(clock_offsets) / len(clock_offsets)
+
+            # Open a sub port to listen to pupil core eye tracker
+            HardwareSuite.pupil_socket = HardwareSuite.pupil_context.socket(zmq.SUB)
+            HardwareSuite.pupil_socket.connect(f"tcp://{HardwareSuite.pupil_addr}:{sub_port}")
+
+            # Subscribe to the HUD topic
+            HardwareSuite.pupil_socket.setsockopt_string(zmq.SUBSCRIBE, "surfaces.HUD")
+
+    def establish_publish_connection():
+        if HardwareSuite.hardware_socket is None or HardwareSuite.hardware_address is None:
+            HardwareSuite.hardware_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            HardwareSuite.hardware_address = ('127.0.0.1', 5558)
+
+    @staticmethod
+    def send_hardware_data():
+        """
+        Send send eye-tracker (for now) data to the carla server
+        """
+        # Create ZMQ socket if not created
+        if (HardwareSuite.hardware_socket == None or HardwareSuite.hardware_address == None):
+            HardwareSuite.establish_publish_connection()
+
+        # Retrieve the hardware data
+        HUD_OnSurf = HardwareSuite.retrieve_eye_tracking_data()
+
+        if HUD_OnSurf is None:
+            return # Exit if no data is received
+
+        # Send the hardware data (for now, just send the HUD_OnSurf data)
+        try:
+            message = b'\x01' if HUD_OnSurf else b'\x00'
+            HardwareSuite.hardware_socket.sendto(message, HardwareSuite.hardware_address)
+        except socket.error as e:
+            print(f"Socket error: {e}")
+        except Exception as e:
+            print(f"Other exception: {e}")
+    
+    @staticmethod
+    def terminate_hardware_connection():
+        """
+        Close the hardware connection
+        """
+        HardwareSuite.hardware_socket.close()
+
+    @staticmethod
+    def retrieve_eye_tracking_data():
+        """
+        Receive eye-tracking data from the pupil core
+        """
+        # Create ZMQ socket if not created
+        if (HardwareSuite.pupil_context == None or HardwareSuite.pupil_socket == None):
+            HardwareSuite.establish_eye_tracking_connection()
+
+        latest_gaze_position = None
+
+        try:
+            topic = HardwareSuite.pupil_socket.recv_string(flags=zmq.NOBLOCK)
+            msg = HardwareSuite.pupil_socket.recv(flags=zmq.NOBLOCK)  # bytes
+            surfaces = loads(msg, raw=False)
+            surface_data = {
+                k: v for k, v in surfaces.items()
+            }
+            try:
+                # note that we may have more than one gaze position data point (this is expected behavior)
+                gaze_positions = surface_data["gaze_on_surfaces"]
+                latest_gaze_position = gaze_positions[-1]["on_surf"]
+            except Exception as e:
+                pass
+        except Exception as e:
+            pass
+
+        return latest_gaze_position
+
+
 class VehicleBehaviourSuite:
     """
-    The VehicleStatusSuite class is used to send and receive vehicle status between the scenario runner and carla server.
+    The VehicleBehaviourSuite class is used to send and receive vehicle status between the scenario runner and carla server.
     Note that this class exclusively has class variables and static methods to ensure that only one instance of this class is created.
     This is also done to ensure that the ZMQ socket is not created multiple times.
 
@@ -131,7 +242,7 @@ class VehicleBehaviourSuite:
     carla_subscriber_context = None
     carla_subscriber_socket = None
 
-    # ZMQ communication subsriber variables for receiving vehicle status to scenario runner
+    # ZMQ communication subsriber variables for sending vehicle status to scenario runner
     scenario_runner_context = None
     scenario_runner_socket = None
 
@@ -319,15 +430,15 @@ class VehicleBehaviourSuite:
                 # Change the eye-tracking logging behaviour
                 EyeTracking.log_interleaving_performance = False
                 EyeTracking.log_driving_performance = True
-            elif VehicleBehaviourSuite.local_vehicle_status == "TakeOverManual":
-                # Record the timestamp of the take over manual start
-                CarlaPerformance.take_over_manual_start_timestamp = sent_timestamp
 
                 # Set metadata for the driving performance data
                 CarlaPerformance.set_configuration(config_file, index)
 
                 # Start logging the performance data
                 VehicleBehaviourSuite.log_driving_performance_data = True
+            elif VehicleBehaviourSuite.local_vehicle_status == "TakeOverManual":
+                # Record the timestamp of the take over manual start
+                CarlaPerformance.take_over_manual_start_timestamp = sent_timestamp
 
                 # Log the reaction time (by stopping the timer)
                 CarlaPerformance.start_logging_reaction_time(False)
@@ -434,7 +545,6 @@ class VehicleBehaviourSuite:
         # TODO: Reset all the driving performance variables
         # TODO: Reset all the eye-tracking performance variables
 
-
 class CarlaPerformance:
 
     # Class variables to store the reaction timestamps
@@ -489,7 +599,7 @@ class CarlaPerformance:
         init_or_load_dataframe("braking_input_df", "PerformanceData", "braking_input", ["Timestamp", "BrakingInput"])
         init_or_load_dataframe("throttle_input_df", "PerformanceData", "throttle_input", ["Timestamp", "AccelerationInput"])
         init_or_load_dataframe("steering_angles_df", "PerformanceData", "steering_angles", ["Timestamp", "SteeringAngle"])
-        init_or_load_dataframe("lane_offset_df", "PerformanceData", "lane_offset", ["Timestamp", "LaneOffset"])
+        init_or_load_dataframe("lane_offset_df", "PerformanceData", "lane_offset", ["Timestamp", "LaneID", "LaneOffset"])
         init_or_load_dataframe("speed_df", "PerformanceData", "speed", ["Timestamp", "Speed"])
         init_or_load_dataframe("intervals_df", "IntervalData", "interval_timestamps", ["Autopilot", "PreAlertAutopilot", "TakeOver", "TakeOverManual", "ResumedAutopilot", "TrialOver"])
 
@@ -524,11 +634,14 @@ class CarlaPerformance:
         braking_input = vehicle_control.brake # NOTE: This is normalized between 0 and 1
         throttle_input = vehicle_control.throttle # NOTE: This is normalized between 0 and 1
         steering_angle = vehicle_control.steer * 450 # NOTE: The logitech wheel can rotate 450 degrees on one side.
+        ego_speed = ego_vehicle.get_velocity().length() * 3.6 # NOTE: The speed is in m/s, so convert it to km/h
 
         # Make sure we have the map
         CarlaPerformance.world_map = world.get_map() if CarlaPerformance.world_map is None else CarlaPerformance.world_map
 
-        lane_offset = vehicle_location.distance(CarlaPerformance.world_map.get_waypoint(vehicle_location).transform.location)
+        vehicle_waypoint = CarlaPerformance.world_map.get_waypoint(vehicle_location)
+        lane_offset = vehicle_location.distance(vehicle_waypoint.transform.location)
+        lane_id = str(vehicle_waypoint.lane_id)
 
         # Store the common elements for ease of use
         gen_section = CarlaPerformance.config_file[CarlaPerformance.config_file.sections()[0]]
@@ -548,7 +661,8 @@ class CarlaPerformance:
         CarlaPerformance.braking_input_df.loc[len(CarlaPerformance.braking_input_df)] = common_row_elements + [braking_input]
         CarlaPerformance.throttle_input_df.loc[len(CarlaPerformance.throttle_input_df)] = common_row_elements + [throttle_input]
         CarlaPerformance.steering_angles_df.loc[len(CarlaPerformance.steering_angles_df)] = common_row_elements + [steering_angle]
-        CarlaPerformance.lane_offset_df.loc[len(CarlaPerformance.lane_offset_df)] = common_row_elements + [lane_offset]
+        CarlaPerformance.speed_df.loc[len(CarlaPerformance.speed_df)] = common_row_elements + [ego_speed]
+        CarlaPerformance.lane_offset_df.loc[len(CarlaPerformance.lane_offset_df)] = common_row_elements + [lane_id, lane_offset]
     
     @staticmethod
     def save_performance_data():
@@ -609,7 +723,7 @@ class EyeTracking:
     clock_offset = None
 
     # Store all the topics so that they can be looped through
-    ordered_sub_topics = ["pupil.1.3d", "pupil.0.3d", "surfaces.RightMirror", "surfaces.LeftMirror", "surfaces.RearMirror", "surfaces.LeftMonitor", "surfaces.CenterMonitor", "surfaces.RightMonitor", "surfaces._HUD", "blinks"]
+    ordered_sub_topics = ["pupil.1.3d", "pupil.0.3d", "surfaces.RightMirror", "surfaces.LeftMirror", "surfaces.RearMirror", "surfaces.LeftMonitor", "surfaces.CenterMonitor", "surfaces.RightMonitor", "surfaces.HUD", "blinks"]
     # Variables that decide what to log
     log_interleaving_performance = False
     log_driving_performance = False
@@ -772,18 +886,18 @@ class EyeTracking:
                         if len(gaze_on_surfaces) > 0:
                             gaze_on_surfaces.sort(key=lambda x: x["timestamp"], reverse=True)
                             if gaze_on_surfaces[0]["on_surf"]:
-                                if "_HUD" not in surface and not EyeTracking.log_driving_performance:
+                                if "HUD" not in surface and not EyeTracking.log_driving_performance:
                                     surfaces_with_eye_gaze.append([surface, gaze_on_surfaces])
                         if len(fixations_on_surfaces) > 0:
                             # Here, we dont have on_surf as fixation are noticed after some time, so the fixation data may not be current
                             fixations_on_surfaces.sort(key=lambda x: x["timestamp"], reverse=True)
-                            if "_HUD" not in surface and not EyeTracking.log_driving_performance:
+                            if "HUD" not in surface and not EyeTracking.log_driving_performance:
                                 surfaces_with_fixations.append([surface, fixations_on_surfaces])
                         else:
                             continue # Check for the next surface as gaze_on_surfaces is empty
                 
                 # Add surface data to the dataframe
-                first_priority_surfaces = ["surfaces._HUD", "surfaces.LeftMirror", "surfaces.RightMirror", "surfaces.RearMirror"]
+                first_priority_surfaces = ["surfaces.HUD", "surfaces.LeftMirror", "surfaces.RightMirror", "surfaces.RearMirror"]
                 if len(surfaces_with_eye_gaze) > 0:
                     # Now, add the data to the dataframes
                     found_first_surface = False
