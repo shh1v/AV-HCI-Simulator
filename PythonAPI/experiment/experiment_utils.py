@@ -221,9 +221,9 @@ class HardwareSuite:
                 gaze_positions = surface_data["gaze_on_surfaces"]
                 latest_gaze_position = gaze_positions[-1]["on_surf"]
             except Exception as e:
-                print(e)
+                pass
         except Exception as e:
-            print(e)
+            pass
 
         return latest_gaze_position
 

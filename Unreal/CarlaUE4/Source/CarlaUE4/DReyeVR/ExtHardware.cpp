@@ -10,14 +10,18 @@
 
 // Eye-tracking data specific implementation
 bool AEgoVehicle::IsUserGazingOnHUD() {
+	// IMPORTANT: Need to be called very frequently in order to function properly.
+
 	if (bLastOnSurfValue == bLatestOnSurfValue) {
-		GazeShiftCounter = 0; // Reset the counter when the value is consistent
+		GazeShiftThreshTimeStamp = UGameplayStatics::GetRealTimeSeconds(GetWorld()); // Set the (latest) time the value was unchanged
 	}
 	else {
-		// Increment the gaze shift counter and check if it exceeds the threshold
-		if (++GazeShiftCounter >= 10) {
+		if (UGameplayStatics::GetRealTimeSeconds(GetWorld()) - GazeShiftThreshTimeStamp >= GeneralParams.Get<float>("EyeTracker", "EyeBlinkThreshold"))
+		{
+			// NOTE: 150 milliseconds (or 0.15f seconds) is the average blink time of a human
+			// Blinking causes the gaze mapper to go crazy, so we set this threshold, to prevent resetting the timer
+			// on a blink. Only changes, when the value has been changed for more than the blink time.
 			bLastOnSurfValue = bLatestOnSurfValue;
-			GazeShiftCounter = 0;
 		}
 	}
 
@@ -26,6 +30,7 @@ bool AEgoVehicle::IsUserGazingOnHUD() {
 
 float AEgoVehicle::GazeOnHUDTime()
 {
+	// IMPORTANT: Need to be called very frequently in order to function properly.
 	if (IsUserGazingOnHUD())
 	{
 		return UGameplayStatics::GetRealTimeSeconds(GetWorld()) - GazeOnHUDTimestamp;
