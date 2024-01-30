@@ -18,6 +18,7 @@ import traceback
 import time
 
 # Local imports
+import os
 import carla
 from experiment_utils import ExperimentHelper, VehicleBehaviourSuite, HardwareSuite
 
@@ -29,7 +30,7 @@ def main(args):
     
     ############# HARD CODED CONFIGURATION FILE PATH #############
     # config_file_path = "D:/CarlaDReyeVR/carla/Unreal/CarlaUE4/Config/ExperimentConfig.ini"
-    config_file_path = "D:/CarlaDReyeVR/carla/Build/UE4Carla/52c99d1-dirty/WindowsNoEditor/CarlaUE4/Config/ExperimentConfig.ini"
+    config_file_path = "D:/CarlaDReyeVR/carla/Build/UE4Carla/24fd4b5-dirty/WindowsNoEditor/CarlaUE4/Config/ExperimentConfig.ini"
     ##############################################################
 
     # Set the experiment configuration file based on the participant ID
@@ -46,7 +47,7 @@ def main(args):
     sections = config_file.sections()
     while index < len(sections):
         section = sections[index]
-
+        
         print("=================================")
         print(f"Trial [{section}] is configured.")
         for key, value in config_file[section].items():

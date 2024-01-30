@@ -15,11 +15,8 @@ void AEgoVehicle::SetupNDRT() {
 	// Construct the head-up display
 	ConstructHUD();
 
-	// Construct the HUD Debugger
-	if (GeneralParams.Get<bool>("EgoVehicleHUD", "EnableHUDDebugger"))
-	{
-		ConstructHUDDebugger();
-	}
+	// Construct the HUD Debugger (Will set blank strings)
+	ConstructHUDDebugger();
 
 	// Present the visual elements based on the task type {n-back, TV show, etc..}
 	switch (CurrTaskType) {
