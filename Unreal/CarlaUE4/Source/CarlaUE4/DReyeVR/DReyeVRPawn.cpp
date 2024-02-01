@@ -529,23 +529,17 @@ void ADReyeVRPawn::LogitechWheelUpdate()
     }
     else
     {
-        // Calculate the threshold change once
-        // NOTE: Specifically increased the sensitivity of steering wheel due to force feedback feature
-        bool bThreshChange = !FMath::IsNearlyEqual(WheelRotation, WheelRotationLast, LogiThresh * 0.5f) ||
-            !FMath::IsNearlyEqual(AccelerationPedal, AccelerationPedalLast, LogiThresh) ||
-            !FMath::IsNearlyEqual(BrakePedal, BrakePedalLast, LogiThresh);
-
         AEgoVehicle::VehicleStatus currStatus = EgoVehicle->GetCurrVehicleStatus();
 
         // Check and update the vehicle status when necessary
-        if (currStatus == AEgoVehicle::VehicleStatus::TakeOver && bThreshChange) {
+        if (currStatus == AEgoVehicle::VehicleStatus::TakeOver && EgoVehicle->bTakeOverPress) {
             EgoVehicle->UpdateVehicleStatus(AEgoVehicle::VehicleStatus::TakeOverManual);
         }
 
         // The control modifications are performed in several conditions so we group them together
         if (currStatus == AEgoVehicle::VehicleStatus::ManualDrive ||
             currStatus == AEgoVehicle::VehicleStatus::TakeOverManual ||
-            (currStatus == AEgoVehicle::VehicleStatus::TakeOver && bThreshChange)) {
+            (currStatus == AEgoVehicle::VehicleStatus::TakeOver && EgoVehicle->bTakeOverPress)) {
             EgoVehicle->AddSteering(WheelRotation);
             EgoVehicle->AddThrottle(AccelerationPedal);
             EgoVehicle->AddBrake(BrakePedal);
@@ -590,17 +584,20 @@ void ADReyeVRPawn::ManageButtonPresses(const DIJOYSTATE2 &WheelState)
     else
         EgoVehicle->ReleaseTurnSignalL();
 
-    // if (WheelState.rgbButtons[23]) // big red button on right side of g923
 
     const bool bDPad_Up = (WheelState.rgdwPOV[0] == 0);
     const bool bDPad_Right = (WheelState.rgdwPOV[0] == 9000);
     const bool bDPad_Down = (WheelState.rgdwPOV[0] == 18000);
     const bool bDPad_Left = (WheelState.rgdwPOV[0] == 27000);
-    const bool bPositive = static_cast<bool>(WheelState.rgbButtons[19]);
-    const bool bNegative = static_cast<bool>(WheelState.rgbButtons[20]);
 
-    // Record the up and down joystick click events for the n-back task type
+    // Send the up and down joystick click events for the n-back task type
     EgoVehicle->RecordNBackInputs(bDPad_Up, bDPad_Down);
+
+    // Record if the TOR button is pressed
+    const bool bRSB = static_cast<bool>(WheelState.rgbButtons[8]);
+    const bool bLSB = static_cast<bool>(WheelState.rgbButtons[9]);
+    EgoVehicle->CheckTORButtonPress(bLSB, bRSB);
+
 
     EgoVehicle->UpdateWheelButton(EgoVehicle->Button_DPad_Up, bDPad_Up);
     EgoVehicle->UpdateWheelButton(EgoVehicle->Button_DPad_Right, bDPad_Right);

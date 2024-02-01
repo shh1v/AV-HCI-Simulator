@@ -31,12 +31,14 @@ void AEgoVehicle::SetupNDRT() {
 }
 
 void AEgoVehicle::StartNDRT() {
-	// We must set the n-back task title (outside of the contructor call; hence done here)
-	SetNBackTitle(static_cast<int>(CurrentNValue));
-
 	// Start the NDRT based on the task type
 	switch (CurrTaskType) {
 	case TaskType::NBackTask:
+		// We must set the n-back task title (outside of the contructor call; hence done here)
+		SetNBackTitle(static_cast<int>(CurrentNValue));
+
+		// Figuring out the total n-back tasks that will be run
+		TotalNBackTasks = static_cast<int32>((OneBackTimeLimit * 40) / (OneBackTimeLimit + 1.0 * (static_cast<int>(CurrentNValue) - 1)));
 		// Add randomly generated elements to NBackPrompts
 		for (int32 i = 0; i < TotalNBackTasks; i++)
 		{
@@ -522,11 +524,12 @@ void AEgoVehicle::NBackTaskTick()
 				}
 				else
 				{
+					int32 AdditionalTasks = static_cast<int32>((OneBackTimeLimit * 10) / (OneBackTimeLimit + 1.0 * (static_cast<int>(CurrentNValue) - 1)));
 					for (int32 i = 0; i < 10; i++)
 					{
-						// NOTE: A "MATCH" is generated 33.3% times and "MISMATCH" other times
+						// NOTE: A "MATCH" is generated 50% times and "MISMATCH" other times
 						FString SingleLetter;
-						if (FMath::FRand() < 1.0f / 3.0f && i >= static_cast<int>(CurrentNValue))
+						if (FMath::RandBool() && i >= static_cast<int>(CurrentNValue))
 						{
 							SingleLetter = NBackPrompts[i - static_cast<int>(CurrentNValue)];
 						}

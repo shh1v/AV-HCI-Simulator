@@ -186,6 +186,8 @@ class CARLAUE4_API AEgoVehicle : public ACarlaWheeledVehicle
     void ReleaseTurnSignalR();
     float RightSignalTimeToDie; // how long until the blinkers go out
     bool bCanPressTurnSignalR = true;
+    void CheckTORButtonPress(bool bLSB, bool bRSB);
+    bool bTakeOverPress = false;
 
     // Camera control functions (offset by some amount)
     void CameraPositionAdjust(const FVector &Disp);
@@ -325,7 +327,7 @@ public:
     // N-back task
     enum class NValue{One=1, Two=2, Three=3}; // Change n-back task functionality based on the n-value provided
     NValue CurrentNValue = NValue::One;
-    int32 TotalNBackTasks = 40; // Total trials of n-back task. Possibly Retrieve this value from the the configuration file.
+    int32 TotalNBackTasks = -1; // Total trials of n-back task. Possibly Retrieve this value from the the configuration file.
     TArray<FString> NBackPrompts;   // Store the n-back task prompts in this array
     TArray<FString> NBackRecordedResponses; // Store the "considered" responses in this array
     TArray<FString> NBackResponseTimestamp; // Store the timestamp of when the response was registered by the simulator

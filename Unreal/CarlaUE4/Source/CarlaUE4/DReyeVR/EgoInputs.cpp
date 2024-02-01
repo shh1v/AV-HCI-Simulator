@@ -251,6 +251,11 @@ void AEgoVehicle::ReleaseTurnSignalL()
     bCanPressTurnSignalL = true;
 }
 
+void AEgoVehicle::CheckTORButtonPress(bool bLSB, bool bRSB)
+{
+    bTakeOverPress = bTakeOverPress || bLSB || bRSB;
+}
+
 void AEgoVehicle::TickVehicleInputs()
 {
     FVehicleControl LastAppliedControl = GetVehicleControl();
