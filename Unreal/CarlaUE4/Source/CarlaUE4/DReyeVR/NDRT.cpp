@@ -61,7 +61,7 @@ void AEgoVehicle::StartNDRT() {
 		NBackTrialStartTimestamp = FPlatformTime::Seconds();
 		break;
 	case TaskType::TVShowTask:
-		// Retrive the media player material and the video source which will be used later to play the video
+		// Retrieve the media player material and the video source which will be used later to play the video
 		MediaPlayerMaterial = Cast<UMaterial>(StaticLoadObject(UMaterial::StaticClass(), nullptr, TEXT("Material'/Game/NDRT/TVShow/MediaPlayer/M_MediaPlayer.M_MediaPlayer'")));
 		MediaPlayerSource = Cast<UFileMediaSource>(StaticLoadObject(UFileMediaSource::StaticClass(), nullptr, TEXT("FileMediaSource'/Game/NDRT/TVShow/MediaPlayer/FileMediaSource.FileMediaSource'")));
 		// Change the static mesh material to media player material
@@ -70,6 +70,9 @@ void AEgoVehicle::StartNDRT() {
 		MediaPlayer->OpenSource(MediaPlayerSource);
 		break;
 	}
+
+	// Initially, hide the NDRT and toggle it when appropriate
+	ToggleNDRT(false);
 }
 
 void AEgoVehicle::ToggleNDRT(bool active) {
@@ -147,14 +150,13 @@ void AEgoVehicle::TerminateNDRT() {
 		}
 
 		// Preparing the common row data
-		TArray<FString> CommonRowData = {
-			ExperimentParams.Get<FString>("General", "ParticipantID"),
-			ExperimentParams.Get<FString>("General", "CurrentBlock")
-		};
-		CommonRowData.Add(TEXT("1")); // Replace this with the actual trial number
-		CommonRowData.Add(ExperimentParams.Get<FString>(CommonRowData[1], "TaskType"));
-		CommonRowData.Add(ExperimentParams.Get<FString>(CommonRowData[1], "TaskSetting"));
-		CommonRowData.Add(ExperimentParams.Get<FString>(CommonRowData[1], "Traffic"));
+		TArray<FString> CommonRowData = {ExperimentParams.Get<FString>("General", "ParticipantID")};
+		const FString CurrentBlock = ExperimentParams.Get<FString>("General", "CurrentBlock");
+		CommonRowData.Add(CurrentBlock.Mid(0, 6)); // Add the block number
+		CommonRowData.Add(CurrentBlock.Mid(6, 6)); // Add the trial number
+		CommonRowData.Add(ExperimentParams.Get<FString>(CurrentBlock, "TaskType"));
+		CommonRowData.Add(ExperimentParams.Get<FString>(CurrentBlock, "TaskSetting"));
+		CommonRowData.Add(ExperimentParams.Get<FString>(CurrentBlock, "Traffic"));
 
 		// Now, iterate through all the NBack prompts and responses and write in the CSV file
 		check(NBackPrompts.Num() == NBackRecordedResponses.Num() && NBackPrompts.Num() == NBackResponseTimestamp.Num())
@@ -235,30 +237,66 @@ void AEgoVehicle::TickNDRT() {
 		return; // Exit for efficiency
 	}
 
-	// Now, we are dealing with all the cases when NDRT task engagement is expected. Thus, we run the NDRT task tick
-	HandleTaskTick();
-
+	// Now, we are dealing with all the cases when NDRT task engagement is expected.
 	// CASE: This is the test trial condition. In this case, the scenario runner is not executed, and the
 	// participant is only expected to engage in the NDRT task. Vehicle status is also irrelevant
 	if (IsSkippingSR)
 	{
 		// Allow the driver to engage in NDRT without interruption to practice the task.
 		SetMessagePaneText(TEXT("Test Trial"), FColor::Black);
+		ToggleNDRT(true);
+		HandleTaskTick();
 		return; // Exit for efficiency
 	}
 
 	// CASE: Execute necessary UI behaviour/messages for when autopilot is engaged.
-	if (CurrVehicleStatus == VehicleStatus::Autopilot || CurrVehicleStatus == VehicleStatus::ResumedAutopilot)
+	if (CurrVehicleStatus == VehicleStatus::Autopilot)
 	{
 		// Tell the driver that the ADS is engaged
 		SetMessagePaneText(TEXT("Autopilot Engaged"), FColor::Green);
 
 		// Make sure NDRT is toggled up again
-		ToggleNDRT(true);
+		if (AutopilotStartTimestamp > 0.f)
+		{
+			if ((UGameplayStatics::GetRealTimeSeconds(GetWorld()) - AutopilotStartTimestamp) >= NDRTStartLag)
+			{
+				ToggleNDRT(true);
+				HandleTaskTick();
+			}
+		} else
+		{
+			AutopilotStartTimestamp = UGameplayStatics::GetRealTimeSeconds(GetWorld());
+		}
 
 		return; // Exit for efficiency
 
 	}
+
+	if (CurrVehicleStatus == VehicleStatus::ResumedAutopilot)
+	{
+		// Tell the driver that the ADS is engaged
+		SetMessagePaneText(TEXT("Autopilot Engaged"), FColor::Green);
+
+		// Make sure NDRT is toggled up again
+		if (ResumedAutopilotStartTimestamp > 0.f)
+		{
+			if ((UGameplayStatics::GetRealTimeSeconds(GetWorld()) - ResumedAutopilotStartTimestamp) >= NDRTStartLag)
+			{
+				ToggleNDRT(true);
+				HandleTaskTick();
+			}
+		}
+		else
+		{
+			ResumedAutopilotStartTimestamp = UGameplayStatics::GetRealTimeSeconds(GetWorld());
+		}
+
+		return; // Exit for efficiency
+
+	}
+
+	// During pre alert, call the HandleTaskTick()
+	HandleTaskTick();
 
 	// During the pre-alert period, allow NDRT engagement, but with potential restriction based
 	// on the interruption paradigm. However, the task (timer) will continue to run
@@ -266,6 +304,13 @@ void AEgoVehicle::TickNDRT() {
 	{
 		// Show a pre-alert message suggesting that a take-over request may be issued in the future
 		SetMessagePaneText(TEXT("Prepare to Take Over"), FColor::Orange);
+
+		// Also give a audio notification to make sure they see it
+		if (!bIsPreAlertOn)
+		{
+			PreAlertSound->Play();
+			bIsPreAlertOn = true;
+		}
 	}
 
 
@@ -357,6 +402,13 @@ void AEgoVehicle::ConstructHUD() {
 	HUDAlertSound->SetupAttachment(GetRootComponent());
 	HUDAlertSound->bAutoActivate = false;
 	HUDAlertSound->SetSound(HUDAlertSoundWave.Object);
+
+	static ConstructorHelpers::FObjectFinder<USoundWave> PreAlertSoundWave(
+		TEXT("SoundWave'/Game/DReyeVR/EgoVehicle/Extra/PreAlertSound.PreAlertSound'"));
+	PreAlertSound = CreateDefaultSubobject<UAudioComponent>(TEXT("PreAlert"));
+	PreAlertSound->SetupAttachment(GetRootComponent());
+	PreAlertSound->bAutoActivate = false;
+	PreAlertSound->SetSound(PreAlertSoundWave.Object);
 
 	static ConstructorHelpers::FObjectFinder<USoundWave> TORAlertSoundWave(
 		TEXT("SoundWave'/Game/DReyeVR/EgoVehicle/Extra/TORAlertSound.TORAlertSound'"));

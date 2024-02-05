@@ -251,9 +251,9 @@ void AEgoVehicle::ReleaseTurnSignalL()
     bCanPressTurnSignalL = true;
 }
 
-void AEgoVehicle::CheckTORButtonPress(bool bLSB, bool bRSB)
+void AEgoVehicle::CheckTORButtonPress(bool bABXY_A, bool bABXY_B, bool bABXY_X, bool bABXY_Y)
 {
-    bTakeOverPress = bTakeOverPress || bLSB || bRSB;
+    bTakeOverPress = bTakeOverPress || bABXY_A || bABXY_B || bABXY_X || bABXY_Y;
 }
 
 void AEgoVehicle::TickVehicleInputs()

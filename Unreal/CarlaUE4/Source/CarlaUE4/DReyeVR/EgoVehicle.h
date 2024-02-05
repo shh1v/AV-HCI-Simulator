@@ -186,7 +186,7 @@ class CARLAUE4_API AEgoVehicle : public ACarlaWheeledVehicle
     void ReleaseTurnSignalR();
     float RightSignalTimeToDie; // how long until the blinkers go out
     bool bCanPressTurnSignalR = true;
-    void CheckTORButtonPress(bool bLSB, bool bRSB);
+    void CheckTORButtonPress(bool bABXY_A, bool bABXY_B, bool bABXY_X, bool bABXY_Y);
     bool bTakeOverPress = false;
 
     // Camera control functions (offset by some amount)
@@ -311,6 +311,10 @@ public:
     enum class TaskType {NBackTask, TVShowTask}; // Change the behaviour of the NDRT based on the task type provided
     // The following value will determine the 
     TaskType CurrTaskType = TaskType::NBackTask; // Should be dynamically retrieved from a config file
+    float NDRTStartLag = 2.0f; // Lag after which the NDRT starts (on autopilot or resumed autopilot)
+    float AutopilotStartTimestamp = -1; // Store when the autopilot started
+    float ResumedAutopilotStartTimestamp = -1; // Store when the autopilot is resumed
+
     enum class InterruptionParadigm { SelfRegulated, SystemRecommended, SystemInitiated}; // Change the behaviour of the NDRT based on the task type provided
     // The following value will determine the NDRT interaction during pre-alert time
     InterruptionParadigm CurrInterruptionParadigm = InterruptionParadigm::SelfRegulated; // Should be dynamically retrieved from a config file
@@ -393,6 +397,8 @@ private:
     UPROPERTY(Category = "Audio", EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UAudioComponent* HUDAlertSound;           // For interruption alert sound
     bool bIsAlertOnNDRTOn = false;
+    class UAudioComponent* PreAlertSound;           // For pre-alert notification sound
+    bool bIsPreAlertOn = false;
 
 private: // External hardware
     FHardwareData HardwareData; // Stores all the python hardware client stream data.

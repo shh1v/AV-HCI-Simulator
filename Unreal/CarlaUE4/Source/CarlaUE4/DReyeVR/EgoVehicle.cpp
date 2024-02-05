@@ -717,6 +717,7 @@ void AEgoVehicle::ConstructEgoSounds()
         EgoEngineRevSound->bAutoActivate = true;                // start playing on begin
         EngineLocnInVehicle = VehicleParams.Get<FVector>("Sounds", "EngineLocn");
         EgoEngineRevSound->SetRelativeLocation(EngineLocnInVehicle); // location of "engine" in vehicle (3D sound)
+        EgoEngineRevSound->SetVolumeMultiplier(0.5f);
         EgoEngineRevSound->SetFloatParameter(FName("RPM"), 0.f);     // initially idle
         EgoEngineRevSound->bAutoDestroy = false;                     // No automatic destroy, persist along with vehicle
         check(EgoEngineRevSound != nullptr);
@@ -731,6 +732,7 @@ void AEgoVehicle::ConstructEgoSounds()
         EgoCrashSound = CreateEgoObject<UAudioComponent>("EgoCarCrash");
         FindSound<USoundCue>("Sound", "DefaultCrashSound", EgoCrashSound);
         EgoCrashSound->SetupAttachment(GetRootComponent());
+        EgoCrashSound->SetVolumeMultiplier(0.75f);
         EgoCrashSound->bAutoActivate = false;
         EgoCrashSound->bAutoDestroy = false;
         check(EgoCrashSound != nullptr);

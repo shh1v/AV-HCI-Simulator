@@ -561,7 +561,10 @@ void ADReyeVRPawn::ManageButtonPresses(const DIJOYSTATE2 &WheelState)
     const bool bABXY_X = static_cast<bool>(WheelState.rgbButtons[1]);
     const bool bABXY_Y = static_cast<bool>(WheelState.rgbButtons[3]);
 
-    if (bABXY_A || bABXY_B || bABXY_X || bABXY_Y)
+    const bool bRSB = static_cast<bool>(WheelState.rgbButtons[8]);
+    const bool bLSB = static_cast<bool>(WheelState.rgbButtons[9]);
+
+    if (bRSB || bLSB)
         EgoVehicle->PressReverse();
     else
         EgoVehicle->ReleaseReverse();
@@ -594,9 +597,7 @@ void ADReyeVRPawn::ManageButtonPresses(const DIJOYSTATE2 &WheelState)
     EgoVehicle->RecordNBackInputs(bDPad_Up, bDPad_Down);
 
     // Record if the TOR button is pressed
-    const bool bRSB = static_cast<bool>(WheelState.rgbButtons[8]);
-    const bool bLSB = static_cast<bool>(WheelState.rgbButtons[9]);
-    EgoVehicle->CheckTORButtonPress(bLSB, bRSB);
+    EgoVehicle->CheckTORButtonPress(bABXY_A, bABXY_B, bABXY_X, bABXY_Y);
 
 
     EgoVehicle->UpdateWheelButton(EgoVehicle->Button_DPad_Up, bDPad_Up);
