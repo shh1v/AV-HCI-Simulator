@@ -595,12 +595,12 @@ class CarlaPerformance:
                     setattr(CarlaPerformance, attribute_name, pd.DataFrame(columns=columns))
 
         # Call the function for each attribute
-        init_or_load_dataframe("reaction_time_df", "PerformanceData", "reaction_time", ["Timestamp", "ReactionTime"])
-        init_or_load_dataframe("braking_input_df", "PerformanceData", "braking_input", ["Timestamp", "BrakingInput"])
-        init_or_load_dataframe("throttle_input_df", "PerformanceData", "throttle_input", ["Timestamp", "AccelerationInput"])
-        init_or_load_dataframe("steering_angles_df", "PerformanceData", "steering_angles", ["Timestamp", "SteeringAngle"])
-        init_or_load_dataframe("lane_offset_df", "PerformanceData", "lane_offset", ["Timestamp", "LaneID", "LaneOffset"])
-        init_or_load_dataframe("speed_df", "PerformanceData", "speed", ["Timestamp", "Speed"])
+        init_or_load_dataframe("reaction_time_df", "DrivingData", "reaction_time", ["Timestamp", "ReactionTime"])
+        init_or_load_dataframe("braking_input_df", "DrivingData", "braking_input", ["Timestamp", "BrakingInput"])
+        init_or_load_dataframe("throttle_input_df", "DrivingData", "throttle_input", ["Timestamp", "AccelerationInput"])
+        init_or_load_dataframe("steering_angles_df", "DrivingData", "steering_angles", ["Timestamp", "SteeringAngle"])
+        init_or_load_dataframe("lane_offset_df", "DrivingData", "lane_offset", ["Timestamp", "LaneID", "LaneOffset"])
+        init_or_load_dataframe("speed_df", "DrivingData", "speed", ["Timestamp", "Speed"])
         init_or_load_dataframe("intervals_df", "IntervalData", "interval_timestamps", ["Autopilot", "PreAlertAutopilot", "TakeOver", "TakeOverManual", "ResumedAutopilot", "TrialOver"])
 
     @staticmethod
