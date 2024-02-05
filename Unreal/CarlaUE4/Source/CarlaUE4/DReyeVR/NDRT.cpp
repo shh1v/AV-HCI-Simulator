@@ -1,8 +1,8 @@
 #include "EgoVehicle.h"
-#include "Carla/Game/CarlaStatics.h"                // GetCurrentEpisode
-#include "Engine/EngineTypes.h"                     // EBlendMode
-#include "GameFramework/Actor.h"                    // Destroy
-#include "UObject/ConstructorHelpers.h"				// ConstructorHelpers
+#include "Carla/Game/CarlaStatics.h"	// GetCurrentEpisode
+#include "Engine/EngineTypes.h"			// EBlendMode
+#include "GameFramework/Actor.h"		// Destroy
+#include "UObject/ConstructorHelpers.h" // ConstructorHelpers
 #include "MediaPlayer.h"
 #include "FileMediaSource.h"
 #include "MediaTexture.h"
@@ -10,8 +10,8 @@
 #include "NBackProgressBar.h"
 #include "WidgetComponent.h"
 
-
-void AEgoVehicle::SetupNDRT() {
+void AEgoVehicle::SetupNDRT()
+{
 	// Construct the head-up display
 	ConstructHUD();
 
@@ -19,10 +19,11 @@ void AEgoVehicle::SetupNDRT() {
 	ConstructHUDDebugger();
 
 	// Present the visual elements based on the task type {n-back, TV show, etc..}
-	switch (CurrTaskType) {
+	switch (CurrTaskType)
+	{
 	case TaskType::NBackTask:
 		ConstructNBackElements();
-		SetHUDTimeThreshold(OneBackTimeLimit + 1 * (static_cast<int>(CurrentNValue) - 1)); // Setting time constraint based on the n-back task type
+		SetHUDTimeThreshold(4.0f); // Setting time constraint based as the average of the n-back task time limits
 		break;
 	case TaskType::TVShowTask:
 		ConstructTVShowElements();
@@ -30,9 +31,11 @@ void AEgoVehicle::SetupNDRT() {
 	}
 }
 
-void AEgoVehicle::StartNDRT() {
+void AEgoVehicle::StartNDRT()
+{
 	// Start the NDRT based on the task type
-	switch (CurrTaskType) {
+	switch (CurrTaskType)
+	{
 	case TaskType::NBackTask:
 		// We must set the n-back task title (outside of the contructor call; hence done here)
 		SetNBackTitle(static_cast<int>(CurrentNValue));
@@ -75,17 +78,19 @@ void AEgoVehicle::StartNDRT() {
 	ToggleNDRT(false);
 }
 
-void AEgoVehicle::ToggleNDRT(bool active) {
+void AEgoVehicle::ToggleNDRT(bool active)
+{
 	// Make all the HUD meshes appear/disappear
 	PrimaryHUD->SetVisibility(active, false);
 	// We only need to make them disappear. We don't need to make them visible when NDRT interaction is enabled again.
-	if (!active) {
+	if (!active)
+	{
 		SecondaryHUD->SetVisibility(active, false);
 		DisableHUD->SetVisibility(active, false);
 	}
 
 	// Make all the NDRT-relevant elements appear/disappear
-	switch(CurrTaskType)
+	switch (CurrTaskType)
 	{
 	case TaskType::NBackTask:
 		NBackLetter->SetVisibility(active, false);
@@ -101,7 +106,8 @@ void AEgoVehicle::ToggleNDRT(bool active) {
 	}
 }
 
-void AEgoVehicle::ToggleAlertOnNDRT(bool active) {
+void AEgoVehicle::ToggleAlertOnNDRT(bool active)
+{
 	if (active)
 	{
 		// Make a red rim appear around the HUD
@@ -122,12 +128,14 @@ void AEgoVehicle::ToggleAlertOnNDRT(bool active) {
 	}
 }
 
-void AEgoVehicle::SetInteractivityOfNDRT(bool interactivity) {
+void AEgoVehicle::SetInteractivityOfNDRT(bool interactivity)
+{
 	// If interactivity is true, set visibility false, otherwise true.
 	DisableHUD->SetVisibility(!interactivity, false);
 }
 
-void AEgoVehicle::TerminateNDRT() {
+void AEgoVehicle::TerminateNDRT()
+{
 	// This method assumes that whensoever its called, the trial is over
 	// NOTE: Change code structure if that is not intended behaviour
 	SetMessagePaneText(TEXT("Trial Over"), FColor::Black);
@@ -137,10 +145,13 @@ void AEgoVehicle::TerminateNDRT() {
 
 	// Save all the NDRT performance data here if needed
 
+	// This is done so that the updated file (by python API) is re-read
+	ExperimentParams = ConfigFile(FPaths::Combine(CarlaUE4Path, TEXT("Config/ExperimentConfig.ini")));
+
 	if (CurrTaskType == TaskType::NBackTask)
 	{
 		// Define the CSV file path
-		FString CSVFilePath = FPaths::Combine(CarlaUE4Path, FString::Printf(TEXT("NDRTPerformance/n_back.csv")));
+		FString CSVFilePath = FPaths::ProjectContentDir() / TEXT("NDRTPerformance/n_back.csv");
 
 		// Check if the file exists, and if not, create it and write the header
 		if (!FPaths::FileExists(CSVFilePath))
@@ -161,7 +172,7 @@ void AEgoVehicle::TerminateNDRT() {
 		// Now, iterate through all the NBack prompts and responses and write in the CSV file
 		check(NBackPrompts.Num() == NBackRecordedResponses.Num() && NBackPrompts.Num() == NBackResponseTimestamp.Num())
 
-		for (int32 i = 0; i < NBackPrompts.Num(); i++)
+			for (int32 i = 0; i < NBackPrompts.Num(); i++)
 		{
 			// Combine the common data with the specific data for this iteration
 			TArray<FString> RowData = CommonRowData;
@@ -178,7 +189,8 @@ void AEgoVehicle::TerminateNDRT() {
 	}
 }
 
-void AEgoVehicle::TickNDRT() {
+void AEgoVehicle::TickNDRT()
+{
 	// WARNING/NOTE: It is the responsibility of the respective NDRT tick methods to change the vehicle status
 	// to TrialOver when the NDRT task is over.
 
@@ -186,7 +198,8 @@ void AEgoVehicle::TickNDRT() {
 	GazeOnHUDTime();
 
 	// Create a lambda function to call the tick method based on the NDRT set from configuration file
-	auto HandleTaskTick = [&]() {
+	auto HandleTaskTick = [&]()
+	{
 		switch (CurrTaskType)
 		{
 		case TaskType::NBackTask:
@@ -205,7 +218,7 @@ void AEgoVehicle::TickNDRT() {
 	{
 		if (CurrVehicleStatus == VehicleStatus::ManualDrive)
 		{
-			SetMessagePaneText(TEXT("Please Wait"), FColor::Black);
+			SetMessagePaneText(TEXT("Manual Drive"), FColor::Black);
 		}
 
 		// This is the case when scenario runner has not kicked in. Just do nothing
@@ -263,13 +276,13 @@ void AEgoVehicle::TickNDRT() {
 				ToggleNDRT(true);
 				HandleTaskTick();
 			}
-		} else
+		}
+		else
 		{
 			AutopilotStartTimestamp = UGameplayStatics::GetRealTimeSeconds(GetWorld());
 		}
 
 		return; // Exit for efficiency
-
 	}
 
 	if (CurrVehicleStatus == VehicleStatus::ResumedAutopilot)
@@ -292,7 +305,6 @@ void AEgoVehicle::TickNDRT() {
 		}
 
 		return; // Exit for efficiency
-
 	}
 
 	// During pre alert, call the HandleTaskTick()
@@ -312,7 +324,6 @@ void AEgoVehicle::TickNDRT() {
 			bIsPreAlertOn = true;
 		}
 	}
-
 
 	if (GazeOnHUDTime() >= GazeOnHUDTimeConstraint)
 	{
@@ -349,8 +360,8 @@ void AEgoVehicle::TickNDRT() {
 	}
 }
 
-
-void AEgoVehicle::ConstructHUD() {
+void AEgoVehicle::ConstructHUD()
+{
 	// Creating the primary head-up display to display the non-driving related task
 	PrimaryHUD = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Primary HUD"));
 	PrimaryHUD->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
@@ -416,10 +427,10 @@ void AEgoVehicle::ConstructHUD() {
 	TORAlertSound->SetupAttachment(GetRootComponent());
 	TORAlertSound->bAutoActivate = false;
 	TORAlertSound->SetSound(TORAlertSoundWave.Object);
-
 }
 
-void AEgoVehicle::ConstructNBackElements() {
+void AEgoVehicle::ConstructNBackElements()
+{
 	// Creating the letter pane to show letters for the n-back task
 	NBackLetter = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("N-back Letter Pane"));
 	NBackLetter->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
@@ -473,10 +484,11 @@ void AEgoVehicle::ConstructNBackElements() {
 	NBackIncorrectSound->SetSound(IncorrectSoundWave.Object);
 }
 
-void AEgoVehicle::ConstructTVShowElements() {
+void AEgoVehicle::ConstructTVShowElements()
+{
 	// Initializing the static mesh for the media player with a default texture
 	MediaPlayerMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("TV-show Pane"));
-	UStaticMesh* CubeMesh = ConstructorHelpers::FObjectFinder<UStaticMesh>(TEXT("StaticMesh'/Engine/BasicShapes/Cube.Cube'")).Object;
+	UStaticMesh *CubeMesh = ConstructorHelpers::FObjectFinder<UStaticMesh>(TEXT("StaticMesh'/Engine/BasicShapes/Cube.Cube'")).Object;
 	MediaPlayerMaterial = Cast<UMaterial>(StaticLoadObject(UMaterial::StaticClass(), nullptr, TEXT("Material'/Game/NDRT/TVShow/MediaPlayer/M_MediaPlayerDefault.M_MediaPlayerDefault'")));
 	MediaPlayerMesh->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
 	MediaPlayerMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -501,20 +513,23 @@ void AEgoVehicle::ConstructTVShowElements() {
 
 // N-back task exclusive methods
 
-void AEgoVehicle::SetLetter(const FString& Letter) {
-	if (NBackLetter == nullptr) return; // NBackLetter is not initialized yet
+void AEgoVehicle::SetLetter(const FString &Letter)
+{
+	if (NBackLetter == nullptr)
+		return; // NBackLetter is not initialized yet
 
 	FString MaterialPath = FString::Printf(TEXT("Material'/Game/NDRT/NBackTask/Letters/M_%s.M_%s'"), *Letter, *Letter);
-	UMaterial* NewMaterial = Cast<UMaterial>(StaticLoadObject(UMaterial::StaticClass(), nullptr, *MaterialPath));
+	UMaterial *NewMaterial = Cast<UMaterial>(StaticLoadObject(UMaterial::StaticClass(), nullptr, *MaterialPath));
 
-	if (NewMaterial) {
+	if (NewMaterial)
+	{
 		NBackLetter->SetMaterial(0, NewMaterial);
 	}
-	else {
+	else
+	{
 		UE_LOG(LogTemp, Warning, TEXT("Failed to load material: %s"), *MaterialPath);
 	}
 }
-
 
 void AEgoVehicle::RecordNBackInputs(bool BtnUp, bool BtnDown)
 {
@@ -544,7 +559,6 @@ void AEgoVehicle::RecordNBackInputs(bool BtnUp, bool BtnDown)
 	bWasBtnUpPressedLastFrame = BtnUp;
 	bWasBtnDownPressedLastFrame = BtnDown;
 }
-
 
 void AEgoVehicle::NBackTaskTick()
 {
@@ -602,12 +616,14 @@ void AEgoVehicle::NBackTaskTick()
 
 			// Reset the boolean variable for the new trial now
 			IsNBackResponseGiven = false;
-		} else if (NBackResponseBuffer.Num() > 0)
+		}
+		else if (NBackResponseBuffer.Num() > 0)
 		{
 			// Clear the response buffer as the input is already registered.
 			NBackResponseBuffer.Empty();
 		}
-	} else
+	}
+	else
 	{
 		FString LatestResponse;
 		if (NBackResponseBuffer.Num() > 0)
@@ -617,7 +633,8 @@ void AEgoVehicle::NBackTaskTick()
 		else if (HasTimeExpired)
 		{
 			LatestResponse = "NR"; // No Response
-		} else
+		}
+		else
 		{
 			return;
 		}
@@ -686,20 +703,19 @@ void AEgoVehicle::SetNBackTitle(int32 NBackValue)
 	// NOTE: Assumes NBackTitle is initialized
 
 	const FString MaterialPath = FString::Printf(TEXT("Material'/Game/NDRT/NBackTask/Titles/M_%dBackTaskTitle.M_%dBackTaskTitle'"), NBackValue, NBackValue);
-	UMaterial* NewMaterial = Cast<UMaterial>(StaticLoadObject(UMaterial::StaticClass(), nullptr, *MaterialPath));
+	UMaterial *NewMaterial = Cast<UMaterial>(StaticLoadObject(UMaterial::StaticClass(), nullptr, *MaterialPath));
 	NBackTitle->SetMaterial(0, NewMaterial);
 }
-
 
 // TV show task exclusive methods
 
 void AEgoVehicle::TVShowTaskTick()
 {
-	
 }
 
 // Misc methods
-void AEgoVehicle::SetMessagePaneText(FString DisplayText, FColor TextColor) {
+void AEgoVehicle::SetMessagePaneText(FString DisplayText, FColor TextColor)
+{
 	MessagePane->SetTextRenderColor(TextColor);
 	MessagePane->SetText(DisplayText);
 }
@@ -711,10 +727,10 @@ void AEgoVehicle::SetHUDTimeThreshold(float Threshold)
 
 void AEgoVehicle::UpdateProgressBar(float NewProgressValue)
 {
-	UUserWidget* UserWidget = ProgressWidgetComponent->GetUserWidgetObject();
+	UUserWidget *UserWidget = ProgressWidgetComponent->GetUserWidgetObject();
 	if (UserWidget)
 	{
-		UNBackProgressBar* ProgressBarWidget = Cast<UNBackProgressBar>(UserWidget);
+		UNBackProgressBar *ProgressBarWidget = Cast<UNBackProgressBar>(UserWidget);
 		if (ProgressBarWidget)
 		{
 			ProgressBarWidget->SetProgress(NewProgressValue);
