@@ -77,7 +77,7 @@ if not os.path.exists(config_dir):
 latin_square = generate_latin_square(3)
 
 # Create the config files
-participant_counter = 1
+participant_counter = 19
 for order in [latin_square, latin_square.T]:  # Using both Latin square and its transpose
     for task_order in order:
         for paradigm in INTERRUPTION_PARADIGMS:  # Alternate paradigms for every file

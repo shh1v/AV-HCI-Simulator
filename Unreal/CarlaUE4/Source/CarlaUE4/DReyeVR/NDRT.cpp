@@ -37,11 +37,12 @@ void AEgoVehicle::StartNDRT()
 	switch (CurrTaskType)
 	{
 	case TaskType::NBackTask:
-		// We must set the n-back task title (outside of the contructor call; hence done here)
+		// We must set the n-back task title (outside of the constructor call; hence done here)
 		SetNBackTitle(static_cast<int>(CurrentNValue));
 
 		// Figuring out the total n-back tasks that will be run
-		TotalNBackTasks = static_cast<int32>((OneBackTimeLimit * 40) / (OneBackTimeLimit + 1.0 * (static_cast<int>(CurrentNValue) - 1)));
+		// Note: OneBackTimeLimit * 80 = 3 * 80 = 240 seconds; There will be 80, 60, and 48 1-back, 2-back, and 3-back tasks
+		TotalNBackTasks = static_cast<int32>((OneBackTimeLimit * 80) / (OneBackTimeLimit + 1.0 * (static_cast<int>(CurrentNValue) - 1)));
 		// Add randomly generated elements to NBackPrompts
 		for (int32 i = 0; i < TotalNBackTasks; i++)
 		{
@@ -165,7 +166,7 @@ void AEgoVehicle::TerminateNDRT()
 		const FString CurrentBlock = ExperimentParams.Get<FString>("General", "CurrentBlock");
 		CommonRowData.Add(CurrentBlock.Mid(0, 6)); // Add the block number
 		CommonRowData.Add(CurrentBlock.Mid(6, 6)); // Add the trial number
-		CommonRowData.Add(ExperimentParams.Get<FString>(CurrentBlock, "TaskType"));
+		CommonRowData.Add(ExperimentParams.Get<FString>(CurrentBlock, "NDRTTaskType"));
 		CommonRowData.Add(ExperimentParams.Get<FString>(CurrentBlock, "TaskSetting"));
 		CommonRowData.Add(ExperimentParams.Get<FString>(CurrentBlock, "Traffic"));
 
@@ -590,6 +591,7 @@ void AEgoVehicle::NBackTaskTick()
 				}
 				else
 				{
+					// This should ideally never kick in
 					int32 AdditionalTasks = static_cast<int32>((OneBackTimeLimit * 10) / (OneBackTimeLimit + 1.0 * (static_cast<int>(CurrentNValue) - 1)));
 					for (int32 i = 0; i < 10; i++)
 					{
