@@ -30,7 +30,7 @@ def main(args):
     
     ############# HARD CODED CONFIGURATION FILE PATH #############
     # config_file_path = "D:/CarlaDReyeVR/carla/Unreal/CarlaUE4/Config/ExperimentConfig.ini"
-    config_file_path = "D:/CarlaDReyeVR/carla/Build/UE4Carla/f6819a6-dirty/WindowsNoEditor/CarlaUE4/Config/ExperimentConfig.ini"
+    config_file_path = "D:/CarlaDReyeVR/carla/Build/UE4Carla/16b40c3-dirty/WindowsNoEditor/CarlaUE4/Config/ExperimentConfig.ini"
     ##############################################################
 
     # Set the experiment configuration file based on the participant ID

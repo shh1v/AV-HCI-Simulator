@@ -4,12 +4,25 @@ import random
 import os
 
 # Function to generate Latin square
-def generate_latin_square(n):
-    base = np.arange(n)
-    square = np.zeros((n, n), dtype=int)
-    for i in range(n):
-        square[i] = np.roll(base, -i)
-    return square
+def balanced_latin_square(array, id):
+    result = []
+    # Based on "Bradley, J. V. Complete counterbalancing of immediate sequential effects in a Latin square design. J. Amer. Statist. Ass.,.1958, 53, 525-528. "
+    j, h = 0, 0
+    for i in range(len(array)):
+        if i < 2 or i % 2 != 0:
+            val = j
+            j += 1
+        else:
+            val = len(array) - h - 1
+            h += 1
+
+        idx = (val + id) % len(array)
+        result.append(array[idx])
+
+    if len(array) % 2 != 0 and id % 2 != 0:
+        result.reverse()
+
+    return result
 
 # Function to create and write to the configuration file
 def write_config_file(participant_id, paradigm, task_order, traffic_order):
@@ -39,7 +52,7 @@ def write_config_file(participant_id, paradigm, task_order, traffic_order):
     for trial_num in range(1, 3):
         block_trial = f"Block0Trial{trial_num}"
         lines.append(f"[{block_trial}]")
-        lines.append('SkipSR="False"') # This will be used by client and CARLA to skip executing scenario runner and CARLA to run some custom behavior
+        lines.append('SkipSR="False"')
         lines.append('NDRTTaskType="NBackTask"')
         NDRT_TASK = random.choice(NDRT_TASKS_COPY)
         lines.append(f'TaskSetting="{NDRT_TASK}"')
@@ -73,16 +86,15 @@ config_dir = "config_files"
 if not os.path.exists(config_dir):
     os.makedirs(config_dir)
 
-# Generate Latin square
-latin_square = generate_latin_square(3)
 
 # Create the config files
 participant_counter = 1
-for order in [latin_square, latin_square.T]:  # Using both Latin square and its transpose
-    for task_order in order:
-        for paradigm in INTERRUPTION_PARADIGMS:  # Alternate paradigms for every file
-            # Generate randomized traffic order for each NDRT task
-            traffic_order = [random.sample(TRAFFIC_COMPLEXITIES, len(TRAFFIC_COMPLEXITIES)) for _ in range(3)]
-            participant_id = f"P{str(participant_counter).zfill(2)}"
-            write_config_file(participant_id, paradigm, task_order, traffic_order)
-            participant_counter += 1
+for i in range(0, 6): # 3 levels of n-back task, multiplied by two because 3 is odd and we want to balance the Latin square
+    task_order = balanced_latin_square([0, 1, 2], i)
+    print(task_order)
+    for paradigm in INTERRUPTION_PARADIGMS:  # Alternate paradigms for every file
+        # Generate randomized traffic order for each NDRT task
+        traffic_order = [random.sample(TRAFFIC_COMPLEXITIES, len(TRAFFIC_COMPLEXITIES)) for _ in range(3)]
+        participant_id = f"P{str(participant_counter).zfill(2)}"
+        write_config_file(participant_id, paradigm, task_order, traffic_order)
+        participant_counter += 1

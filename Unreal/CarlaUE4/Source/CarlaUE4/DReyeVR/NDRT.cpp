@@ -37,11 +37,12 @@ void AEgoVehicle::StartNDRT()
 	switch (CurrTaskType)
 	{
 	case TaskType::NBackTask:
-		// We must set the n-back task title (outside of the contructor call; hence done here)
+		// We must set the n-back task title (outside of the constructor call; hence done here)
 		SetNBackTitle(static_cast<int>(CurrentNValue));
 
 		// Figuring out the total n-back tasks that will be run
-		TotalNBackTasks = static_cast<int32>((OneBackTimeLimit * 40) / (OneBackTimeLimit + 1.0 * (static_cast<int>(CurrentNValue) - 1)));
+		// Note: OneBackTimeLimit * 80 = 3 * 80 = 240 seconds; There will be 80, 60, and 48 1-back, 2-back, and 3-back tasks
+		TotalNBackTasks = static_cast<int32>((OneBackTimeLimit * 80) / (OneBackTimeLimit + 1.0 * (static_cast<int>(CurrentNValue) - 1)));
 		// Add randomly generated elements to NBackPrompts
 		for (int32 i = 0; i < TotalNBackTasks; i++)
 		{
@@ -148,45 +149,68 @@ void AEgoVehicle::TerminateNDRT()
 	// This is done so that the updated file (by python API) is re-read
 	ExperimentParams = ConfigFile(FPaths::Combine(CarlaUE4Path, TEXT("Config/ExperimentConfig.ini")));
 
+	// Preparing the common row data
+	TArray<FString> CommonRowData = { ExperimentParams.Get<FString>("General", "ParticipantID") };
+	const FString CurrentBlock = ExperimentParams.Get<FString>("General", "CurrentBlock");
+	CommonRowData.Add(CurrentBlock.Mid(0, 6)); // Add the block number
+	CommonRowData.Add(CurrentBlock.Mid(6, 6)); // Add the trial number
+	CommonRowData.Add(ExperimentParams.Get<FString>(CurrentBlock, "NDRTTaskType"));
+	CommonRowData.Add(ExperimentParams.Get<FString>(CurrentBlock, "TaskSetting"));
+	CommonRowData.Add(ExperimentParams.Get<FString>(CurrentBlock, "Traffic"));
+
 	if (CurrTaskType == TaskType::NBackTask)
 	{
 		// Define the CSV file path
-		FString CSVFilePath = FPaths::ProjectContentDir() / TEXT("NDRTPerformance/n_back.csv");
+		const FString NBackCSVFilePath = FPaths::ProjectContentDir() / TEXT("NDRTPerformance/n_back.csv");
 
 		// Check if the file exists, and if not, create it and write the header
-		if (!FPaths::FileExists(CSVFilePath))
+		if (!FPaths::FileExists(NBackCSVFilePath))
 		{
 			FString Header = TEXT("ParticipantID,BlockNumber,TrialNumber,TaskType,TaskSetting,TrafficComplexity,Timestamp,NBackPrompt,NBackResponse\n");
-			FFileHelper::SaveStringToFile(Header, *CSVFilePath);
+			FFileHelper::SaveStringToFile(Header, *NBackCSVFilePath);
 		}
-
-		// Preparing the common row data
-		TArray<FString> CommonRowData = {ExperimentParams.Get<FString>("General", "ParticipantID")};
-		const FString CurrentBlock = ExperimentParams.Get<FString>("General", "CurrentBlock");
-		CommonRowData.Add(CurrentBlock.Mid(0, 6)); // Add the block number
-		CommonRowData.Add(CurrentBlock.Mid(6, 6)); // Add the trial number
-		CommonRowData.Add(ExperimentParams.Get<FString>(CurrentBlock, "TaskType"));
-		CommonRowData.Add(ExperimentParams.Get<FString>(CurrentBlock, "TaskSetting"));
-		CommonRowData.Add(ExperimentParams.Get<FString>(CurrentBlock, "Traffic"));
 
 		// Now, iterate through all the NBack prompts and responses and write in the CSV file
 		check(NBackPrompts.Num() == NBackRecordedResponses.Num() && NBackPrompts.Num() == NBackResponseTimestamp.Num())
 
-			for (int32 i = 0; i < NBackPrompts.Num(); i++)
+		for (int32 i = 0; i < NBackPrompts.Num(); i++)
 		{
 			// Combine the common data with the specific data for this iteration
-			TArray<FString> RowData = CommonRowData;
-			RowData.Add(NBackResponseTimestamp[i]);
-			RowData.Add(NBackPrompts[i]);
-			RowData.Add(NBackRecordedResponses[i]);
+			TArray<FString> NBackRowData = CommonRowData;
+			NBackRowData.Add(NBackResponseTimestamp[i]);
+			NBackRowData.Add(NBackPrompts[i]);
+			NBackRowData.Add(NBackRecordedResponses[i]);
 
 			// Convert the row data to a single comma-separated string
-			FString RowString = FString::Join(RowData, TEXT(","));
+			FString RowString = FString::Join(NBackRowData, TEXT(","));
 
 			// Append this row to the CSV file
-			FFileHelper::SaveStringToFile(RowString + TEXT("\n"), *CSVFilePath, FFileHelper::EEncodingOptions::AutoDetect, &IFileManager::Get(), FILEWRITE_Append);
+			FFileHelper::SaveStringToFile(RowString + TEXT("\n"), *NBackCSVFilePath, FFileHelper::EEncodingOptions::AutoDetect, &IFileManager::Get(), FILEWRITE_Append);
 		}
 	}
+
+	// Lastly, add non-NDRT specific data.
+	// (1) Adding the number of interruption alerts issued
+
+	// Define the CSV file path
+	const FString InterCSVFilePath = FPaths::ProjectContentDir() / TEXT("SystemData/interruption_freq.csv");
+
+	// Check if the file exists, and if not, create it and write the header
+	if (!FPaths::FileExists(InterCSVFilePath))
+	{
+		FString Header = TEXT("ParticipantID,BlockNumber,TrialNumber,TaskType,TaskSetting,TrafficComplexity,InterruptionFrequency\n");
+		FFileHelper::SaveStringToFile(Header, *InterCSVFilePath);
+	}
+
+	// Combine the common data with the specific data for frequency
+	TArray<FString> InterRowData = CommonRowData;
+	InterRowData.Add(FString::FromInt(InterruptionAlertFrequency));
+
+	// Convert the row data to a single comma-separated string
+	FString InterRowString = FString::Join(InterRowData, TEXT(","));
+
+	// Append this row to the CSV file
+	FFileHelper::SaveStringToFile(InterRowString + TEXT("\n"), *InterCSVFilePath, FFileHelper::EEncodingOptions::AutoDetect, &IFileManager::Get(), FILEWRITE_Append);
 }
 
 void AEgoVehicle::TickNDRT()
@@ -331,11 +355,13 @@ void AEgoVehicle::TickNDRT()
 		{
 		case InterruptionParadigm::SystemRecommended:
 			ToggleAlertOnNDRT(true);
+			InterruptionAlertFrequency++;
 			break;
 
 		case InterruptionParadigm::SystemInitiated:
 			ToggleAlertOnNDRT(true);
 			SetInteractivityOfNDRT(false);
+			InterruptionAlertFrequency++;
 			break;
 		default:
 			break;
@@ -590,6 +616,7 @@ void AEgoVehicle::NBackTaskTick()
 				}
 				else
 				{
+					// This should ideally never kick in
 					int32 AdditionalTasks = static_cast<int32>((OneBackTimeLimit * 10) / (OneBackTimeLimit + 1.0 * (static_cast<int>(CurrentNValue) - 1)));
 					for (int32 i = 0; i < 10; i++)
 					{
