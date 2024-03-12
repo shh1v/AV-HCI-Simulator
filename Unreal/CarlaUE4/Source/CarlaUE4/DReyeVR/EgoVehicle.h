@@ -308,9 +308,9 @@ public:
 
   private: // Non-Driving-Related Task
 	bool IsSkippingSR = false; // Stores if the current trial is a test trial. True is its a test trial.
-    enum class TaskType {NBackTask, TVShowTask}; // Change the behaviour of the NDRT based on the task type provided
+    enum class TaskType {NBackTask, PatternMatchingTask, TVShowTask}; // Change the behaviour of the NDRT based on the task type provided
     // The following value will determine the 
-    TaskType CurrTaskType = TaskType::NBackTask; // Should be dynamically retrieved from a config file
+    TaskType CurrTaskType = TaskType::PatternMatchingTask; // Should be dynamically retrieved from a config file
     float NDRTStartLag = 2.0f; // Lag after which the NDRT starts (on autopilot or resumed autopilot)
     float AutopilotStartTimestamp = -1; // Store when the autopilot started
     float ResumedAutopilotStartTimestamp = -1; // Store when the autopilot is resumed
@@ -328,8 +328,22 @@ public:
     UPROPERTY(Category = NDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* DisableHUD;
 
-    // Alert assets
-    
+    // Optional Common task methods
+    UPROPERTY(VisibleAnywhere)
+    class UWidgetComponent* ProgressWidgetComponent; // Component that manipulates the progress bar for the n-bask task
+    void UpdateProgressBar(float NewProgressValue);
+
+    //Pattern Matching Task
+    enum class PMLines{One=1, Two=2, Three=3};
+    PMLines CurrentPMLines = PMLines::One;
+    int32 TotalPMTasks = 30;
+    TArray<bool> PMResponses;
+    float PMTaskLimit = 5.0f;
+    void PatternMatchTaskTick();
+
+    void ConstructPMElements(); // Construct the static meshes to present the PM sequence
+
+
     // N-back task
     enum class NValue{One=1, Two=2, Three=3}; // Change n-back task functionality based on the n-value provided
     NValue CurrentNValue = NValue::One;
@@ -341,9 +355,6 @@ public:
     float OneBackTimeLimit = 3.0; // Time limit for 1-back task (This will be used to define the other limits)
     float NBackTrialStartTimestamp; // This will store the time stamp of the start of the trial
     bool IsNBackResponseGiven = false; // Stores whether an input was given for a specific trial
-    UPROPERTY(VisibleAnywhere)
-    class UWidgetComponent* ProgressWidgetComponent; // Component that manipulates the progress bar for the n-bask task
-    void UpdateProgressBar(float NewProgressValue);
     UPROPERTY(Category = NBackNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* NBackLetter;
     UPROPERTY(Category = NBackNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))

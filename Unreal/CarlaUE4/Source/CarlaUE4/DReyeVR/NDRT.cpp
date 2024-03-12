@@ -25,6 +25,8 @@ void AEgoVehicle::SetupNDRT()
 		ConstructNBackElements();
 		SetHUDTimeThreshold(GeneralParams.Get<float>("EyeTracker", "GazeOnHUDTimeConstraint")); // Setting time constraint based as the average of the n-back task time limits
 		break;
+	case TaskType::PatternMatchingTask:
+		ConstructPMElements();
 	case TaskType::TVShowTask:
 		ConstructTVShowElements();
 		break;
@@ -150,7 +152,7 @@ void AEgoVehicle::TerminateNDRT()
 	ExperimentParams = ConfigFile(FPaths::Combine(CarlaUE4Path, TEXT("Config/ExperimentConfig.ini")));
 
 	// Preparing the common row data
-	TArray<FString> CommonRowData = { ExperimentParams.Get<FString>("General", "ParticipantID") };
+	TArray<FString> CommonRowData = {ExperimentParams.Get<FString>("General", "ParticipantID")};
 	const FString CurrentBlock = ExperimentParams.Get<FString>("General", "CurrentBlock");
 	CommonRowData.Add(CurrentBlock.Mid(0, 6)); // Add the block number
 	CommonRowData.Add(CurrentBlock.Mid(6, 6)); // Add the trial number
@@ -173,7 +175,7 @@ void AEgoVehicle::TerminateNDRT()
 		// Now, iterate through all the NBack prompts and responses and write in the CSV file
 		check(NBackPrompts.Num() == NBackRecordedResponses.Num() && NBackPrompts.Num() == NBackResponseTimestamp.Num())
 
-		for (int32 i = 0; i < NBackPrompts.Num(); i++)
+			for (int32 i = 0; i < NBackPrompts.Num(); i++)
 		{
 			// Combine the common data with the specific data for this iteration
 			TArray<FString> NBackRowData = CommonRowData;
@@ -465,6 +467,17 @@ void AEgoVehicle::ConstructHUD()
 	TORAlertSound->SetSound(TORAlertSoundWave.Object);
 }
 
+void AEgoVehicle::ConstructPMElements()
+{
+	// Construct the task title
+
+	// Construct the letters keys (12 keys per line * 3 lines = 36 keys)
+
+	// Construct the 'Pattern:' pane
+
+	// Construct the pane to show the pattern
+}
+
 void AEgoVehicle::ConstructNBackElements()
 {
 	// Creating the letter pane to show letters for the n-back task
@@ -594,6 +607,10 @@ void AEgoVehicle::RecordNBackInputs(bool BtnUp, bool BtnDown)
 	// Update the previous state for the next frame
 	bWasBtnUpPressedLastFrame = BtnUp;
 	bWasBtnDownPressedLastFrame = BtnDown;
+}
+
+void AEgoVehicle::PatternMatchTaskTick()
+{
 }
 
 void AEgoVehicle::NBackTaskTick()

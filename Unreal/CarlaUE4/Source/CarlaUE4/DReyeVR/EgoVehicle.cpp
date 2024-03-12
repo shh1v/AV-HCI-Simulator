@@ -142,6 +142,11 @@ void AEgoVehicle::ReadExperimentVariables()
         CurrTaskType = TaskType::NBackTask;
         UE_LOG(LogTemp, Warning, TEXT("[%s] NDRT Task Type: NBackTask"), *Now.ToString());
     }
+    else if (NDRTTaskType.Equals(TEXT("PatternMatchingTask")))
+    {
+        CurrTaskType = TaskType::PatternMatchingTask;
+        UE_LOG(LogTemp, Warning, TEXT("[%s] NDRT Task Type: PatternMatchingTask"), *Now.ToString());
+    }
     else if (NDRTTaskType.Equals(TEXT("TVShowTask")))
     {
         CurrTaskType = TaskType::TVShowTask;
@@ -170,6 +175,24 @@ void AEgoVehicle::ReadExperimentVariables()
         {
             CurrentNValue = NValue::Three;
             TotalNBackTasks = 20;
+            UE_LOG(LogTemp, Warning, TEXT("[%s] Task Setting: Three"), *Now.ToString());
+        }
+    }
+    else if (CurrTaskType == TaskType::PatternMatchingTask)
+    {
+        if (TaskSetting.Equals(TEXT("One")))
+        {
+            CurrentPMLines = PMLines::One;
+            UE_LOG(LogTemp, Warning, TEXT("[%s] Task Setting: One"), *Now.ToString());
+        }
+        else if (TaskSetting.Equals(TEXT("Two")))
+        {
+            CurrentPMLines = PMLines::Two;
+            UE_LOG(LogTemp, Warning, TEXT("[%s] Task Setting: Two"), *Now.ToString());
+        }
+        else if (TaskSetting.Equals(TEXT("Three")))
+        {
+            CurrentPMLines = PMLines::Three;
             UE_LOG(LogTemp, Warning, TEXT("[%s] Task Setting: Three"), *Now.ToString());
         }
     }
