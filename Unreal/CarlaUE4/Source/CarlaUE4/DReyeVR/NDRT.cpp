@@ -23,7 +23,7 @@ void AEgoVehicle::SetupNDRT()
 	{
 	case TaskType::NBackTask:
 		ConstructNBackElements();
-		SetHUDTimeThreshold(4.0f); // Setting time constraint based as the average of the n-back task time limits
+		SetHUDTimeThreshold(GeneralParams.Get<float>("EyeTracker", "GazeOnHUDTimeConstraint")); // Setting time constraint based as the average of the n-back task time limits
 		break;
 	case TaskType::TVShowTask:
 		ConstructTVShowElements();
@@ -355,13 +355,21 @@ void AEgoVehicle::TickNDRT()
 		{
 		case InterruptionParadigm::SystemRecommended:
 			ToggleAlertOnNDRT(true);
-			InterruptionAlertFrequency++;
+			if (!bIsAlertFreqCounted)
+			{
+				InterruptionAlertFrequency++;
+				bIsAlertFreqCounted = true;
+			}
 			break;
 
 		case InterruptionParadigm::SystemInitiated:
 			ToggleAlertOnNDRT(true);
 			SetInteractivityOfNDRT(false);
-			InterruptionAlertFrequency++;
+			if (!bIsAlertFreqCounted)
+			{
+				InterruptionAlertFrequency++;
+				bIsAlertFreqCounted = true;
+			}
 			break;
 		default:
 			break;
@@ -373,11 +381,13 @@ void AEgoVehicle::TickNDRT()
 		{
 		case InterruptionParadigm::SystemRecommended:
 			ToggleAlertOnNDRT(false);
+			bIsAlertFreqCounted = false;
 			break;
 
 		case InterruptionParadigm::SystemInitiated:
 			ToggleAlertOnNDRT(false);
 			SetInteractivityOfNDRT(true);
+			bIsAlertFreqCounted = false;
 			break;
 
 		default:

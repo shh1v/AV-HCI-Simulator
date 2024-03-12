@@ -319,6 +319,7 @@ public:
     // The following value will determine the NDRT interaction during pre-alert time
     InterruptionParadigm CurrInterruptionParadigm = InterruptionParadigm::SelfRegulated; // Should be dynamically retrieved from a config file
     int32 InterruptionAlertFrequency = 0;
+    bool bIsAlertFreqCounted = false;
     // Primary Display: Present the NDRT; Secondary Display: Present the alerts
     UPROPERTY(Category = NDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UStaticMeshComponent* PrimaryHUD;
