@@ -339,8 +339,18 @@ public:
     int32 TotalPMTasks = 30;
     TArray<bool> PMResponses;
     float PMTaskLimit = 5.0f;
-    void PatternMatchTaskTick();
+    UPROPERTY(Category = PMNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UStaticMeshComponent* PMControlsInfo;
+    UPROPERTY(Category = PMNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UStaticMeshComponent* PMPatternPrompt;
+    TArray<FString> PMCurrentPattern;
+    UPROPERTY(Category = PMNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    TArray<UStaticMeshComponent*> PMCurrentPatternKeys;
+    TArray<FString> PMCurrentSequence;
+    UPROPERTY(Category = PMNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    TArray<UStaticMeshComponent*> PMCurrentSequenceKeys;
 
+    void PatternMatchTaskTick(); // PM Task tick
     void ConstructPMElements(); // Construct the static meshes to present the PM sequence
 
 

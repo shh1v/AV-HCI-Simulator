@@ -27,6 +27,7 @@ void AEgoVehicle::SetupNDRT()
 		break;
 	case TaskType::PatternMatchingTask:
 		ConstructPMElements();
+		break;
 	case TaskType::TVShowTask:
 		ConstructTVShowElements();
 		break;
@@ -78,7 +79,7 @@ void AEgoVehicle::StartNDRT()
 	}
 
 	// Initially, hide the NDRT and toggle it when appropriate
-	ToggleNDRT(false);
+	ToggleNDRT(true);
 }
 
 void AEgoVehicle::ToggleNDRT(bool active)
@@ -469,13 +470,29 @@ void AEgoVehicle::ConstructHUD()
 
 void AEgoVehicle::ConstructPMElements()
 {
-	// Construct the task title
-
 	// Construct the letters keys (12 keys per line * 3 lines = 36 keys)
 
 	// Construct the 'Pattern:' pane
+	PMPatternPrompt = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PM Pattern Prompt"));
+	PMPatternPrompt->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+	PMPatternPrompt->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	PMPatternPrompt->SetRelativeTransform(VehicleParams.Get<FTransform>("PatternMatching", "PatternPromptLocation"));
+	FString PathToMeshPMPatternPrompt= TEXT("StaticMesh'/Game/NDRT/PatternMatchingTask/StaticMeshes/SM_PMPatternPrompt.SM_PMPatternPrompt'");
+	const ConstructorHelpers::FObjectFinder<UStaticMesh> PMPatternPromptMeshObj(*PathToMeshPMPatternPrompt);
+	PMPatternPrompt->SetStaticMesh(PMPatternPromptMeshObj.Object);
+	PMPatternPrompt->SetCastShadow(false);
 
 	// Construct the pane to show the pattern
+
+	// Creating a pane to show controls on the Logitech steering wheel for the PM task
+	PMControlsInfo = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PM Controls Pane"));
+	PMControlsInfo->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+	PMControlsInfo->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	PMControlsInfo->SetRelativeTransform(VehicleParams.Get<FTransform>("PatternMatching", "ControlsInfoLocation"));
+	FString PathToMeshPMControls = TEXT("StaticMesh'/Game/NDRT/PatternMatchingTask/StaticMeshes/SM_ControlsPane.SM_ControlsPane'");
+	const ConstructorHelpers::FObjectFinder<UStaticMesh> PMControlsMeshObj(*PathToMeshPMControls);
+	PMControlsInfo->SetStaticMesh(PMControlsMeshObj.Object);
+	PMControlsInfo->SetCastShadow(false);
 }
 
 void AEgoVehicle::ConstructNBackElements()
