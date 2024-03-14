@@ -345,13 +345,15 @@ public:
     class UStaticMeshComponent* PMPatternPrompt;
     TArray<FString> PMCurrentPattern;
     UPROPERTY(Category = PMNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
-    TArray<UStaticMeshComponent*> PMCurrentPatternKeys;
+    TArray<UStaticMeshComponent*> PMPatternKeys;
     TArray<FString> PMCurrentSequence;
     UPROPERTY(Category = PMNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
-    TArray<UStaticMeshComponent*> PMCurrentSequenceKeys;
+    TArray<UStaticMeshComponent*> PMSequenceKeys;
 
     void PatternMatchTaskTick(); // PM Task tick
     void ConstructPMElements(); // Construct the static meshes to present the PM sequence
+    void SetPseudoRandomPattern(bool GenerateNewSequence, bool SetKeys);
+    void SetPseudoRandomSequence(bool GenerateNewSequence, bool SetKeys);
 
 
     // N-back task

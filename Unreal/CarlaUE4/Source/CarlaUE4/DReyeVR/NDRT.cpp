@@ -470,8 +470,6 @@ void AEgoVehicle::ConstructHUD()
 
 void AEgoVehicle::ConstructPMElements()
 {
-	// Construct the letters keys (12 keys per line * 3 lines = 36 keys)
-
 	// Construct the 'Pattern:' pane
 	PMPatternPrompt = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PM Pattern Prompt"));
 	PMPatternPrompt->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
@@ -482,8 +480,6 @@ void AEgoVehicle::ConstructPMElements()
 	PMPatternPrompt->SetStaticMesh(PMPatternPromptMeshObj.Object);
 	PMPatternPrompt->SetCastShadow(false);
 
-	// Construct the pane to show the pattern
-
 	// Creating a pane to show controls on the Logitech steering wheel for the PM task
 	PMControlsInfo = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PM Controls Pane"));
 	PMControlsInfo->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
@@ -493,6 +489,57 @@ void AEgoVehicle::ConstructPMElements()
 	const ConstructorHelpers::FObjectFinder<UStaticMesh> PMControlsMeshObj(*PathToMeshPMControls);
 	PMControlsInfo->SetStaticMesh(PMControlsMeshObj.Object);
 	PMControlsInfo->SetCastShadow(false);
+
+	// Construct the pane to show the pattern
+	for (int32 i = 0; i < VehicleParams.Get<int32>("PatternMatching", "PatternLength"); i++)
+	{
+		UStaticMeshComponent* PatternKey = CreateDefaultSubobject<UStaticMeshComponent>(FName(*FString::Printf(TEXT("Pattern Key %d"), i + 1)));
+		PatternKey->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+		PatternKey->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+		// Set the key transform
+		FTransform KeyTransform = VehicleParams.Get<FTransform>("PatternMatching", "FirstPatternKeyLocation");
+		FVector KeyTransformLocation = KeyTransform.GetLocation();
+		KeyTransformLocation.Y += 4 * i;
+		KeyTransform.SetLocation(KeyTransformLocation);
+		PatternKey->SetRelativeTransform(KeyTransform);
+
+		FString PathToMeshPMPatternKey = TEXT("StaticMesh'/Game/NDRT/PatternMatchingTask/StaticMeshes/SM_LetterKey.SM_LetterKey'");
+		const ConstructorHelpers::FObjectFinder<UStaticMesh> PMPatternKeyMeshObj(*PathToMeshPMPatternKey);
+		PatternKey->SetStaticMesh(PMPatternKeyMeshObj.Object);
+		PatternKey->SetCastShadow(false);
+
+		// Push the mesh object in the array
+		PMPatternKeys.Push(PatternKey);
+	}
+
+	// Construct the letters keys (12 keys per line * 3 lines = 36 keys)
+	for (int32 i = 0; i < 3; i++)
+	{
+		for (int32 j = 0; j < VehicleParams.Get<int32>("PatternMatching", "SequenceLineLength"); j++)
+		{
+			UStaticMeshComponent* SequenceKey = CreateDefaultSubobject<UStaticMeshComponent>(FName(*FString::Printf(TEXT("Sequence Key [%d, %d]"), i + 1, j + 1)));
+			SequenceKey->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+			SequenceKey->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+			// Set the key transform
+			FTransform SequenceTransform = VehicleParams.Get<FTransform>("PatternMatching", "FirstSequenceKeyLocation");
+			FVector SequenceTransformLocation = SequenceTransform.GetLocation();
+			SequenceTransformLocation.Z -= 3.1 * i; // Going to the next line if required
+			SequenceTransformLocation.X += 1.1 * i; // Going a bit behind for the next line
+			SequenceTransformLocation.Y += 3.2 * j; // Going to the right for the new key
+			SequenceTransform.SetLocation(SequenceTransformLocation);
+			SequenceKey->SetRelativeTransform(SequenceTransform);
+
+			FString PathToMeshPMSequenceKey = TEXT("StaticMesh'/Game/NDRT/PatternMatchingTask/StaticMeshes/SM_LetterKey.SM_LetterKey'");
+			const ConstructorHelpers::FObjectFinder<UStaticMesh> PMSequenceKeyMeshObj(*PathToMeshPMSequenceKey);
+			SequenceKey->SetStaticMesh(PMSequenceKeyMeshObj.Object);
+			SequenceKey->SetCastShadow(false);
+
+			// Push the mesh object in the array
+			PMSequenceKeys.Push(SequenceKey);
+		}
+	}
 }
 
 void AEgoVehicle::ConstructNBackElements()
@@ -575,6 +622,17 @@ void AEgoVehicle::ConstructTVShowElements()
 
 	// Add the MediaSoundComponent to the actor's components
 	MediaPlayerMesh->GetOwner()->AddOwnedComponent(MediaSoundComponent);
+}
+
+// Pattern Matching exclusive methods
+void AEgoVehicle::SetPseudoRandomPattern(bool GenerateNewSequence, bool SetKeys)
+{
+	return;
+}
+
+void AEgoVehicle::SetPseudoRandomSequence(bool GenerateNewSequence, bool SetKeys)
+{
+	return;
 }
 
 // N-back task exclusive methods
