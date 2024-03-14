@@ -627,12 +627,136 @@ void AEgoVehicle::ConstructTVShowElements()
 // Pattern Matching exclusive methods
 void AEgoVehicle::SetPseudoRandomPattern(bool GenerateNewSequence, bool SetKeys)
 {
-	return;
+	// Create a new pattern sequence
+	if (GenerateNewSequence)
+	{
+		PMCurrentPattern.Empty();
+
+		for (int i = 0; i < VehicleParams.Get<int32>("PatternMatching", "PatternLength"); i++)
+		{
+			TCHAR RandomChar = FMath::RandRange('A', 'Z');
+			FString RandomLetter = FString(1, &RandomChar);
+
+			while (!PMCurrentPattern.Contains(RandomLetter))
+			{
+				RandomChar = FMath::RandRange('A', 'Z');
+				RandomLetter = FString(1, &RandomChar);
+			}
+
+			PMCurrentPattern.Push(RandomLetter);
+		}
+	}
+
+	// Set the keys on the HUD
+	if (SetKeys)
+	{
+		for (int32 i = 0; i < PMCurrentPattern.Num(); i++)
+		{
+			FString MaterialPath = FString::Printf(TEXT("Material'/Game/NDRT/PatternMatchingTask/Letters/M_%s.M_%s'"), *PMCurrentPattern[i], *PMCurrentPattern[i]);
+			UMaterial* NewMaterial = Cast<UMaterial>(StaticLoadObject(UMaterial::StaticClass(), nullptr, *MaterialPath));
+
+			if (NewMaterial)
+			{
+				PMPatternKeys[i]->SetMaterial(0, NewMaterial);
+			}
+			else
+			{
+				UE_LOG(LogTemp, Warning, TEXT("Failed to load material: %s"), *MaterialPath);
+			}
+		}
+	}
 }
 
-void AEgoVehicle::SetPseudoRandomSequence(bool GenerateNewSequence, bool SetKeys)
+void AEgoVehicle::SetRandomSequence(bool GenerateNewSequence, bool SetKeys)
 {
-	return;
+	// WARNING: Assumes that the pattern has already been appropriately generated
+
+	// Generate a new sequence
+	if (GenerateNewSequence)
+	{
+		// Randomly choose how many pattern matches to have
+		int32 PatternMatches = FMath::RandRange(0, 3);
+		int32 RandomBudget = static_cast<int>(CurrentPMLines) * VehicleParams.Get<int32>("PatternMatching", "SequenceLineLength") - PatternMatches * PMCurrentPattern.Num();
+
+		for (int i = 0; i < PatternMatches; i++)
+		{
+			// Check if there is any budget left
+			if (RandomBudget == 0)
+			{
+				// There is no budget to have random letters, so just set the pattern moving onwards
+				for (int32 j = 0; j < PMCurrentPattern.Num(); j++)
+				{
+					PMCurrentSequence.Push(PMCurrentPattern[j]);
+				}
+			}
+
+			// Get a random value from the budget
+			int32 SubtractedBudget = FMath::RandRange(1, RandomBudget);
+			RandomBudget -= SubtractedBudget;
+
+			// For the selected random budget, set random characters
+			TArray<FString> BudgetRandLetters;
+			do
+			{
+				BudgetRandLetters.Empty();
+				for (int32 j = 0; j < SubtractedBudget; j++)
+				{
+					TCHAR RandomChar = FMath::RandRange('A', 'Z');
+					FString RandomLetter = FString(1, &RandomChar);
+					BudgetRandLetters.Push(RandomLetter);
+				}
+			} while (FString::Join(BudgetRandLetters, TEXT("")).Contains(FString::Join(PMCurrentPattern, TEXT(""))));
+
+			for (int32 j = 0; j < SubtractedBudget; j++)
+			{
+				PMCurrentSequence.Push(BudgetRandLetters[j]);
+			}
+
+		}
+		// If there is extra budget left, just add random letters
+		TArray<FString> LeftBudgetRandLetters;
+		do
+		{
+			LeftBudgetRandLetters.Empty();
+			for (int32 i = 0; i < RandomBudget; i++)
+			{
+				TCHAR RandomChar = FMath::RandRange('A', 'Z');
+				FString RandomLetter = FString(1, &RandomChar);
+				LeftBudgetRandLetters.Push(RandomLetter);
+			}
+		} while (FString::Join(LeftBudgetRandLetters, TEXT("")).Contains(FString::Join(PMCurrentPattern, TEXT(""))));
+
+		for (int i = 0; i < RandomBudget; i++)
+		{
+			PMCurrentSequence.Push(LeftBudgetRandLetters[i]);
+		}
+	}
+
+	// Set the sequence keys on HUD if requested.
+	if (SetKeys) {
+		for (int i = 0; i < PMSequenceKeys.Num(); i++)
+		{
+			FString MaterialPath;
+			if (i < PMCurrentSequence.Num())
+			{
+				// Set the material to the new key in the sequence
+				MaterialPath = FString::Printf(TEXT("Material'/Game/NDRT/NBackTask/Letters/M_%s.M_%s'"), *PMCurrentSequence[i], *PMCurrentSequence[i]);
+			} else
+			{
+				MaterialPath = TEXT("Material'/Game/NDRT/PatternMatchingTask/Letters/M_NoLetter.M_NoLetter'");
+			}
+
+			UMaterial* NewMaterial = Cast<UMaterial>(StaticLoadObject(UMaterial::StaticClass(), nullptr, *MaterialPath));
+			if (NewMaterial)
+			{
+				PMSequenceKeys[i]->SetMaterial(0, NewMaterial);
+			}
+			else
+			{
+				UE_LOG(LogTemp, Warning, TEXT("Failed to load material: %s"), *MaterialPath);
+			}
+		}
+	}
 }
 
 // N-back task exclusive methods

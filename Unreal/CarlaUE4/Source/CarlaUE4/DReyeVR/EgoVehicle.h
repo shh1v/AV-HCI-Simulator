@@ -353,7 +353,7 @@ public:
     void PatternMatchTaskTick(); // PM Task tick
     void ConstructPMElements(); // Construct the static meshes to present the PM sequence
     void SetPseudoRandomPattern(bool GenerateNewSequence, bool SetKeys);
-    void SetPseudoRandomSequence(bool GenerateNewSequence, bool SetKeys);
+    void SetRandomSequence(bool GenerateNewSequence, bool SetKeys);
 
 
     // N-back task
