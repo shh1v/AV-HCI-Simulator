@@ -23,10 +23,13 @@ void AEgoVehicle::SetupNDRT()
 	{
 	case TaskType::NBackTask:
 		ConstructNBackElements();
-		SetHUDTimeThreshold(GeneralParams.Get<float>("EyeTracker", "GazeOnHUDTimeConstraint")); // Setting time constraint based as the average of the n-back task time limits
+		// Setting time constraint based as the average of the n-back task time limits
+		SetHUDTimeThreshold(GeneralParams.Get<float>("EyeTracker", "GazeOnHUDTimeConstraint"));
 		break;
 	case TaskType::PatternMatchingTask:
 		ConstructPMElements();
+		// Setting time constraint based as the average of the n-back task time limits
+		SetHUDTimeThreshold(GeneralParams.Get<float>("EyeTracker", "GazeOnHUDTimeConstraint"));
 		break;
 	case TaskType::TVShowTask:
 		ConstructTVShowElements();
@@ -66,6 +69,10 @@ void AEgoVehicle::StartNDRT()
 		SetLetter(NBackPrompts[0]);
 		// Set the starting time stamp of the n-back task trial now
 		NBackTrialStartTimestamp = FPlatformTime::Seconds();
+		break;
+	case TaskType::PatternMatchingTask:
+		SetPseudoRandomPattern(true, true);
+		//SetRandomSequence(true, true);
 		break;
 	case TaskType::TVShowTask:
 		// Retrieve the media player material and the video source which will be used later to play the video
@@ -510,7 +517,7 @@ void AEgoVehicle::ConstructPMElements()
 		PatternKey->SetCastShadow(false);
 
 		// Push the mesh object in the array
-		PMPatternKeys.Push(PatternKey);
+		PMPatternKeys.Add(PatternKey);
 	}
 
 	// Construct the letters keys (12 keys per line * 3 lines = 36 keys)
@@ -537,7 +544,7 @@ void AEgoVehicle::ConstructPMElements()
 			SequenceKey->SetCastShadow(false);
 
 			// Push the mesh object in the array
-			PMSequenceKeys.Push(SequenceKey);
+			PMSequenceKeys.Add(SequenceKey);
 		}
 	}
 }
@@ -632,32 +639,30 @@ void AEgoVehicle::SetPseudoRandomPattern(bool GenerateNewSequence, bool SetKeys)
 	{
 		PMCurrentPattern.Empty();
 
-		for (int i = 0; i < VehicleParams.Get<int32>("PatternMatching", "PatternLength"); i++)
+		for (int32 i = 0; i < VehicleParams.Get<int32>("PatternMatching", "PatternLength"); i++)
 		{
 			TCHAR RandomChar = FMath::RandRange('A', 'Z');
 			FString RandomLetter = FString(1, &RandomChar);
 
-			while (!PMCurrentPattern.Contains(RandomLetter))
+			while (PMCurrentPattern.Contains(RandomLetter))
 			{
 				RandomChar = FMath::RandRange('A', 'Z');
 				RandomLetter = FString(1, &RandomChar);
 			}
-
-			PMCurrentPattern.Push(RandomLetter);
+			PMCurrentPattern.Add(RandomLetter);
 		}
 	}
 
 	// Set the keys on the HUD
 	if (SetKeys)
 	{
-		for (int32 i = 0; i < PMCurrentPattern.Num(); i++)
+		for (int32 i = 0; i < PMPatternKeys.Num(); i++)
 		{
 			FString MaterialPath = FString::Printf(TEXT("Material'/Game/NDRT/PatternMatchingTask/Letters/M_%s.M_%s'"), *PMCurrentPattern[i], *PMCurrentPattern[i]);
 			UMaterial* NewMaterial = Cast<UMaterial>(StaticLoadObject(UMaterial::StaticClass(), nullptr, *MaterialPath));
-
 			if (NewMaterial)
 			{
-				PMPatternKeys[i]->SetMaterial(0, NewMaterial);
+				PMPatternKeys[i]->SetMaterial(1, NewMaterial);
 			}
 			else
 			{
@@ -686,7 +691,7 @@ void AEgoVehicle::SetRandomSequence(bool GenerateNewSequence, bool SetKeys)
 				// There is no budget to have random letters, so just set the pattern moving onwards
 				for (int32 j = 0; j < PMCurrentPattern.Num(); j++)
 				{
-					PMCurrentSequence.Push(PMCurrentPattern[j]);
+					PMCurrentSequence.Add(PMCurrentPattern[j]);
 				}
 			}
 
@@ -703,13 +708,13 @@ void AEgoVehicle::SetRandomSequence(bool GenerateNewSequence, bool SetKeys)
 				{
 					TCHAR RandomChar = FMath::RandRange('A', 'Z');
 					FString RandomLetter = FString(1, &RandomChar);
-					BudgetRandLetters.Push(RandomLetter);
+					BudgetRandLetters.Add(RandomLetter);
 				}
 			} while (FString::Join(BudgetRandLetters, TEXT("")).Contains(FString::Join(PMCurrentPattern, TEXT(""))));
 
 			for (int32 j = 0; j < SubtractedBudget; j++)
 			{
-				PMCurrentSequence.Push(BudgetRandLetters[j]);
+				PMCurrentSequence.Add(BudgetRandLetters[j]);
 			}
 
 		}
@@ -722,13 +727,13 @@ void AEgoVehicle::SetRandomSequence(bool GenerateNewSequence, bool SetKeys)
 			{
 				TCHAR RandomChar = FMath::RandRange('A', 'Z');
 				FString RandomLetter = FString(1, &RandomChar);
-				LeftBudgetRandLetters.Push(RandomLetter);
+				LeftBudgetRandLetters.Add(RandomLetter);
 			}
 		} while (FString::Join(LeftBudgetRandLetters, TEXT("")).Contains(FString::Join(PMCurrentPattern, TEXT(""))));
 
 		for (int i = 0; i < RandomBudget; i++)
 		{
-			PMCurrentSequence.Push(LeftBudgetRandLetters[i]);
+			PMCurrentSequence.Add(LeftBudgetRandLetters[i]);
 		}
 	}
 
@@ -749,7 +754,7 @@ void AEgoVehicle::SetRandomSequence(bool GenerateNewSequence, bool SetKeys)
 			UMaterial* NewMaterial = Cast<UMaterial>(StaticLoadObject(UMaterial::StaticClass(), nullptr, *MaterialPath));
 			if (NewMaterial)
 			{
-				PMSequenceKeys[i]->SetMaterial(0, NewMaterial);
+				PMSequenceKeys[i]->SetMaterial(1, NewMaterial);
 			}
 			else
 			{
