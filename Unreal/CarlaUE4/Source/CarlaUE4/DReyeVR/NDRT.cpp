@@ -72,7 +72,7 @@ void AEgoVehicle::StartNDRT()
 		break;
 	case TaskType::PatternMatchingTask:
 		SetPseudoRandomPattern(true, true);
-		//SetRandomSequence(true, true);
+		SetRandomSequence(true, true);
 		break;
 	case TaskType::TVShowTask:
 		// Retrieve the media player material and the video source which will be used later to play the video
@@ -520,7 +520,7 @@ void AEgoVehicle::ConstructPMElements()
 		PMPatternKeys.Add(PatternKey);
 	}
 
-	// Construct the letters keys (12 keys per line * 3 lines = 36 keys)
+	// Construct the letters keys
 	for (int32 i = 0; i < 3; i++)
 	{
 		for (int32 j = 0; j < VehicleParams.Get<int32>("PatternMatching", "SequenceLineLength"); j++)
@@ -542,6 +542,16 @@ void AEgoVehicle::ConstructPMElements()
 			const ConstructorHelpers::FObjectFinder<UStaticMesh> PMSequenceKeyMeshObj(*PathToMeshPMSequenceKey);
 			SequenceKey->SetStaticMesh(PMSequenceKeyMeshObj.Object);
 			SequenceKey->SetCastShadow(false);
+
+			// Setting the material for sequence key
+			FString MaterialPath = TEXT("Material'/Game/NDRT/PatternMatchingTask/Letters/M_NoLetter.M_NoLetter'");
+			UMaterialInterface* MaterialInterface = Cast<UMaterialInterface>(StaticLoadObject(UMaterialInterface::StaticClass(), nullptr, *MaterialPath));
+			UMaterialInstanceDynamic* DynMaterial = UMaterialInstanceDynamic::Create(MaterialInterface, SequenceKey);
+
+			// Set the scalar parameter value for the 'Scale' parameter
+			DynMaterial->SetScalarParameterValue(FName("Scale"), VehicleParams.Get<float>("PatternMatching", "SequenceLetterScale"));
+
+			SequenceKey->SetMaterial(1, DynMaterial);
 
 			// Push the mesh object in the array
 			PMSequenceKeys.Add(SequenceKey);
@@ -693,6 +703,7 @@ void AEgoVehicle::SetRandomSequence(bool GenerateNewSequence, bool SetKeys)
 				{
 					PMCurrentSequence.Add(PMCurrentPattern[j]);
 				}
+				continue;
 			}
 
 			// Get a random value from the budget
@@ -715,6 +726,12 @@ void AEgoVehicle::SetRandomSequence(bool GenerateNewSequence, bool SetKeys)
 			for (int32 j = 0; j < SubtractedBudget; j++)
 			{
 				PMCurrentSequence.Add(BudgetRandLetters[j]);
+			}
+
+			// Now, add the pattern after adding random letters until SubtractedBudget
+			for (int32 j = 0; j < PMCurrentPattern.Num(); j++)
+			{
+				PMCurrentSequence.Add(PMCurrentPattern[j]);
 			}
 
 		}
@@ -751,10 +768,13 @@ void AEgoVehicle::SetRandomSequence(bool GenerateNewSequence, bool SetKeys)
 				MaterialPath = TEXT("Material'/Game/NDRT/PatternMatchingTask/Letters/M_NoLetter.M_NoLetter'");
 			}
 
-			UMaterial* NewMaterial = Cast<UMaterial>(StaticLoadObject(UMaterial::StaticClass(), nullptr, *MaterialPath));
-			if (NewMaterial)
+			UMaterialInterface* MaterialInterface = Cast<UMaterialInterface>(StaticLoadObject(UMaterialInterface::StaticClass(), nullptr, *MaterialPath));
+			UMaterialInstanceDynamic* DynMaterial = UMaterialInstanceDynamic::Create(MaterialInterface, PMSequenceKeys[i]);
+			DynMaterial->SetScalarParameterValue(FName("Scale"), VehicleParams.Get<float>("PatternMatching", "SequenceLetterScale"));
+
+			if (DynMaterial)
 			{
-				PMSequenceKeys[i]->SetMaterial(1, NewMaterial);
+				PMSequenceKeys[i]->SetMaterial(1, DynMaterial);
 			}
 			else
 			{
