@@ -4,13 +4,13 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
-#include "NBackProgressBar.generated.h"
+#include "TaskProgressBar.generated.h"
 
 /**
  * 
  */
-UCLASS()
-class CARLAUE4_API UNBackProgressBar : public UUserWidget
+UCLASS( Abstract )
+class CARLAUE4_API UTaskProgressBar : public UUserWidget
 {
 	GENERATED_BODY()
 
@@ -20,5 +20,5 @@ public:
 
 protected:
 	UPROPERTY(meta = (BindWidget))
-	class UProgressBar* ProgressBar;
+		class UProgressBar* TaskProgressBar;
 };

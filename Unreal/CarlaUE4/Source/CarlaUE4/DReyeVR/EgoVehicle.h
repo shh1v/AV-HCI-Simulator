@@ -310,7 +310,7 @@ public:
 	bool IsSkippingSR = false; // Stores if the current trial is a test trial. True is its a test trial.
     enum class TaskType {NBackTask, PatternMatchingTask, TVShowTask}; // Change the behaviour of the NDRT based on the task type provided
     // The following value will determine the 
-    TaskType CurrTaskType = TaskType::PatternMatchingTask; // Should be dynamically retrieved from a config file
+    TaskType CurrTaskType = TaskType::NBackTask; // Should be dynamically retrieved from a config file
     float NDRTStartLag = 2.0f; // Lag after which the NDRT starts (on autopilot or resumed autopilot)
     float AutopilotStartTimestamp = -1; // Store when the autopilot started
     float ResumedAutopilotStartTimestamp = -1; // Store when the autopilot is resumed
@@ -330,8 +330,10 @@ public:
 
     // Optional Common task methods
     UPROPERTY(VisibleAnywhere)
-    class UWidgetComponent* ProgressWidgetComponent; // Component that manipulates the progress bar for the n-bask task
+    class UWidgetComponent* ProgressBarWidgetComponent; // Component that manipulates the progress bar for various tasks
     void UpdateProgressBar(float NewProgressValue);
+    bool bWasBtnUpPressedLastFrame = false; // Store the last input from the Logitech joystick
+    bool bWasBtnDownPressedLastFrame = false; // Store the last input from the Logitech joystick
 
     //Pattern Matching Task
     enum class PMLines{One=1, Two=2, Three=3};
@@ -349,12 +351,23 @@ public:
     TArray<FString> PMCurrentSequence;
     UPROPERTY(Category = PMNDRT, EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     TArray<UStaticMeshComponent*> PMSequenceKeys;
+    UPROPERTY(Category = "Audio", EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UAudioComponent* PMCorrectSound;   // Correct answer sound
+    UPROPERTY(Category = "Audio", EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+    class UAudioComponent* PMIncorrectSound;   // Incorrect answer sound
 
     void PatternMatchTaskTick(); // PM Task tick
     void ConstructPMElements(); // Construct the static meshes to present the PM sequence
     void SetPseudoRandomPattern(bool GenerateNewSequence, bool SetKeys);
     void SetRandomSequence(bool GenerateNewSequence, bool SetKeys);
 
+    float PMTrialStartTimestamp; // This will store the time stamp of the start of the trial
+    bool IsPMResponseGiven = false; // Stores whether an input was given for a specific trial
+    TArray<FString> PMCorrectResponses; // Store the correct response for every new sequence generated
+    TArray<FString> PMUserResponses; // Stores the accuracy of each task filled by the user
+    TArray<FString> PMUserResponseTimestamp; // Stores the timestamp when the user gives an input
+    TArray<FString> PMResponseBuffer; // Store the PM responses temporarily in this array. Then do post-analysis
+    void RecordPMInputs(bool BtnUp, bool BtnDown); // Called in every tick to check if PM response was given
 
     // N-back task
     enum class NValue{One=1, Two=2, Three=3}; // Change n-back task functionality based on the n-value provided
@@ -378,8 +391,6 @@ public:
     UPROPERTY(Category = "Audio", EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UAudioComponent* NBackIncorrectSound;   // Incorrect answer sound
     void RecordNBackInputs(bool BtnUp, bool BtnRight); // Record the button events for the n-back task
-    bool bWasBtnUpPressedLastFrame = false; // Store the last input from the Logitech joystick
-    bool bWasBtnDownPressedLastFrame = false; // Store the last input from the Logitech joystick
     void NBackTaskTick(); // Update the n-back task in every tick
 
     void ConstructNBackElements(); // Construct the static meshes to present the N-back task components

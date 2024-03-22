@@ -7,7 +7,7 @@
 #include "FileMediaSource.h"
 #include "MediaTexture.h"
 #include "MediaSoundComponent.h"
-#include "NBackProgressBar.h"
+#include "TaskProgressBar.h"
 #include "WidgetComponent.h"
 
 void AEgoVehicle::SetupNDRT()
@@ -73,6 +73,7 @@ void AEgoVehicle::StartNDRT()
 	case TaskType::PatternMatchingTask:
 		SetPseudoRandomPattern(true, true);
 		SetRandomSequence(true, true);
+		PMTrialStartTimestamp = FPlatformTime::Seconds();
 		break;
 	case TaskType::TVShowTask:
 		// Retrieve the media player material and the video source which will be used later to play the video
@@ -107,7 +108,7 @@ void AEgoVehicle::ToggleNDRT(bool active)
 		NBackLetter->SetVisibility(active, false);
 		NBackControlsInfo->SetVisibility(active, false);
 		NBackTitle->SetVisibility(active, false);
-		ProgressWidgetComponent->SetVisibility(active, false);
+		ProgressBarWidgetComponent->SetVisibility(active, false);
 		break;
 	case TaskType::TVShowTask:
 		MediaPlayerMesh->SetVisibility(active, false);
@@ -238,6 +239,9 @@ void AEgoVehicle::TickNDRT()
 		{
 		case TaskType::NBackTask:
 			NBackTaskTick();
+			break;
+		case TaskType::PatternMatchingTask:
+			PatternMatchTaskTick();
 			break;
 		case TaskType::TVShowTask:
 			TVShowTaskTick();
@@ -473,6 +477,10 @@ void AEgoVehicle::ConstructHUD()
 	TORAlertSound->SetupAttachment(GetRootComponent());
 	TORAlertSound->bAutoActivate = false;
 	TORAlertSound->SetSound(TORAlertSoundWave.Object);
+
+	//Construct the progress bar for the n-back task trial
+	ProgressBarWidgetComponent = CreateDefaultSubobject<UWidgetComponent>(TEXT("TaskProgressBar"));
+	ProgressBarWidgetComponent->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
 }
 
 void AEgoVehicle::ConstructPMElements()
@@ -482,7 +490,7 @@ void AEgoVehicle::ConstructPMElements()
 	PMPatternPrompt->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
 	PMPatternPrompt->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	PMPatternPrompt->SetRelativeTransform(VehicleParams.Get<FTransform>("PatternMatching", "PatternPromptLocation"));
-	FString PathToMeshPMPatternPrompt= TEXT("StaticMesh'/Game/NDRT/PatternMatchingTask/StaticMeshes/SM_PMPatternPrompt.SM_PMPatternPrompt'");
+	FString PathToMeshPMPatternPrompt = TEXT("StaticMesh'/Game/NDRT/PatternMatchingTask/StaticMeshes/SM_PMPatternPrompt.SM_PMPatternPrompt'");
 	const ConstructorHelpers::FObjectFinder<UStaticMesh> PMPatternPromptMeshObj(*PathToMeshPMPatternPrompt);
 	PMPatternPrompt->SetStaticMesh(PMPatternPromptMeshObj.Object);
 	PMPatternPrompt->SetCastShadow(false);
@@ -500,7 +508,7 @@ void AEgoVehicle::ConstructPMElements()
 	// Construct the pane to show the pattern
 	for (int32 i = 0; i < VehicleParams.Get<int32>("PatternMatching", "PatternLength"); i++)
 	{
-		UStaticMeshComponent* PatternKey = CreateDefaultSubobject<UStaticMeshComponent>(FName(*FString::Printf(TEXT("Pattern Key %d"), i + 1)));
+		UStaticMeshComponent *PatternKey = CreateDefaultSubobject<UStaticMeshComponent>(FName(*FString::Printf(TEXT("Pattern Key %d"), i + 1)));
 		PatternKey->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
 		PatternKey->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
@@ -525,7 +533,7 @@ void AEgoVehicle::ConstructPMElements()
 	{
 		for (int32 j = 0; j < VehicleParams.Get<int32>("PatternMatching", "SequenceLineLength"); j++)
 		{
-			UStaticMeshComponent* SequenceKey = CreateDefaultSubobject<UStaticMeshComponent>(FName(*FString::Printf(TEXT("Sequence Key [%d, %d]"), i + 1, j + 1)));
+			UStaticMeshComponent *SequenceKey = CreateDefaultSubobject<UStaticMeshComponent>(FName(*FString::Printf(TEXT("Sequence Key [%d, %d]"), i + 1, j + 1)));
 			SequenceKey->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
 			SequenceKey->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
@@ -545,8 +553,8 @@ void AEgoVehicle::ConstructPMElements()
 
 			// Setting the material for sequence key
 			FString MaterialPath = TEXT("Material'/Game/NDRT/PatternMatchingTask/Letters/M_NoLetter.M_NoLetter'");
-			UMaterialInterface* MaterialInterface = Cast<UMaterialInterface>(StaticLoadObject(UMaterialInterface::StaticClass(), nullptr, *MaterialPath));
-			UMaterialInstanceDynamic* DynMaterial = UMaterialInstanceDynamic::Create(MaterialInterface, SequenceKey);
+			UMaterialInterface *MaterialInterface = Cast<UMaterialInterface>(StaticLoadObject(UMaterialInterface::StaticClass(), nullptr, *MaterialPath));
+			UMaterialInstanceDynamic *DynMaterial = UMaterialInstanceDynamic::Create(MaterialInterface, SequenceKey);
 
 			// Set the scalar parameter value for the 'Scale' parameter
 			DynMaterial->SetScalarParameterValue(FName("Scale"), VehicleParams.Get<float>("PatternMatching", "SequenceLetterScale"));
@@ -557,6 +565,21 @@ void AEgoVehicle::ConstructPMElements()
 			PMSequenceKeys.Add(SequenceKey);
 		}
 	}
+
+	// Construct all the sounds for Logitech inputs
+	static ConstructorHelpers::FObjectFinder<USoundWave> CorrectSoundWave(
+		TEXT("SoundWave'/Game/NDRT/PatternMatchingTask/Sounds/CorrectPMSound.CorrectPMSound'"));
+	PMCorrectSound = CreateDefaultSubobject<UAudioComponent>(TEXT("CorrectPMSound"));
+	PMCorrectSound->SetupAttachment(GetRootComponent());
+	PMCorrectSound->bAutoActivate = false;
+	PMCorrectSound->SetSound(CorrectSoundWave.Object);
+
+	static ConstructorHelpers::FObjectFinder<USoundWave> IncorrectSoundWave(
+		TEXT("SoundWave'/Game/NDRT/PatternMatchingTask/Sounds/IncorrectPMSound.IncorrectPMSound'"));
+	PMIncorrectSound = CreateDefaultSubobject<UAudioComponent>(TEXT("IncorrectPMSound"));
+	PMIncorrectSound->SetupAttachment(GetRootComponent());
+	PMIncorrectSound->bAutoActivate = false;
+	PMIncorrectSound->SetSound(IncorrectSoundWave.Object);
 }
 
 void AEgoVehicle::ConstructNBackElements()
@@ -593,10 +616,6 @@ void AEgoVehicle::ConstructNBackElements()
 
 	// Setting the appropriate n-back task title
 	SetNBackTitle(static_cast<int>(CurrentNValue));
-
-	// Construct the progress bar for the n-back task trial
-	ProgressWidgetComponent = CreateDefaultSubobject<UWidgetComponent>(TEXT("N-back progress bar"));
-	ProgressWidgetComponent->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
 
 	// Construct all the sounds for Logitech inputs
 	static ConstructorHelpers::FObjectFinder<USoundWave> CorrectSoundWave(
@@ -669,7 +688,7 @@ void AEgoVehicle::SetPseudoRandomPattern(bool GenerateNewSequence, bool SetKeys)
 		for (int32 i = 0; i < PMPatternKeys.Num(); i++)
 		{
 			FString MaterialPath = FString::Printf(TEXT("Material'/Game/NDRT/PatternMatchingTask/Letters/M_%s.M_%s'"), *PMCurrentPattern[i], *PMCurrentPattern[i]);
-			UMaterial* NewMaterial = Cast<UMaterial>(StaticLoadObject(UMaterial::StaticClass(), nullptr, *MaterialPath));
+			UMaterial *NewMaterial = Cast<UMaterial>(StaticLoadObject(UMaterial::StaticClass(), nullptr, *MaterialPath));
 			if (NewMaterial)
 			{
 				PMPatternKeys[i]->SetMaterial(1, NewMaterial);
@@ -691,6 +710,9 @@ void AEgoVehicle::SetRandomSequence(bool GenerateNewSequence, bool SetKeys)
 	{
 		// Randomly choose how many pattern matches to have
 		int32 PatternMatches = FMath::RandRange(0, 3);
+		PMCorrectResponses.Add(PatternMatches % 2 == 0 ? "Even" : "Odd");
+
+		// Figure out the budget for adding random letters
 		int32 RandomBudget = static_cast<int>(CurrentPMLines) * VehicleParams.Get<int32>("PatternMatching", "SequenceLineLength") - PatternMatches * PMCurrentPattern.Num();
 
 		for (int i = 0; i < PatternMatches; i++)
@@ -733,7 +755,6 @@ void AEgoVehicle::SetRandomSequence(bool GenerateNewSequence, bool SetKeys)
 			{
 				PMCurrentSequence.Add(PMCurrentPattern[j]);
 			}
-
 		}
 		// If there is extra budget left, just add random letters
 		TArray<FString> LeftBudgetRandLetters;
@@ -755,7 +776,8 @@ void AEgoVehicle::SetRandomSequence(bool GenerateNewSequence, bool SetKeys)
 	}
 
 	// Set the sequence keys on HUD if requested.
-	if (SetKeys) {
+	if (SetKeys)
+	{
 		for (int i = 0; i < PMSequenceKeys.Num(); i++)
 		{
 			FString MaterialPath;
@@ -763,13 +785,14 @@ void AEgoVehicle::SetRandomSequence(bool GenerateNewSequence, bool SetKeys)
 			{
 				// Set the material to the new key in the sequence
 				MaterialPath = FString::Printf(TEXT("Material'/Game/NDRT/NBackTask/Letters/M_%s.M_%s'"), *PMCurrentSequence[i], *PMCurrentSequence[i]);
-			} else
+			}
+			else
 			{
 				MaterialPath = TEXT("Material'/Game/NDRT/PatternMatchingTask/Letters/M_NoLetter.M_NoLetter'");
 			}
 
-			UMaterialInterface* MaterialInterface = Cast<UMaterialInterface>(StaticLoadObject(UMaterialInterface::StaticClass(), nullptr, *MaterialPath));
-			UMaterialInstanceDynamic* DynMaterial = UMaterialInstanceDynamic::Create(MaterialInterface, PMSequenceKeys[i]);
+			UMaterialInterface *MaterialInterface = Cast<UMaterialInterface>(StaticLoadObject(UMaterialInterface::StaticClass(), nullptr, *MaterialPath));
+			UMaterialInstanceDynamic *DynMaterial = UMaterialInstanceDynamic::Create(MaterialInterface, PMSequenceKeys[i]);
 			DynMaterial->SetScalarParameterValue(FName("Scale"), VehicleParams.Get<float>("PatternMatching", "SequenceLetterScale"));
 
 			if (DynMaterial)
@@ -833,8 +856,121 @@ void AEgoVehicle::RecordNBackInputs(bool BtnUp, bool BtnDown)
 	bWasBtnDownPressedLastFrame = BtnDown;
 }
 
+void AEgoVehicle::RecordPMInputs(bool BtnUp, bool BtnDown)
+{
+	// Check if there is any conflict of inputs. If yes, then ignore and wait for another input
+	if (BtnUp && BtnDown)
+	{
+		return;
+	}
+
+	// Ignore input if they are not intended for NDRT (for e.g the driver presses a button by mistake when taking over)
+	if (CurrVehicleStatus == VehicleStatus::TakeOver || CurrVehicleStatus == VehicleStatus::TakeOverManual)
+	{
+		return;
+	}
+
+	// Now, record the input if all the above conditions are satisfied
+	if (BtnUp && !bWasBtnUpPressedLastFrame)
+	{
+		PMResponseBuffer.Add(TEXT("Even"));
+	}
+	else if (BtnDown && !bWasBtnDownPressedLastFrame)
+	{
+		PMResponseBuffer.Add(TEXT("Odd"));
+	}
+
+	// Update the previous state for the next frame
+	bWasBtnUpPressedLastFrame = BtnUp;
+	bWasBtnDownPressedLastFrame = BtnDown;
+}
+
 void AEgoVehicle::PatternMatchTaskTick()
 {
+	// There are two cases when computation is required.
+	// CASE 1: [Response already registered] Input is given and time has not expired
+	// CASE 2: [Response already registered] Time has expired (go to the next trial)
+	// CASE 3: [Response not registered] Input is given and time has not expired
+	// CASE 4: [Response not registered] Time has expired (go to the next trial)
+
+	const bool HasTimeExpired = FPlatformTime::Seconds() - PMTrialStartTimestamp >= PMTaskLimit;
+	UpdateProgressBar(HasTimeExpired ? 0.f : (FPlatformTime::Seconds() - PMTrialStartTimestamp) / PMTaskLimit);
+
+	if (IsPMResponseGiven)
+	{
+		if (HasTimeExpired)
+		{
+			// Go to the next trial regardless of whether an input was given or not
+			// Check all the PM task trials are over. If TOR is not finished, add more tasks.
+
+			if (PMUserResponses.Num() >= TotalPMTasks && CurrVehicleStatus == VehicleStatus::ResumedAutopilot)
+			{
+				TerminateNDRT();
+				return;
+			}
+
+			// Generate a new sequence and pattern than this task
+			SetPseudoRandomPattern(true, true); // Compute and set the pattern on the HUD
+			SetRandomSequence(true, true);		// Compute and set the sequence on the HUD
+
+			// Since a new letter is set, update the time stamp
+			PMTrialStartTimestamp = FPlatformTime::Seconds();
+
+			// Reset the boolean variable for the new trial now
+			IsPMResponseGiven = false;
+		}
+		else if (PMResponseBuffer.Num() > 0) // Case when time has not expired but user still gives an input again
+		{
+			// Clear the response buffer as the input is already registered.
+			PMResponseBuffer.Empty();
+		}
+	}
+	else
+	{
+		FString LatestResponse;
+		if (PMResponseBuffer.Num() > 0)
+		{
+			LatestResponse = PMResponseBuffer[0]; // Just consider the first response given
+		}
+		else if (HasTimeExpired)
+		{
+			LatestResponse = "NoResponse"; // No Response
+		}
+		else
+		{
+			return; // User still has time to give input. Exit and wait for response.
+		}
+
+		IsPMResponseGiven = true; // Whether is Odd, Even, or NoResponse, we consider it as response given
+
+		// Check if the response to the task is accurate or not
+		if (LatestResponse.Equals(PMCorrectResponses.Last())) // Also can be written as PMCorrectResponses[PMFinishedTasks - 1]
+		{
+			// Play a "correct answer" sound
+			PMCorrectSound->Play();
+
+			// Record the accuracy of the response
+			PMUserResponses.Add("Correct");
+		}
+		else
+		{
+			// Play an "incorrect answer" sound
+			PMIncorrectSound->Play();
+
+			// Record the accuracy of the response
+			PMUserResponses.Add("Incorrect");
+		}
+
+		// Get the current timestamp and record it
+		FDateTime CurrentTime = FDateTime::Now();
+		FString TimestampWithoutMilliseconds = CurrentTime.ToString(TEXT("%d/%m/%Y %H:%M:%S"));
+		int32 Milliseconds = CurrentTime.GetMillisecond();
+		FString Timestamp = FString::Printf(TEXT("%s.%03d"), *TimestampWithoutMilliseconds, Milliseconds);
+		PMUserResponseTimestamp.Add(Timestamp);
+
+		// We can now clear the response buffer
+		PMResponseBuffer.Empty();
+	}
 }
 
 void AEgoVehicle::NBackTaskTick()
@@ -1003,18 +1139,18 @@ void AEgoVehicle::SetHUDTimeThreshold(float Threshold)
 	GazeOnHUDTimeConstraint = Threshold;
 }
 
-void AEgoVehicle::UpdateProgressBar(float NewProgressValue)
+ void AEgoVehicle::UpdateProgressBar(float NewProgressValue)
 {
-	UUserWidget *UserWidget = ProgressWidgetComponent->GetUserWidgetObject();
+	UUserWidget *UserWidget = ProgressBarWidgetComponent->GetUserWidgetObject();
 	if (UserWidget)
 	{
-		UNBackProgressBar *ProgressBarWidget = Cast<UNBackProgressBar>(UserWidget);
+		UTaskProgressBar *ProgressBarWidget = Cast<UTaskProgressBar>(UserWidget);
 		if (ProgressBarWidget)
 		{
 			ProgressBarWidget->SetProgress(NewProgressValue);
 		}
 	}
-}
+ }
 
 // Construct HUD debugger
 
