@@ -87,7 +87,7 @@ void AEgoVehicle::StartNDRT()
 	}
 
 	// Initially, hide the NDRT and toggle it when appropriate
-	ToggleNDRT(true);
+	ToggleNDRT(false);
 }
 
 void AEgoVehicle::ToggleNDRT(bool active)
@@ -708,6 +708,9 @@ void AEgoVehicle::SetRandomSequence(bool GenerateNewSequence, bool SetKeys)
 	// Generate a new sequence
 	if (GenerateNewSequence)
 	{
+		// Clear the current sequence array
+		PMCurrentSequence.Empty();
+
 		// Randomly choose how many pattern matches to have
 		int32 PatternMatches = FMath::RandRange(0, 3);
 		PMCorrectResponses.Add(PatternMatches % 2 == 0 ? "Even" : "Odd");
