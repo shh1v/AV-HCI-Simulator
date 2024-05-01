@@ -110,6 +110,20 @@ void AEgoVehicle::ToggleNDRT(bool active)
 		NBackTitle->SetVisibility(active, false);
 		ProgressBarWidgetComponent->SetVisibility(active, false);
 		break;
+	case TaskType::PatternMatchingTask:
+		PMPatternPrompt->SetVisibility(active, false);
+		PMControlsInfo->SetVisibility(active, false);
+		for (int32 i = 0; i < PMPatternKeys.Num(); i++)
+		{
+			if (PMPatternKeys[i] != nullptr)
+				PMPatternKeys[i]->SetVisibility(active, false);
+		}
+		for (int32 i = 0; i < PMSequenceKeys.Num(); i++)
+		{
+			if (PMSequenceKeys[i] != nullptr)
+				PMSequenceKeys[i]->SetVisibility(active, false);
+		}
+		break;
 	case TaskType::TVShowTask:
 		MediaPlayerMesh->SetVisibility(active, false);
 		break;
@@ -845,18 +859,18 @@ void AEgoVehicle::RecordNBackInputs(bool BtnUp, bool BtnDown)
 	}
 
 	// Now, record the input if all the above conditions are satisfied
-	if (BtnUp && !bWasBtnUpPressedLastFrame)
+	if (BtnUp && !bWasNBBtnUpPressedLastFrame)
 	{
 		NBackResponseBuffer.Add(TEXT("M"));
 	}
-	else if (BtnDown && !bWasBtnDownPressedLastFrame)
+	else if (BtnDown && !bWasNBBtnDownPressedLastFrame)
 	{
 		NBackResponseBuffer.Add(TEXT("MM"));
 	}
 
 	// Update the previous state for the next frame
-	bWasBtnUpPressedLastFrame = BtnUp;
-	bWasBtnDownPressedLastFrame = BtnDown;
+	bWasNBBtnUpPressedLastFrame = BtnUp;
+	bWasNBBtnDownPressedLastFrame = BtnDown;
 }
 
 void AEgoVehicle::RecordPMInputs(bool BtnUp, bool BtnDown)
@@ -874,18 +888,18 @@ void AEgoVehicle::RecordPMInputs(bool BtnUp, bool BtnDown)
 	}
 
 	// Now, record the input if all the above conditions are satisfied
-	if (BtnUp && !bWasBtnUpPressedLastFrame)
+	if (BtnUp && !bWasPMBtnUpPressedLastFrame)
 	{
 		PMResponseBuffer.Add(TEXT("Even"));
 	}
-	else if (BtnDown && !bWasBtnDownPressedLastFrame)
+	else if (BtnDown && !bWasPMBtnDownPressedLastFrame)
 	{
 		PMResponseBuffer.Add(TEXT("Odd"));
 	}
 
 	// Update the previous state for the next frame
-	bWasBtnUpPressedLastFrame = BtnUp;
-	bWasBtnDownPressedLastFrame = BtnDown;
+	bWasPMBtnUpPressedLastFrame = BtnUp;
+	bWasPMBtnDownPressedLastFrame = BtnDown;
 }
 
 void AEgoVehicle::PatternMatchTaskTick()
@@ -913,10 +927,9 @@ void AEgoVehicle::PatternMatchTaskTick()
 			}
 
 			// Generate a new sequence and pattern than this task
-			SetPseudoRandomPattern(true, true); // Compute and set the pattern on the HUD
 			SetRandomSequence(true, true);		// Compute and set the sequence on the HUD
 
-			// Since a new letter is set, update the time stamp
+			// Since a new sequence is set, update the time stamp
 			PMTrialStartTimestamp = FPlatformTime::Seconds();
 
 			// Reset the boolean variable for the new trial now
@@ -937,14 +950,14 @@ void AEgoVehicle::PatternMatchTaskTick()
 		}
 		else if (HasTimeExpired)
 		{
-			LatestResponse = "NoResponse"; // No Response
+			LatestResponse = "NR"; // No Response
 		}
 		else
 		{
 			return; // User still has time to give input. Exit and wait for response.
 		}
 
-		IsPMResponseGiven = true; // Whether is Odd, Even, or NoResponse, we consider it as response given
+		IsPMResponseGiven = true; // Whether is Odd, Even, or NR, we consider it as response given (for sake for technical implementation)
 
 		// Check if the response to the task is accurate or not
 		if (LatestResponse.Equals(PMCorrectResponses.Last())) // Also can be written as PMCorrectResponses[PMFinishedTasks - 1]

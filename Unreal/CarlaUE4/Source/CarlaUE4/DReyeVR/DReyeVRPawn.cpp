@@ -594,8 +594,8 @@ void ADReyeVRPawn::ManageButtonPresses(const DIJOYSTATE2 &WheelState)
     const bool bDPad_Left = (WheelState.rgdwPOV[0] == 27000);
 
     // Send the up and down joystick click events for the NDRT task
-    EgoVehicle->RecordNBackInputs(bDPad_Up, bDPad_Down);
     EgoVehicle->RecordPMInputs(bDPad_Up, bDPad_Down);
+    EgoVehicle->RecordNBackInputs(bDPad_Up, bDPad_Down);
 
     // Record if the TOR button is pressed
     EgoVehicle->CheckTORButtonPress(bABXY_A, bABXY_B, bABXY_X, bABXY_Y);

@@ -332,8 +332,6 @@ public:
     UPROPERTY(VisibleAnywhere)
     class UWidgetComponent* ProgressBarWidgetComponent; // Component that manipulates the progress bar for various tasks
     void UpdateProgressBar(float NewProgressValue);
-    bool bWasBtnUpPressedLastFrame = false; // Store the last input from the Logitech joystick
-    bool bWasBtnDownPressedLastFrame = false; // Store the last input from the Logitech joystick
 
     //Pattern Matching Task
     enum class PMLines{One=1, Two=2, Three=3};
@@ -368,6 +366,8 @@ public:
     TArray<FString> PMUserResponseTimestamp; // Stores the timestamp when the user gives an input
     TArray<FString> PMResponseBuffer; // Store the PM responses temporarily in this array. Then do post-analysis
     void RecordPMInputs(bool BtnUp, bool BtnDown); // Called in every tick to check if PM response was given
+    bool bWasPMBtnUpPressedLastFrame = false; // Store the last input from the Logitech joystick
+    bool bWasPMBtnDownPressedLastFrame = false; // Store the last input from the Logitech joystick
 
     // N-back task
     enum class NValue{One=1, Two=2, Three=3}; // Change n-back task functionality based on the n-value provided
@@ -391,6 +391,8 @@ public:
     UPROPERTY(Category = "Audio", EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
     class UAudioComponent* NBackIncorrectSound;   // Incorrect answer sound
     void RecordNBackInputs(bool BtnUp, bool BtnRight); // Record the button events for the n-back task
+    bool bWasNBBtnUpPressedLastFrame = false; // Store the last input from the Logitech joystick
+    bool bWasNBBtnDownPressedLastFrame = false; // Store the last input from the Logitech joystick
     void NBackTaskTick(); // Update the n-back task in every tick
 
     void ConstructNBackElements(); // Construct the static meshes to present the N-back task components
