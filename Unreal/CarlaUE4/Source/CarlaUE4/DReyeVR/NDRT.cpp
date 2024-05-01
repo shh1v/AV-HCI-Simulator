@@ -28,8 +28,11 @@ void AEgoVehicle::SetupNDRT()
 		break;
 	case TaskType::PatternMatchingTask:
 		ConstructPMElements();
-		// Setting time constraint based as the average of the n-back task time limits
+		// Setting time constraint based as the average of the PM task time limits
 		SetHUDTimeThreshold(GeneralParams.Get<float>("EyeTracker", "GazeOnHUDTimeConstraint"));
+		// Setting other task parameters directly (unsafe)
+		TotalPMTasks = GeneralParams.Get<int32>("NDRT", "TotalPMTasks");
+		PMTaskLimit = GeneralParams.Get<int32>("NDRT", "PMTaskLimit");
 		break;
 	case TaskType::TVShowTask:
 		ConstructTVShowElements();
